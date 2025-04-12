@@ -39,7 +39,8 @@ const Login: React.FC = () => {
         title: "Welcome back!",
         description: "You've been successfully logged in.",
       });
-      navigate("/dashboard");
+      // Redirect to profile page instead of dashboard
+      navigate("/profile");
     }, 1500);
   };
 

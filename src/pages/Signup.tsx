@@ -59,9 +59,10 @@ const Signup: React.FC = () => {
       setIsLoading(false);
       toast({
         title: "Account created!",
-        description: "Welcome to SkillSync! Your account has been created successfully.",
+        description: "Your account has been created successfully. Please log in.",
       });
-      navigate("/dashboard");
+      // Redirect to login page instead of dashboard
+      navigate("/login");
     }, 1500);
   };
 
