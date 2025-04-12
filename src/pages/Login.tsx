@@ -1,14 +1,55 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import MainLayout from "@/components/layout/MainLayout";
 import { Facebook, Mail, Github } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Login: React.FC = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Basic validation
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Simulate login
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Welcome back!",
+        description: "You've been successfully logged in.",
+      });
+      navigate("/dashboard");
+    }, 1500);
+  };
+
+  const handleSocialLogin = (provider: string) => {
+    toast({
+      title: `${provider} login`,
+      description: `Login with ${provider} is coming soon.`,
+    });
+  };
+
   return (
     <MainLayout>
       <div className="container py-20">
@@ -20,10 +61,17 @@ const Login: React.FC = () => {
             </p>
           </div>
           
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="Enter your email" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="Enter your email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             
             <div className="space-y-2">
@@ -33,20 +81,35 @@ const Login: React.FC = () => {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" placeholder="Enter your password" />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="Enter your password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
             
             <div className="flex items-center space-x-2">
-              <Checkbox id="remember" />
+              <Checkbox 
+                id="remember" 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
               <Label htmlFor="remember" className="text-sm font-normal">
                 Remember me
               </Label>
             </div>
             
-            <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
-              Sign in
+            <Button 
+              type="submit" 
+              className="w-full bg-skill-purple hover:bg-skill-purple-dark"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign in"}
             </Button>
-          </div>
+          </form>
           
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
@@ -60,15 +123,30 @@ const Login: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-3 gap-4">
-            <Button variant="outline" className="w-full" type="button">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              type="button"
+              onClick={() => handleSocialLogin("Github")}
+            >
               <Github className="mr-2 h-4 w-4" />
               Github
             </Button>
-            <Button variant="outline" className="w-full" type="button">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              type="button"
+              onClick={() => handleSocialLogin("Google")}
+            >
               <Mail className="mr-2 h-4 w-4" />
               Google
             </Button>
-            <Button variant="outline" className="w-full" type="button">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              type="button"
+              onClick={() => handleSocialLogin("Facebook")}
+            >
               <Facebook className="mr-2 h-4 w-4" />
               Facebook
             </Button>
