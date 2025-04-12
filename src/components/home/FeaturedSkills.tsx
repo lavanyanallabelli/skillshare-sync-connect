@@ -3,7 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, Users, Clock } from "lucide-react";
+import { Star, Users, Clock, ArrowRight } from "lucide-react";
 
 // Sample data for featured skills
 const featuredSkills = [
