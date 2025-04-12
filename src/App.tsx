@@ -14,6 +14,7 @@ import About from "./pages/About";
 import Messages from "./pages/Messages";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Skills from "./pages/Skills";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => {
             <Route path="/messages" element={<Messages />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/skills" element={<Skills />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

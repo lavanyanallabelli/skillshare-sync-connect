@@ -12,6 +12,14 @@ import {
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
@@ -21,7 +29,8 @@ const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   
   // This would come from your auth provider in a real app
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Changed to true by default - in a real app this would be from auth context
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,22 +116,31 @@ const Navbar: React.FC = () => {
                     </Button>
                   </Link>
                   
-                  <div className="flex items-center gap-2">
-                    <Link to="/dashboard">
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <UserIcon size={14} />
-                        Dashboard
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="rounded-full">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                          <AvatarFallback>US</AvatarFallback>
+                        </Avatar>
                       </Button>
-                    </Link>
-                    
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={handleLogout}
-                    >
-                      Log out
-                    </Button>
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">Profile</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/dashboard">Dashboard</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/skills">My Skills</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleLogout}>
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -178,9 +196,17 @@ const Navbar: React.FC = () => {
             
             {isLoggedIn ? (
               <>
+                <Link to="/profile" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
+                  <UserIcon size={16} />
+                  Profile
+                </Link>
                 <Link to="/dashboard" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
                   <UserIcon size={16} />
                   Dashboard
+                </Link>
+                <Link to="/skills" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
+                  <UserIcon size={16} />
+                  My Skills
                 </Link>
                 <Link to="/messages" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
                   <MessageSquare size={16} />
