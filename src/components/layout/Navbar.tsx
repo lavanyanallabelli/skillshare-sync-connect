@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +28,8 @@ const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // This would come from your auth provider in a real app
-  // Changed to true by default - in a real app this would be from auth context
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  // Use auth context instead of local state
+  const { isLoggedIn, logout } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +44,7 @@ const Navbar: React.FC = () => {
   };
   
   const handleLogout = () => {
-    // Simulate logout
-    setIsLoggedIn(false);
+    logout();
     toast({
       title: "Logged out",
       description: "You have been successfully logged out",

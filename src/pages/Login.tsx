@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,10 +7,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import MainLayout from "@/components/layout/MainLayout";
 import { Facebook, Mail, Github } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 
 const Login: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,6 +36,8 @@ const Login: React.FC = () => {
     // Simulate login
     setTimeout(() => {
       setIsLoading(false);
+      // Use the login from auth context
+      login();
       toast({
         title: "Welcome back!",
         description: "You've been successfully logged in.",

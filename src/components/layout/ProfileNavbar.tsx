@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,9 +30,11 @@ const ProfileNavbar: React.FC = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const handleLogout = () => {
+    logout();
     toast({
       title: "Logged out",
       description: "You have been successfully logged out",

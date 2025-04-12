@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import ProfileHeader from "@/components/profile/ProfileHeader";
+import { useAuth } from "@/App";
+import { Link } from "react-router-dom";
 import {
   Clock,
   MapPin,
@@ -30,6 +32,7 @@ import {
 
 const Profile: React.FC = () => {
   const { toast } = useToast();
+  const { isLoggedIn } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [availabilityDate, setAvailabilityDate] = useState<Date | undefined>(new Date());
   const [editingBio, setEditingBio] = useState(false);
@@ -37,14 +40,23 @@ const Profile: React.FC = () => {
     "Full-stack developer with 5 years of experience specializing in React and Node.js. Passionate about teaching and helping others grow."
   );
 
-  // Teaching and learning skills
-  const teachingSkills = ["JavaScript", "React", "Node.js", "Web Development"];
-  const learningSkills = ["Python", "Data Science", "Machine Learning"];
+  // Mock user data - in a real app, this would come from an API or context
+  const userData = {
+    name: "Jane Anderson",
+    avatar: "/placeholder.svg",
+    rating: 4.8,
+    location: "San Francisco, CA",
+    company: "Software Engineer at TechCorp",
+    education: "Computer Science, Stanford",
+    achievements: ["Top Teacher", "Verified Expert"],
+    teachingSkills: ["JavaScript", "React", "Node.js", "Web Development"],
+    learningSkills: ["Python", "Data Science", "Machine Learning"]
+  };
 
   // Session availability times
   const availabilityTimes = [
     "9:00 AM - 10:00 AM",
-    "10:00 AM - 11:00 AM",
+    "10:00 AM - 11:00 AM", 
     "2:00 PM - 3:00 PM",
     "3:00 PM - 4:00 PM",
     "5:00 PM - 6:00 PM",
@@ -138,88 +150,22 @@ const Profile: React.FC = () => {
     });
   };
 
+  if (!isLoggedIn) {
+    return null; // The App's routes will redirect to login
+  }
+
   return (
     <ProfileLayout>
       <div className="container py-8">
+        <ProfileHeader {...userData} />
+        
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Left sidebar */}
-          <Card className="md:col-span-1">
-            <CardHeader className="text-center">
-              <Avatar className="h-24 w-24 mx-auto">
-                <AvatarImage src="/placeholder.svg" alt="User avatar" />
-                <AvatarFallback>US</AvatarFallback>
-              </Avatar>
-              <CardTitle className="mt-4">Jane Anderson</CardTitle>
-              <div className="flex justify-center mt-2">
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-current" /> 4.8
-                </Badge>
-              </div>
-              <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground mt-2">
-                <MapPin className="h-3 w-3" /> San Francisco, CA
-              </div>
-              <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground mt-1">
-                <Building className="h-3 w-3" /> Software Engineer at TechCorp
-              </div>
-              <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground mt-1">
-                <GraduationCap className="h-3 w-3" /> Computer Science, Stanford
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium mb-2 flex justify-between">
-                    <span>I can teach</span>
-                    <Link to="/skills" className="text-xs text-skill-purple">Edit</Link>
-                  </h3>
-                  <div className="flex flex-wrap">
-                    {teachingSkills.map((skill) => (
-                      <Badge key={skill} variant="secondary" className="m-1">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium mb-2 flex justify-between">
-                    <span>I want to learn</span>
-                    <Link to="/skills" className="text-xs text-skill-purple">Edit</Link>
-                  </h3>
-                  <div className="flex flex-wrap">
-                    {learningSkills.map((skill) => (
-                      <Badge key={skill} variant="outline" className="m-1">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Achievements</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Award className="h-3 w-3" /> Top Teacher
-                    </Badge>
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" /> Verified Expert
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-2">
-              <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
-                <MessageSquare className="mr-2 h-4 w-4" /> Message
-              </Button>
-              <Button variant="outline" className="w-full">
-                <Video className="mr-2 h-4 w-4" /> Book a Session
-              </Button>
-            </CardFooter>
-          </Card>
-
+          {/* Left sidebar - now shown in ProfileHeader component */}
+          
           {/* Main content */}
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="mb-6 w-full justify-start">
+              <TabsList className="mb-6 w-full justify-start overflow-x-auto">
                 <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="schedule">Schedule & Availability</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews (12)</TabsTrigger>
@@ -262,7 +208,7 @@ const Profile: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {teachingSkills.map((skill) => (
+                      {userData.teachingSkills.map((skill) => (
                         <div key={skill} className="space-y-2">
                           <div className="flex justify-between">
                             <span className="font-medium">{skill}</span>
