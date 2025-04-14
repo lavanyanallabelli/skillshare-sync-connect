@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,11 @@ const Profile: React.FC = () => {
   const [learningSkills, setLearningSkills] = useState<string[]>([]);
   const [skillLevels, setSkillLevels] = useState<Record<string, string>>({});
 
+  // Session data state - empty by default for new users
+  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+
   // Load user data from localStorage
   useEffect(() => {
     const storedUserData = localStorage.getItem("userData");
@@ -91,70 +97,6 @@ const Profile: React.FC = () => {
     "5:00 PM - 6:00 PM",
   ];
 
-  // Reviews
-  const reviews = [
-    {
-      id: 1,
-      name: "John Doe",
-      avatar: "/placeholder.svg",
-      rating: 5,
-      date: "2025-04-02",
-      comment: "Excellent teacher! Very patient and explains complex concepts clearly.",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      avatar: "/placeholder.svg",
-      rating: 4,
-      date: "2025-03-28",
-      comment: "Great session on React hooks. I learned so much in just one hour.",
-    },
-  ];
-
-  // Session requests
-  const sessionRequests = [
-    {
-      id: 1,
-      student: "Alex Johnson",
-      avatar: "/placeholder.svg",
-      skill: "JavaScript",
-      date: "2025-04-15",
-      time: "10:00 AM - 11:00 AM",
-      status: "pending",
-    },
-    {
-      id: 2,
-      student: "Sarah Williams",
-      avatar: "/placeholder.svg",
-      skill: "React",
-      date: "2025-04-18",
-      time: "2:00 PM - 3:00 PM",
-      status: "pending",
-    },
-  ];
-
-  // Upcoming sessions
-  const upcomingSessions = [
-    {
-      id: 1,
-      with: "Michael Brown",
-      avatar: "/placeholder.svg",
-      skill: "Node.js",
-      date: "2025-04-14",
-      time: "3:00 PM - 4:00 PM",
-      role: "teacher",
-    },
-    {
-      id: 2,
-      with: "Emma Davis",
-      avatar: "/placeholder.svg",
-      skill: "Python",
-      date: "2025-04-16",
-      time: "5:00 PM - 6:00 PM",
-      role: "student",
-    },
-  ];
-
   const handleSaveAvailability = () => {
     toast({
       title: "Availability saved",
@@ -169,6 +111,9 @@ const Profile: React.FC = () => {
         ? "The session has been added to your schedule"
         : "The request has been declined",
     });
+    
+    // Update session requests by removing the one that was acted upon
+    setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
   const handleSaveBio = () => {
@@ -305,8 +250,8 @@ const Profile: React.FC = () => {
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="skills">Skills</TabsTrigger>
               <TabsTrigger value="schedule">Schedule & Availability</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews (12)</TabsTrigger>
-              <TabsTrigger value="requests">Requests (3)</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              <TabsTrigger value="requests">Requests</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
@@ -593,33 +538,40 @@ const Profile: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {upcomingSessions.map((session) => (
-                      <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={session.avatar} alt="User avatar" />
-                            <AvatarFallback>JD</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-medium">{session.with}</h4>
-                            <div className="flex items-center text-sm text-muted-foreground">
-                              <Badge variant="outline" className="mr-2">
-                                {session.role === "teacher" ? "Teaching" : "Learning"}
-                              </Badge>
-                              {session.skill}
+                    {upcomingSessions.length > 0 ? (
+                      upcomingSessions.map((session) => (
+                        <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={session.avatar} alt="User avatar" />
+                              <AvatarFallback>JD</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="font-medium">{session.with}</h4>
+                              <div className="flex items-center text-sm text-muted-foreground">
+                                <Badge variant="outline" className="mr-2">
+                                  {session.role === "teacher" ? "Teaching" : "Learning"}
+                                </Badge>
+                                {session.skill}
+                              </div>
+                              <p className="text-sm text-muted-foreground flex items-center mt-1">
+                                <CalendarIcon className="h-3 w-3 mr-1" />
+                                {session.date}, {session.time}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground flex items-center mt-1">
-                              <CalendarIcon className="h-3 w-3 mr-1" />
-                              {session.date}, {session.time}
-                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">Reschedule</Button>
+                            <Button variant="outline" size="sm">Cancel</Button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">Reschedule</Button>
-                          <Button variant="outline" size="sm">Cancel</Button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No upcoming sessions</p>
+                        <p className="text-sm mt-2">Schedule a session or accept a request to see it here</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -631,35 +583,42 @@ const Profile: React.FC = () => {
                   <CardTitle>Reviews from Students</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {reviews.map((review) => (
-                      <div key={review.id} className="border-b pb-6 last:border-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={review.avatar} alt="User avatar" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h4 className="font-medium">{review.name}</h4>
-                              <div className="flex items-center mt-1">
-                                {Array(5).fill(0).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
+                  {reviews.length > 0 ? (
+                    <div className="space-y-6">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="border-b pb-6 last:border-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={review.avatar} alt="User avatar" />
+                                <AvatarFallback>JD</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{review.name}</h4>
+                                <div className="flex items-center mt-1">
+                                  {Array(5).fill(0).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${
+                                        i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             </div>
+                            <span className="text-sm text-muted-foreground">{review.date}</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">{review.date}</span>
+                          <p className="mt-3">{review.comment}</p>
                         </div>
-                        <p className="mt-3">{review.comment}</p>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No reviews yet</p>
+                      <p className="text-sm mt-2">Once you teach others, they can leave reviews here</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -670,45 +629,52 @@ const Profile: React.FC = () => {
                   <CardTitle>Session Requests</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {sessionRequests.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={request.avatar} alt="User avatar" />
-                            <AvatarFallback>JD</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-medium">{request.student}</h4>
-                            <div className="flex items-center text-sm text-muted-foreground">
-                              <Badge variant="outline" className="mr-2">Requested</Badge>
-                              {request.skill}
+                  {sessionRequests.length > 0 ? (
+                    <div className="space-y-4">
+                      {sessionRequests.map((request) => (
+                        <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={request.avatar} alt="User avatar" />
+                              <AvatarFallback>JD</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="font-medium">{request.student}</h4>
+                              <div className="flex items-center text-sm text-muted-foreground">
+                                <Badge variant="outline" className="mr-2">Requested</Badge>
+                                {request.skill}
+                              </div>
+                              <p className="text-sm text-muted-foreground flex items-center mt-1">
+                                <CalendarIcon className="h-3 w-3 mr-1" />
+                                {request.date}, {request.time}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground flex items-center mt-1">
-                              <CalendarIcon className="h-3 w-3 mr-1" />
-                              {request.date}, {request.time}
-                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => handleRequestAction(request.id, "accept")}
+                              className="bg-skill-purple hover:bg-skill-purple-dark"
+                              size="sm"
+                            >
+                              Accept
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleRequestAction(request.id, "decline")}
+                            >
+                              Decline
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => handleRequestAction(request.id, "accept")}
-                            className="bg-skill-purple hover:bg-skill-purple-dark"
-                            size="sm"
-                          >
-                            Accept
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleRequestAction(request.id, "decline")}
-                          >
-                            Decline
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No pending requests</p>
+                      <p className="text-sm mt-2">When someone wants to learn from you, their request will appear here</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

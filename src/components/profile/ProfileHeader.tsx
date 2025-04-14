@@ -14,7 +14,7 @@ import {
   MessageSquare,
   Video,
   Edit,
-  User
+  Pencil
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -93,79 +93,83 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       <div className="flex flex-col md:flex-row gap-6">
         {/* Avatar and action buttons */}
         <div className="flex flex-col items-center gap-4">
-          <Avatar className="h-24 w-24 border-2 border-skill-purple">
-            <AvatarImage src={avatar} alt={`${name}'s avatar`} />
-            <AvatarFallback>{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="h-24 w-24 border-2 border-skill-purple">
+              <AvatarImage src={avatar} alt={`${name}'s avatar`} />
+              <AvatarFallback>{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+            </Avatar>
+            
+            {isOwnProfile && (
+              <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full p-0 bg-skill-purple hover:bg-skill-purple-dark"
+                    size="icon"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Profile</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="bio">Bio</Label>
+                      <Textarea
+                        id="bio"
+                        rows={3}
+                        value={editBio}
+                        onChange={(e) => setEditBio(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={editLocation}
+                        onChange={(e) => setEditLocation(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="company">Occupation</Label>
+                      <Input
+                        id="company"
+                        value={editCompany}
+                        onChange={(e) => setEditCompany(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="education">Education</Label>
+                      <Input
+                        id="education"
+                        value={editEducation}
+                        onChange={(e) => setEditEducation(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveProfile} className="bg-skill-purple hover:bg-skill-purple-dark">
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
           
-          {isOwnProfile ? (
-            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="w-full"
-                  variant="outline"
-                >
-                  <Edit className="mr-2 h-4 w-4" /> Edit Profile
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Edit Profile</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      rows={3}
-                      value={editBio}
-                      onChange={(e) => setEditBio(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      value={editLocation}
-                      onChange={(e) => setEditLocation(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="company">Occupation</Label>
-                    <Input
-                      id="company"
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="education">Education</Label>
-                    <Input
-                      id="education"
-                      value={editEducation}
-                      onChange={(e) => setEditEducation(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSaveProfile} className="bg-skill-purple hover:bg-skill-purple-dark">
-                    Save Changes
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
+          {!isOwnProfile && (
             <div className="flex flex-col gap-2 w-full">
               <Button 
                 className="w-full bg-skill-purple hover:bg-skill-purple-dark"
@@ -187,14 +191,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {/* User info */}
         <div className="flex-1 space-y-4">
           <div>
-            <div className="flex justify-between items-start">
-              <h1 className="text-2xl font-bold">{name}</h1>
-              {id && (
-                <Badge variant="outline" className="text-xs">
-                  <User className="h-3 w-3 mr-1" /> ID: {id.substring(0, 8)}
-                </Badge>
-              )}
-            </div>
+            <h1 className="text-2xl font-bold">{name}</h1>
             
             <div className="flex flex-wrap items-center gap-3 mt-2">
               <Badge variant="outline" className="flex items-center gap-1">

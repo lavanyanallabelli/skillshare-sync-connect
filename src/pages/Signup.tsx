@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea"; 
 import MainLayout from "@/components/layout/MainLayout";
-import { Facebook, Mail, Github, Eye, EyeOff } from "lucide-react";
+import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Signup: React.FC = () => {
   const { toast } = useToast();
@@ -32,6 +33,8 @@ const Signup: React.FC = () => {
   const [education, setEducation] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -76,6 +79,31 @@ const Signup: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
+    // Simulate email verification
+    setTimeout(() => {
+      setIsLoading(false);
+      setVerificationDialogOpen(true);
+      
+      toast({
+        title: "Verification email sent",
+        description: "Please check your email for the verification code",
+      });
+    }, 1000);
+  };
+
+  const handleVerifyEmail = () => {
+    if (verificationCode.length !== 6) {
+      toast({
+        title: "Invalid code",
+        description: "Please enter a valid 6-digit verification code",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setVerificationDialogOpen(false);
+    setIsLoading(true);
+    
     // Create user object with unique ID
     const userId = `user_${Date.now()}`;
     const userData = {
@@ -91,17 +119,17 @@ const Signup: React.FC = () => {
       teachingSkills: [],
       learningSkills: [],
       avatar: "/placeholder.svg",
+      // No pre-populated data for new users
     };
     
     // Store user data in localStorage
     localStorage.setItem("userData", JSON.stringify(userData));
     
-    // Simulate signup
     setTimeout(() => {
       setIsLoading(false);
       toast({
         title: "Account created!",
-        description: "Your account has been created successfully.",
+        description: "Your account has been created and email verified successfully.",
       });
       // Log the user in
       login();
@@ -113,36 +141,15 @@ const Signup: React.FC = () => {
   const handleSkipProfileInfo = () => {
     setIsLoading(true);
     
-    // Create user object with unique ID but minimal info
-    const userId = `user_${Date.now()}`;
-    const userData = {
-      id: userId,
-      firstName,
-      lastName,
-      email,
-      bio: "",
-      location: "",
-      occupation: "",
-      education: "",
-      createdAt: new Date().toISOString(),
-      teachingSkills: [],
-      learningSkills: [],
-      avatar: "/placeholder.svg",
-    };
-    
-    // Store user data in localStorage
-    localStorage.setItem("userData", JSON.stringify(userData));
-    
+    // Simulate email verification
     setTimeout(() => {
       setIsLoading(false);
+      setVerificationDialogOpen(true);
+      
       toast({
-        title: "Account created!",
-        description: "You can complete your profile later.",
+        title: "Verification email sent",
+        description: "Please check your email for the verification code",
       });
-      // Log the user in
-      login();
-      // Redirect to profile page
-      navigate("/profile");
     }, 1000);
   };
 
@@ -379,6 +386,50 @@ const Signup: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Email Verification Dialog */}
+      <Dialog open={verificationDialogOpen} onOpenChange={setVerificationDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Verify Your Email</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-start gap-3 mb-4 p-3 bg-blue-50 rounded-md text-blue-700">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Check your email</p>
+                <p className="text-xs mt-1">We've sent a 6-digit verification code to {email}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="verification-code">Verification Code</Label>
+              <Input
+                id="verification-code"
+                placeholder="Enter 6-digit code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              />
+            </div>
+
+            <div className="flex justify-between items-center mt-6">
+              <Button 
+                variant="ghost" 
+                onClick={() => setVerificationDialogOpen(false)}
+                className="text-sm"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleVerifyEmail}
+                className="bg-skill-purple hover:bg-skill-purple-dark"
+              >
+                Verify Email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
