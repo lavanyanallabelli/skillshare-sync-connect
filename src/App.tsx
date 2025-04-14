@@ -16,6 +16,7 @@ import Messages from "./pages/Messages";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Skills from "./pages/Skills";
+import TeacherProfile from "./pages/TeacherProfile";
 
 // Create an auth context to manage login state
 interface AuthContextType {
@@ -66,6 +67,7 @@ const App = () => {
               <Route path="/explore" element={<Explore />} />
               <Route path="/teach" element={<Teach />} />
               <Route path="/about" element={<About />} />
+              <Route path="/teacher/:id" element={isLoggedIn ? <TeacherProfile /> : <Navigate to="/login" />} />
               <Route path="/messages" element={isLoggedIn ? <Messages /> : <Navigate to="/login" />} />
               <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/profile" element={isLoggedIn ? <Profile /> : <Navigate to="/login" />} />

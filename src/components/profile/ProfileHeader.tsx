@@ -3,7 +3,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Star,
   MapPin,
@@ -25,6 +25,9 @@ interface ProfileHeaderProps {
   achievements: string[];
   teachingSkills: string[];
   learningSkills: string[];
+  isOwnProfile?: boolean;
+  onMessageClick?: () => void;
+  onBookSessionClick?: () => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -36,8 +39,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   education,
   achievements,
   teachingSkills,
-  learningSkills
+  learningSkills,
+  isOwnProfile = false,
+  onMessageClick,
+  onBookSessionClick
 }) => {
+  const { pathname } = useLocation();
+  const isTeacherProfile = pathname.includes("/teacher/");
+
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
       <div className="flex flex-col md:flex-row gap-6">
@@ -48,14 +57,23 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <AvatarFallback>{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
           
-          <div className="flex flex-col gap-2 w-full">
-            <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
-              <MessageSquare className="mr-2 h-4 w-4" /> Message
-            </Button>
-            <Button variant="outline" className="w-full">
-              <Video className="mr-2 h-4 w-4" /> Book a Session
-            </Button>
-          </div>
+          {!isOwnProfile && (
+            <div className="flex flex-col gap-2 w-full">
+              <Button 
+                className="w-full bg-skill-purple hover:bg-skill-purple-dark"
+                onClick={onMessageClick}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" /> Message
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={onBookSessionClick}
+              >
+                <Video className="mr-2 h-4 w-4" /> Book a Session
+              </Button>
+            </div>
+          )}
         </div>
         
         {/* User info */}
@@ -110,9 +128,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <div>
               <h3 className="text-sm font-medium mb-2 flex justify-between items-center">
                 <span>I can teach</span>
-                <Link to="/skills" className="text-xs text-skill-purple hover:underline">
-                  Edit
-                </Link>
+                {isOwnProfile && (
+                  <Link to="/skills" className="text-xs text-skill-purple hover:underline">
+                    Edit
+                  </Link>
+                )}
               </h3>
               <div className="flex flex-wrap gap-1">
                 {teachingSkills.map((skill) => (
@@ -126,9 +146,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <div>
               <h3 className="text-sm font-medium mb-2 flex justify-between items-center">
                 <span>I want to learn</span>
-                <Link to="/skills" className="text-xs text-skill-purple hover:underline">
-                  Edit
-                </Link>
+                {isOwnProfile && (
+                  <Link to="/skills" className="text-xs text-skill-purple hover:underline">
+                    Edit
+                  </Link>
+                )}
               </h3>
               <div className="flex flex-wrap gap-1">
                 {learningSkills.map((skill) => (

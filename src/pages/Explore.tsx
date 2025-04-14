@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Star, Users, Clock, Filter, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link, useNavigate } from "react-router-dom";
 
 // Sample skills data - in a real app, this would come from an API
 const allSkills = [
@@ -19,6 +20,7 @@ const allSkills = [
     rating: 4.8,
     students: 324,
     duration: "4 weeks",
+    teacherId: "32",
     teacherName: "Alex Chen",
     teacherAvatar: "https://randomuser.me/api/portraits/men/32.jpg",
   },
@@ -30,6 +32,7 @@ const allSkills = [
     rating: 4.6,
     students: 512,
     duration: "6 weeks",
+    teacherId: "44",
     teacherName: "Sarah Williams",
     teacherAvatar: "https://randomuser.me/api/portraits/women/44.jpg",
   },
@@ -41,6 +44,7 @@ const allSkills = [
     rating: 4.9,
     students: 218,
     duration: "4 weeks",
+    teacherId: "67",
     teacherName: "Michael Chen",
     teacherAvatar: "https://randomuser.me/api/portraits/men/67.jpg",
   },
@@ -52,6 +56,7 @@ const allSkills = [
     rating: 4.7,
     students: 187,
     duration: "8 weeks",
+    teacherId: "22",
     teacherName: "Jennifer Lopez",
     teacherAvatar: "https://randomuser.me/api/portraits/women/22.jpg",
   },
@@ -63,6 +68,7 @@ const allSkills = [
     rating: 4.5,
     students: 156,
     duration: "4 weeks",
+    teacherId: "45",
     teacherName: "Pierre Dubois",
     teacherAvatar: "https://randomuser.me/api/portraits/men/45.jpg",
   },
@@ -74,6 +80,7 @@ const allSkills = [
     rating: 4.8,
     students: 342,
     duration: "6 weeks",
+    teacherId: "59",
     teacherName: "Maria Rodriguez",
     teacherAvatar: "https://randomuser.me/api/portraits/women/59.jpg",
   },
@@ -84,6 +91,7 @@ const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "L
 
 const Explore: React.FC = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [minRating, setMinRating] = useState(0);
@@ -183,17 +191,19 @@ const Explore: React.FC = () => {
                   <span className="text-sm">{skill.rating}</span>
                 </div>
                 
-                <div className="flex items-center gap-3 mb-4">
-                  <img 
-                    src={skill.teacherAvatar} 
-                    alt={skill.teacherName}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="text-sm font-medium">{skill.teacherName}</p>
-                    <p className="text-xs text-muted-foreground">Teacher</p>
+                <Link to={`/teacher/${skill.teacherId}`} className="block">
+                  <div className="flex items-center gap-3 mb-4 hover:bg-muted/50 p-2 rounded-md transition-colors">
+                    <img 
+                      src={skill.teacherAvatar} 
+                      alt={skill.teacherName}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{skill.teacherName}</p>
+                      <p className="text-xs text-muted-foreground">Teacher</p>
+                    </div>
                   </div>
-                </div>
+                </Link>
               </CardContent>
               <CardFooter className="p-6 pt-0 flex flex-col gap-4">
                 <div className="flex justify-between items-center text-sm text-muted-foreground w-full">
