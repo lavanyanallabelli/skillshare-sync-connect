@@ -23,12 +23,14 @@ interface AuthContextType {
   isLoggedIn: boolean;
   login: () => void;
   logout: () => void;
+  userId: string | null;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   login: () => {},
   logout: () => {},
+  userId: null
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -36,25 +38,50 @@ export const useAuth = () => useContext(AuthContext);
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Check localStorage for login state
+  // Check localStorage for login state and user data
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem("isLoggedIn") === "true";
+  });
+  
+  const [userId, setUserId] = useState<string | null>(() => {
+    const userData = localStorage.getItem("userData");
+    if (userData) {
+      try {
+        const parsedData = JSON.parse(userData);
+        return parsedData.id || null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   });
 
   const login = () => {
     setIsLoggedIn(true);
     localStorage.setItem("isLoggedIn", "true");
+    
+    // Update userId from userData
+    const userData = localStorage.getItem("userData");
+    if (userData) {
+      try {
+        const parsedData = JSON.parse(userData);
+        setUserId(parsedData.id || null);
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+    }
   };
 
   const logout = () => {
     setIsLoggedIn(false);
+    setUserId(null);
     localStorage.setItem("isLoggedIn", "false");
     // Clear any user-related data from localStorage
     localStorage.removeItem("userData");
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, userId }}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
@@ -67,7 +94,7 @@ const App = () => {
               <Route path="/explore" element={<Explore />} />
               <Route path="/teach" element={<Teach />} />
               <Route path="/about" element={<About />} />
-              <Route path="/teacher/:id" element={isLoggedIn ? <TeacherProfile /> : <Navigate to="/login" />} />
+              <Route path="/teacher/:id" element={<TeacherProfile />} />
               <Route path="/messages" element={isLoggedIn ? <Messages /> : <Navigate to="/login" />} />
               <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/profile" element={isLoggedIn ? <Profile /> : <Navigate to="/login" />} />

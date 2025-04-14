@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +28,21 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+interface UserData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  bio: string;
+  location: string;
+  occupation: string;
+  education: string;
+  teachingSkills: string[];
+  learningSkills: string[];
+  avatar: string;
+  createdAt: string;
+}
+
 const Profile: React.FC = () => {
   const { toast } = useToast();
   const { isLoggedIn } = useAuth();
@@ -38,34 +52,35 @@ const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState(tabFromUrl || "profile");
   const [availabilityDate, setAvailabilityDate] = useState<Date | undefined>(new Date());
   const [editingBio, setEditingBio] = useState(false);
-  const [bio, setBio] = useState(
-    "Full-stack developer with 5 years of experience specializing in React and Node.js. Passionate about teaching and helping others grow."
-  );
+  const [bio, setBio] = useState("");
   const [showSkillSaveButton, setShowSkillSaveButton] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
 
-  // Mock user data - in a real app, this would come from an API or context
-  const userData = {
-    name: "Jane Anderson",
-    avatar: "/placeholder.svg",
-    rating: 4.8,
-    location: "San Francisco, CA",
-    company: "Software Engineer at TechCorp",
-    education: "Computer Science, Stanford",
-    achievements: ["Top Teacher", "Verified Expert"],
-    teachingSkills: ["JavaScript", "React", "Node.js", "Web Development"],
-    learningSkills: ["Python", "Data Science", "Machine Learning"]
-  };
+  // User data state
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
+  const [learningSkills, setLearningSkills] = useState<string[]>([]);
+  const [skillLevels, setSkillLevels] = useState<Record<string, string>>({});
 
-  const [teachingSkills, setTeachingSkills] = useState(userData.teachingSkills);
-  const [learningSkills, setLearningSkills] = useState(userData.learningSkills);
-  const [skillLevels, setSkillLevels] = useState({
-    "JavaScript": "Advanced",
-    "React": "Intermediate",
-    "Node.js": "Advanced",
-    "Web Development": "Intermediate"
-  });
+  // Load user data from localStorage
+  useEffect(() => {
+    const storedUserData = localStorage.getItem("userData");
+    if (storedUserData) {
+      const parsedData = JSON.parse(storedUserData) as UserData;
+      setUserData(parsedData);
+      setBio(parsedData.bio || "");
+      setTeachingSkills(parsedData.teachingSkills || []);
+      setLearningSkills(parsedData.learningSkills || []);
+      
+      // Initialize skill levels
+      const initialSkillLevels: Record<string, string> = {};
+      parsedData.teachingSkills?.forEach(skill => {
+        initialSkillLevels[skill] = "Intermediate";
+      });
+      setSkillLevels(initialSkillLevels);
+    }
+  }, []);
 
   // Session availability times
   const availabilityTimes = [
@@ -158,6 +173,11 @@ const Profile: React.FC = () => {
 
   const handleSaveBio = () => {
     setEditingBio(false);
+    if (userData) {
+      const updatedUserData = { ...userData, bio };
+      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+    }
     toast({
       title: "Profile updated",
       description: "Your bio has been updated successfully",
@@ -166,6 +186,15 @@ const Profile: React.FC = () => {
 
   const handleSaveSkills = () => {
     setShowSkillSaveButton(false);
+    if (userData) {
+      const updatedUserData = { 
+        ...userData, 
+        teachingSkills, 
+        learningSkills 
+      };
+      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+    }
     toast({
       title: "Skills updated",
       description: "Your skills have been updated successfully",
@@ -215,14 +244,60 @@ const Profile: React.FC = () => {
     });
   };
 
+  const handleUpdateProfile = (profileData: any) => {
+    if (userData) {
+      const updatedUserData = { 
+        ...userData,
+        firstName: profileData.name.split(' ')[0] || userData.firstName,
+        lastName: profileData.name.split(' ')[1] || userData.lastName,
+        location: profileData.location,
+        occupation: profileData.company,
+        education: profileData.education,
+        bio: profileData.bio
+      };
+      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+      setBio(profileData.bio);
+    }
+  };
+
   if (!isLoggedIn) {
     return null; // The App's routes will redirect to login
   }
 
+  // Create a formatted profile object for the ProfileHeader component
+  const profileData = userData ? {
+    id: userData.id,
+    name: `${userData.firstName} ${userData.lastName}`,
+    avatar: userData.avatar || "/placeholder.svg",
+    rating: 4.8, // Default rating
+    location: userData.location,
+    company: userData.occupation,
+    education: userData.education,
+    achievements: ["New Member"],
+    teachingSkills,
+    learningSkills,
+    bio: userData.bio
+  } : {
+    name: "User",
+    avatar: "/placeholder.svg",
+    rating: 4.8,
+    location: "",
+    company: "",
+    education: "",
+    achievements: ["New Member"],
+    teachingSkills: [],
+    learningSkills: []
+  };
+
   return (
     <ProfileLayout>
       <div className="container max-w-6xl py-8">
-        <ProfileHeader {...userData} teachingSkills={teachingSkills} learningSkills={learningSkills} />
+        <ProfileHeader 
+          {...profileData} 
+          isOwnProfile={true} 
+          onUpdateProfile={handleUpdateProfile}
+        />
         
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -257,13 +332,16 @@ const Profile: React.FC = () => {
                           onChange={(e) => setBio(e.target.value)}
                           rows={5}
                           className="resize-none"
+                          placeholder="Tell us about yourself, your interests, and what you want to learn or teach"
                         />
                         <Button size="sm" onClick={handleSaveBio} className="flex items-center gap-1">
                           <Save className="h-4 w-4" /> Save
                         </Button>
                       </div>
                     ) : (
-                      <p className="text-gray-700">{bio}</p>
+                      <p className="text-gray-700">
+                        {bio || "Add information about yourself, your interests, and what you want to learn or teach."}
+                      </p>
                     )}
                   </CardContent>
                 </Card>
@@ -274,32 +352,39 @@ const Profile: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {upcomingSessions.map((session) => (
-                        <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={session.avatar} alt="User avatar" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h4 className="font-medium">{session.with}</h4>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <Badge variant="outline" className="mr-2">
-                                  {session.role === "teacher" ? "Teaching" : "Learning"}
-                                </Badge>
-                                {session.skill}
+                      {upcomingSessions.length > 0 ? (
+                        upcomingSessions.map((session) => (
+                          <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={session.avatar} alt="User avatar" />
+                                <AvatarFallback>JD</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{session.with}</h4>
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="mr-2">
+                                    {session.role === "teacher" ? "Teaching" : "Learning"}
+                                  </Badge>
+                                  {session.skill}
+                                </div>
+                                <p className="text-sm text-muted-foreground flex items-center mt-1">
+                                  <CalendarIcon className="h-3 w-3 mr-1" />
+                                  {session.date}, {session.time}
+                                </p>
                               </div>
-                              <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                <CalendarIcon className="h-3 w-3 mr-1" />
-                                {session.date}, {session.time}
-                              </p>
                             </div>
+                            <Button variant="outline" size="sm">
+                              Join
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm">
-                            Join
-                          </Button>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No upcoming sessions</p>
+                          <p className="text-sm mt-2">Book a session or wait for requests</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -314,35 +399,42 @@ const Profile: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {teachingSkills.map((skill) => (
-                        <div key={skill} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium">{skill}</h4>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleRemoveTeachingSkill(skill)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                      {teachingSkills.length > 0 ? (
+                        teachingSkills.map((skill) => (
+                          <div key={skill} className="border rounded-lg p-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-medium">{skill}</h4>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleRemoveTeachingSkill(skill)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`level-${skill}`}>Proficiency level</Label>
+                              <select
+                                id={`level-${skill}`}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2"
+                                value={skillLevels[skill] || "Intermediate"}
+                                onChange={(e) => handleUpdateSkillLevel(skill, e.target.value)}
+                              >
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                                <option value="Expert">Expert</option>
+                              </select>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`level-${skill}`}>Proficiency level</Label>
-                            <select
-                              id={`level-${skill}`}
-                              className="w-full rounded-md border border-input bg-background px-3 py-2"
-                              value={skillLevels[skill] || "Intermediate"}
-                              onChange={(e) => handleUpdateSkillLevel(skill, e.target.value)}
-                            >
-                              <option value="Beginner">Beginner</option>
-                              <option value="Intermediate">Intermediate</option>
-                              <option value="Advanced">Advanced</option>
-                              <option value="Expert">Expert</option>
-                            </select>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <p>No teaching skills added yet</p>
+                          <p className="text-sm mt-2">Add skills you can teach to others</p>
                         </div>
-                      ))}
+                      )}
                       <Button 
                         variant="outline" 
                         className="w-full" 
@@ -360,21 +452,28 @@ const Profile: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {learningSkills.map((skill) => (
-                          <Badge key={skill} variant="secondary" className="p-2 text-base">
-                            {skill}
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleRemoveLearningSkill(skill)}
-                              className="h-4 w-4 p-0 ml-2"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
-                      </div>
+                      {learningSkills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {learningSkills.map((skill) => (
+                            <Badge key={skill} variant="secondary" className="p-2 text-base">
+                              {skill}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleRemoveLearningSkill(skill)}
+                                className="h-4 w-4 p-0 ml-2"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <p>No learning skills added yet</p>
+                          <p className="text-sm mt-2">Add skills you want to learn</p>
+                        </div>
+                      )}
                       <Button 
                         variant="outline" 
                         className="w-full" 

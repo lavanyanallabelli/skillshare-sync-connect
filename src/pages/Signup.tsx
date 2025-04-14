@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea"; 
 import MainLayout from "@/components/layout/MainLayout";
-import { Facebook, Mail, Github } from "lucide-react";
+import { Facebook, Mail, Github, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 
 const Signup: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [step, setStep] = useState(1);
   
   // Basic info
@@ -20,6 +22,7 @@ const Signup: React.FC = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   
   // Profile info
@@ -29,6 +32,10 @@ const Signup: React.FC = () => {
   const [education, setEducation] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleSubmitStep1 = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,16 +76,74 @@ const Signup: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
+    // Create user object with unique ID
+    const userId = `user_${Date.now()}`;
+    const userData = {
+      id: userId,
+      firstName,
+      lastName,
+      email,
+      bio,
+      location,
+      occupation,
+      education,
+      createdAt: new Date().toISOString(),
+      teachingSkills: [],
+      learningSkills: [],
+      avatar: "/placeholder.svg",
+    };
+    
+    // Store user data in localStorage
+    localStorage.setItem("userData", JSON.stringify(userData));
+    
     // Simulate signup
     setTimeout(() => {
       setIsLoading(false);
       toast({
         title: "Account created!",
-        description: "Your account has been created successfully. Please log in.",
+        description: "Your account has been created successfully.",
       });
-      // Redirect to login page
-      navigate("/login");
-    }, 1500);
+      // Log the user in
+      login();
+      // Redirect to profile page
+      navigate("/profile");
+    }, 1000);
+  };
+
+  const handleSkipProfileInfo = () => {
+    setIsLoading(true);
+    
+    // Create user object with unique ID but minimal info
+    const userId = `user_${Date.now()}`;
+    const userData = {
+      id: userId,
+      firstName,
+      lastName,
+      email,
+      bio: "",
+      location: "",
+      occupation: "",
+      education: "",
+      createdAt: new Date().toISOString(),
+      teachingSkills: [],
+      learningSkills: [],
+      avatar: "/placeholder.svg",
+    };
+    
+    // Store user data in localStorage
+    localStorage.setItem("userData", JSON.stringify(userData));
+    
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Account created!",
+        description: "You can complete your profile later.",
+      });
+      // Log the user in
+      login();
+      // Redirect to profile page
+      navigate("/profile");
+    }, 1000);
   };
 
   const handleSocialSignup = (provider: string) => {
@@ -139,14 +204,23 @@ const Signup: React.FC = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  placeholder="Create a password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input 
+                    id="password" 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Create a password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button 
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={togglePasswordVisibility}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Password must be at least 8 characters long
                 </p>
@@ -287,6 +361,16 @@ const Signup: React.FC = () => {
                   {isLoading ? "Creating account..." : "Create account"}
                 </Button>
               </div>
+              
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full mt-2"
+                onClick={handleSkipProfileInfo}
+                disabled={isLoading}
+              >
+                Skip for now
+              </Button>
               
               <p className="text-center mt-4 text-xs text-muted-foreground">
                 You can always update your profile later

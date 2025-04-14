@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,10 +12,18 @@ import {
   Award,
   CheckCircle,
   MessageSquare,
-  Video
+  Video,
+  Edit,
+  User
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfileHeaderProps {
+  id?: string;
   name: string;
   avatar: string;
   rating: number;
@@ -25,12 +33,15 @@ interface ProfileHeaderProps {
   achievements: string[];
   teachingSkills: string[];
   learningSkills: string[];
+  bio?: string;
   isOwnProfile?: boolean;
   onMessageClick?: () => void;
   onBookSessionClick?: () => void;
+  onUpdateProfile?: (profileData: any) => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+  id,
   name,
   avatar,
   rating,
@@ -40,12 +51,42 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   achievements,
   teachingSkills,
   learningSkills,
+  bio,
   isOwnProfile = false,
   onMessageClick,
-  onBookSessionClick
+  onBookSessionClick,
+  onUpdateProfile
 }) => {
   const { pathname } = useLocation();
+  const { toast } = useToast();
   const isTeacherProfile = pathname.includes("/teacher/");
+  
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState(name);
+  const [editLocation, setEditLocation] = useState(location);
+  const [editCompany, setEditCompany] = useState(company);
+  const [editEducation, setEditEducation] = useState(education);
+  const [editBio, setEditBio] = useState(bio || "");
+
+  const handleSaveProfile = () => {
+    const updatedProfile = {
+      name: editName,
+      location: editLocation,
+      company: editCompany,
+      education: editEducation,
+      bio: editBio
+    };
+    
+    if (onUpdateProfile) {
+      onUpdateProfile(updatedProfile);
+    }
+    
+    setEditDialogOpen(false);
+    toast({
+      title: "Profile updated",
+      description: "Your profile information has been updated successfully"
+    });
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -57,7 +98,74 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <AvatarFallback>{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
           
-          {!isOwnProfile && (
+          {isOwnProfile ? (
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Edit className="mr-2 h-4 w-4" /> Edit Profile
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Edit Profile</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      rows={3}
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="company">Occupation</Label>
+                    <Input
+                      id="company"
+                      value={editCompany}
+                      onChange={(e) => setEditCompany(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="education">Education</Label>
+                    <Input
+                      id="education"
+                      value={editEducation}
+                      onChange={(e) => setEditEducation(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveProfile} className="bg-skill-purple hover:bg-skill-purple-dark">
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
             <div className="flex flex-col gap-2 w-full">
               <Button 
                 className="w-full bg-skill-purple hover:bg-skill-purple-dark"
@@ -79,16 +187,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {/* User info */}
         <div className="flex-1 space-y-4">
           <div>
-            <h1 className="text-2xl font-bold">{name}</h1>
+            <div className="flex justify-between items-start">
+              <h1 className="text-2xl font-bold">{name}</h1>
+              {id && (
+                <Badge variant="outline" className="text-xs">
+                  <User className="h-3 w-3 mr-1" /> ID: {id.substring(0, 8)}
+                </Badge>
+              )}
+            </div>
             
             <div className="flex flex-wrap items-center gap-3 mt-2">
               <Badge variant="outline" className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" /> {rating.toFixed(1)}
               </Badge>
               
-              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-3 w-3" /> {location}
-              </span>
+              {location && (
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3" /> {location}
+                </span>
+              )}
               
               {company && (
                 <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -102,6 +219,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 </span>
               )}
             </div>
+            
+            {bio && (
+              <div className="mt-3 text-sm text-gray-600">
+                {bio}
+              </div>
+            )}
           </div>
           
           {/* Achievements */}
@@ -135,11 +258,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 )}
               </h3>
               <div className="flex flex-wrap gap-1">
-                {teachingSkills.map((skill) => (
-                  <Badge key={skill} variant="secondary" className="m-1">
-                    {skill}
-                  </Badge>
-                ))}
+                {teachingSkills.length > 0 ? (
+                  teachingSkills.map((skill) => (
+                    <Badge key={skill} variant="secondary" className="m-1">
+                      {skill}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No skills added yet</span>
+                )}
               </div>
             </div>
             
@@ -153,11 +280,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 )}
               </h3>
               <div className="flex flex-wrap gap-1">
-                {learningSkills.map((skill) => (
-                  <Badge key={skill} variant="outline" className="m-1">
-                    {skill}
-                  </Badge>
-                ))}
+                {learningSkills.length > 0 ? (
+                  learningSkills.map((skill) => (
+                    <Badge key={skill} variant="outline" className="m-1">
+                      {skill}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No skills added yet</span>
+                )}
               </div>
             </div>
           </div>
