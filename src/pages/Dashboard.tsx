@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
+import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,7 +103,7 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
   
   return (
-    <MainLayout>
+    <ProfileLayout>
       <div className="container py-12">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -470,7 +470,7 @@ const Dashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </MainLayout>
+    </ProfileLayout>
   );
 };
 
