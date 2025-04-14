@@ -438,18 +438,3 @@ const Profile: React.FC = () => {
 };
 
 export default Profile;
-
-interface LinkProps {
-  to: string;
-  children: React.ReactNode;
-  className?: string;
-}
-
-// Simple Link component to avoid TypeScript errors
-const Link: React.FC<LinkProps> = ({ to, children, className = "" }) => {
-  return (
-    <a href={to} className={className}>
-      {children}
-    </a>
-  );
-};
