@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Plus, X } from "lucide-react";
+import { Search, Plus, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Sample skill categories
@@ -47,7 +46,6 @@ const Skills: React.FC = () => {
   const handleAddTeachSkill = (skill: string) => {
     if (!teachSkills.includes(skill)) {
       setTeachSkills([...teachSkills, skill]);
-      // Default to intermediate for new teaching skills
       setSkillLevel({...skillLevel, [skill]: "Intermediate"});
       toast({
         title: "Skill added",
@@ -68,7 +66,6 @@ const Skills: React.FC = () => {
   
   const handleRemoveTeachSkill = (skill: string) => {
     setTeachSkills(teachSkills.filter(s => s !== skill));
-    // Remove from skill levels
     const newSkillLevel = {...skillLevel};
     delete newSkillLevel[skill];
     setSkillLevel(newSkillLevel);
@@ -80,6 +77,20 @@ const Skills: React.FC = () => {
   
   const handleUpdateSkillLevel = (skill: string, level: string) => {
     setSkillLevel({...skillLevel, [skill]: level});
+  };
+  
+  const handleSaveTeachSkills = () => {
+    toast({
+      title: "Teaching skills saved",
+      description: `${teachSkills.length} skills saved successfully`,
+    });
+  };
+  
+  const handleSaveLearnSkills = () => {
+    toast({
+      title: "Learning skills saved",
+      description: `${learnSkills.length} skills saved successfully`,
+    });
   };
   
   const filteredCategories = searchQuery.trim() 
@@ -151,6 +162,17 @@ const Skills: React.FC = () => {
                 </div>
               )}
             </div>
+            
+            {teachSkills.length > 0 && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleSaveTeachSkills}
+                  className="bg-skill-purple hover:bg-skill-purple-dark"
+                >
+                  <Save className="mr-2 h-4 w-4" /> Save Teaching Skills
+                </Button>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="learn" className="space-y-6">
@@ -175,6 +197,17 @@ const Skills: React.FC = () => {
                 </div>
               )}
             </div>
+            
+            {learnSkills.length > 0 && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleSaveLearnSkills}
+                  className="bg-skill-purple hover:bg-skill-purple-dark"
+                >
+                  <Save className="mr-2 h-4 w-4" /> Save Learning Skills
+                </Button>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="browse" id="browse-tab" className="space-y-6">
