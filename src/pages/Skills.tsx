@@ -38,7 +38,7 @@ const SkillBadge: React.FC<{ skill: string; onRemove?: () => void; className?: s
 
 const Skills: React.FC = () => {
   const { toast } = useToast();
-  const { userId } = useAuth();
+  const { userId, refreshUserData } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [teachSkills, setTeachSkills] = useState<string[]>([]);
   const [learnSkills, setLearnSkills] = useState<string[]>([]);
@@ -163,6 +163,9 @@ const Skills: React.FC = () => {
         if (insertError) throw insertError;
       }
       
+      // Refresh user profile data to show updated skills
+      await refreshUserData();
+      
       toast({
         title: "Teaching skills saved",
         description: `${teachSkills.length} skills saved successfully`,
@@ -205,6 +208,9 @@ const Skills: React.FC = () => {
           
         if (insertError) throw insertError;
       }
+      
+      // Refresh user profile data to show updated skills
+      await refreshUserData();
       
       toast({
         title: "Learning skills saved",

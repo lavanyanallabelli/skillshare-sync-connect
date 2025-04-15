@@ -71,12 +71,20 @@ const App = () => {
           .select('skill, proficiency_level')
           .eq('user_id', userId);
           
+        if (teachingError) {
+          console.error("Error fetching teaching skills:", teachingError);
+        }
+        
         // Fetch learning skills
         const { data: learningSkills, error: learningError } = await supabase
           .from('learning_skills')
           .select('skill')
           .eq('user_id', userId);
           
+        if (learningError) {
+          console.error("Error fetching learning skills:", learningError);
+        }
+        
         const userData = {
           id: userId,
           email: user?.email || "",
