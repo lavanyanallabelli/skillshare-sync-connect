@@ -38,6 +38,7 @@ interface ProfileHeaderProps {
   onMessageClick?: () => void;
   onBookSessionClick?: () => void;
   onUpdateProfile?: (profileData: any) => void;
+  actionButton?: React.ReactNode; // Added this prop to accept custom action buttons
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -55,7 +56,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   isOwnProfile = false,
   onMessageClick,
   onBookSessionClick,
-  onUpdateProfile
+  onUpdateProfile,
+  actionButton // Destructure the new prop
 }) => {
   const { pathname } = useLocation();
   const { toast } = useToast();
@@ -171,19 +173,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           
           {!isOwnProfile && (
             <div className="flex flex-col gap-2 w-full">
-              <Button 
-                className="w-full bg-skill-purple hover:bg-skill-purple-dark"
-                onClick={onMessageClick}
-              >
-                <MessageSquare className="mr-2 h-4 w-4" /> Message
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={onBookSessionClick}
-              >
-                <Video className="mr-2 h-4 w-4" /> Book a Session
-              </Button>
+              {actionButton ? (
+                actionButton
+              ) : (
+                <>
+                  <Button 
+                    className="w-full bg-skill-purple hover:bg-skill-purple-dark"
+                    onClick={onMessageClick}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" /> Message
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={onBookSessionClick}
+                  >
+                    <Video className="mr-2 h-4 w-4" /> Book a Session
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>
