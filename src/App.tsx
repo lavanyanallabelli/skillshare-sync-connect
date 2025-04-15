@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, createContext, useContext, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -17,6 +18,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Skills from "./pages/Skills";
 import TeacherProfile from "./pages/TeacherProfile";
+import { User, Session } from '@supabase/supabase-js';
 
 // Create an auth context to manage login state
 interface AuthContextType {
@@ -38,47 +40,69 @@ export const useAuth = () => useContext(AuthContext);
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Check localStorage for login state and user data
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem("isLoggedIn") === "true";
-  });
-  
-  const [userId, setUserId] = useState<string | null>(() => {
-    const userData = localStorage.getItem("userData");
-    if (userData) {
-      try {
-        const parsedData = JSON.parse(userData);
-        return parsedData.id || null;
-      } catch (e) {
-        return null;
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        const isAuthenticated = !!session;
+        setSession(session);
+        setUser(session?.user ?? null);
+        setUserId(session?.user?.id ?? null);
+        setIsLoggedIn(isAuthenticated);
+        
+        if (isAuthenticated) {
+          localStorage.setItem("isLoggedIn", "true");
+        } else {
+          localStorage.setItem("isLoggedIn", "false");
+          localStorage.removeItem("userData");
+        }
       }
-    }
-    return null;
-  });
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const isAuthenticated = !!session;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setUserId(session?.user?.id ?? null);
+      setIsLoggedIn(isAuthenticated);
+      setIsLoading(false);
+      
+      if (isAuthenticated) {
+        localStorage.setItem("isLoggedIn", "true");
+      } else {
+        localStorage.setItem("isLoggedIn", "false");
+      }
+    });
+
+    // Cleanup subscription
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = () => {
     setIsLoggedIn(true);
     localStorage.setItem("isLoggedIn", "true");
-    
-    // Update userId from userData
-    const userData = localStorage.getItem("userData");
-    if (userData) {
-      try {
-        const parsedData = JSON.parse(userData);
-        setUserId(parsedData.id || null);
-      } catch (e) {
-        console.error("Error parsing user data:", e);
-      }
-    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
+    setUser(null);
+    setSession(null);
     setUserId(null);
     localStorage.setItem("isLoggedIn", "false");
-    // Clear any user-related data from localStorage
     localStorage.removeItem("userData");
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, login, logout, userId }}>

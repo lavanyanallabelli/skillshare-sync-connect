@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const Signup: React.FC = () => {
@@ -33,8 +33,6 @@ const Signup: React.FC = () => {
   const [education, setEducation] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
-  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -75,88 +73,102 @@ const Signup: React.FC = () => {
     setStep(2);
   };
 
-  const handleSubmitStep2 = (e: React.FormEvent) => {
+  const handleSubmitStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate email verification
-    setTimeout(() => {
-      setIsLoading(false);
-      setVerificationDialogOpen(true);
-      
-      toast({
-        title: "Verification email sent",
-        description: "Please check your email for the verification code. (Demo: use code 123456)",
+    try {
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
       });
-    }, 1000);
-  };
 
-  const handleVerifyEmail = () => {
-    // For demo purposes, accept any 6-digit code
-    if (verificationCode.length !== 6) {
+      if (error) throw error;
+
+      if (data?.user) {
+        // Update profile with additional information
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            bio,
+            location,
+            occupation,
+            education,
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error("Error updating profile:", profileError);
+        }
+
+        toast({
+          title: "Account created!",
+          description: "Please check your email for verification.",
+        });
+
+        // Log the user in
+        login();
+        
+        // Redirect to profile page
+        navigate("/profile");
+      }
+    } catch (error: any) {
       toast({
-        title: "Invalid code",
-        description: "Please enter a valid 6-digit verification code",
+        title: "Error",
+        description: error.message || "Failed to create account",
         variant: "destructive",
       });
-      return;
-    }
-    
-    setVerificationDialogOpen(false);
-    setIsLoading(true);
-    
-    // Create user object with unique ID but without pre-populated data
-    const userId = `user_${Date.now()}`;
-    const userData = {
-      id: userId,
-      firstName,
-      lastName,
-      email,
-      bio,
-      location,
-      occupation,
-      education,
-      createdAt: new Date().toISOString(),
-      teachingSkills: [],
-      learningSkills: [],
-      avatar: "/placeholder.svg",
-      // No pre-populated data for new users
-      upcomingSessions: [],
-      pastSessions: [],
-      reviews: [],
-      requests: [],
-      messages: []
-    };
-    
-    // Store user data in localStorage
-    localStorage.setItem("userData", JSON.stringify(userData));
-    
-    setTimeout(() => {
+    } finally {
       setIsLoading(false);
-      toast({
-        title: "Account created!",
-        description: "Your account has been created and email verified successfully.",
-      });
-      // Log the user in
-      login();
-      // Redirect to profile page
-      navigate("/profile");
-    }, 1000);
+    }
   };
 
-  const handleSkipProfileInfo = () => {
+  const handleSkipProfileInfo = async () => {
     setIsLoading(true);
     
-    // Simulate email verification
-    setTimeout(() => {
-      setIsLoading(false);
-      setVerificationDialogOpen(true);
-      
-      toast({
-        title: "Verification email sent",
-        description: "Please check your email for the verification code. (Demo: use code 123456)",
+    try {
+      // Sign up with Supabase without additional profile info
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
       });
-    }, 1000);
+
+      if (error) throw error;
+
+      if (data?.user) {
+        toast({
+          title: "Account created!",
+          description: "Please check your email for verification.",
+        });
+
+        // Log the user in
+        login();
+        
+        // Redirect to profile page
+        navigate("/profile");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialSignup = (provider: string) => {
@@ -180,10 +192,10 @@ const Signup: React.FC = () => {
           <div className="bg-blue-50 p-4 rounded-md text-blue-700 mb-6 flex items-start gap-3">
             <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium">Demo Mode</p>
+              <p className="text-sm font-medium">Connected to Supabase</p>
               <p className="text-xs mt-1">
-                This is a demo application. Email verification is simulated. Use code "123456" when prompted.
-                For full functionality, connect to Supabase.
+                Email verification is handled by Supabase. For development purposes, 
+                you may want to disable email verification in the Supabase dashboard.
               </p>
             </div>
           </div>
@@ -403,54 +415,6 @@ const Signup: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Email Verification Dialog */}
-      <Dialog open={verificationDialogOpen} onOpenChange={setVerificationDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Verify Your Email</DialogTitle>
-            <DialogDescription>
-              For this demo, use verification code "123456".
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex items-start gap-3 mb-4 p-3 bg-blue-50 rounded-md text-blue-700">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Check your email</p>
-                <p className="text-xs mt-1">We've sent a 6-digit verification code to {email}</p>
-                <p className="text-xs mt-1 font-bold">(Demo: use code 123456)</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="verification-code">Verification Code</Label>
-              <Input
-                id="verification-code"
-                placeholder="Enter 6-digit code"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              />
-            </div>
-
-            <div className="flex justify-between items-center mt-6">
-              <Button 
-                variant="ghost" 
-                onClick={() => setVerificationDialogOpen(false)}
-                className="text-sm"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleVerifyEmail}
-                className="bg-skill-purple hover:bg-skill-purple-dark"
-              >
-                Verify Email
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   );
 };

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Plus, X, Save } from "lucide-react";
+import { Search, Plus, X, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 // Sample skill categories
 const skillCategories = [
@@ -35,13 +38,66 @@ const SkillBadge: React.FC<{ skill: string; onRemove?: () => void; className?: s
 
 const Skills: React.FC = () => {
   const { toast } = useToast();
+  const { userId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [teachSkills, setTeachSkills] = useState<string[]>(["JavaScript", "React"]);
-  const [learnSkills, setLearnSkills] = useState<string[]>(["Python", "UX/UI Design"]);
-  const [skillLevel, setSkillLevel] = useState<Record<string, string>>({
-    "JavaScript": "Advanced",
-    "React": "Intermediate",
-  });
+  const [teachSkills, setTeachSkills] = useState<string[]>([]);
+  const [learnSkills, setLearnSkills] = useState<string[]>([]);
+  const [skillLevel, setSkillLevel] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  useEffect(() => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+    
+    const fetchSkills = async () => {
+      try {
+        // Fetch teaching skills
+        const { data: teachingData, error: teachingError } = await supabase
+          .from('teaching_skills')
+          .select('skill, proficiency_level')
+          .eq('user_id', userId);
+          
+        if (teachingError) throw teachingError;
+        
+        // Fetch learning skills
+        const { data: learningData, error: learningError } = await supabase
+          .from('learning_skills')
+          .select('skill')
+          .eq('user_id', userId);
+          
+        if (learningError) throw learningError;
+        
+        // Set the fetched data
+        const teachingSkills = teachingData.map(item => item.skill);
+        setTeachSkills(teachingSkills);
+        
+        const learningSkills = learningData.map(item => item.skill);
+        setLearnSkills(learningSkills);
+        
+        // Set skill levels
+        const levels: Record<string, string> = {};
+        teachingData.forEach(item => {
+          levels[item.skill] = item.proficiency_level;
+        });
+        setSkillLevel(levels);
+        
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        toast({
+          title: "Error fetching skills",
+          description: "Failed to load your skills. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSkills();
+  }, [userId, toast]);
   
   const handleAddTeachSkill = (skill: string) => {
     if (!teachSkills.includes(skill)) {
@@ -79,18 +135,91 @@ const Skills: React.FC = () => {
     setSkillLevel({...skillLevel, [skill]: level});
   };
   
-  const handleSaveTeachSkills = () => {
-    toast({
-      title: "Teaching skills saved",
-      description: `${teachSkills.length} skills saved successfully`,
-    });
+  const handleSaveTeachSkills = async () => {
+    if (!userId) return;
+    setIsSaving(true);
+    
+    try {
+      // First, delete all existing teaching skills
+      const { error: deleteError } = await supabase
+        .from('teaching_skills')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (deleteError) throw deleteError;
+      
+      // Then insert the current teaching skills
+      const skillsToInsert = teachSkills.map(skill => ({
+        user_id: userId,
+        skill,
+        proficiency_level: skillLevel[skill] || 'Intermediate'
+      }));
+      
+      if (skillsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('teaching_skills')
+          .insert(skillsToInsert);
+          
+        if (insertError) throw insertError;
+      }
+      
+      toast({
+        title: "Teaching skills saved",
+        description: `${teachSkills.length} skills saved successfully`,
+      });
+    } catch (error) {
+      console.error('Error saving teaching skills:', error);
+      toast({
+        title: "Error saving skills",
+        description: "Failed to save your teaching skills. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
-  const handleSaveLearnSkills = () => {
-    toast({
-      title: "Learning skills saved",
-      description: `${learnSkills.length} skills saved successfully`,
-    });
+  const handleSaveLearnSkills = async () => {
+    if (!userId) return;
+    setIsSaving(true);
+    
+    try {
+      // First, delete all existing learning skills
+      const { error: deleteError } = await supabase
+        .from('learning_skills')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (deleteError) throw deleteError;
+      
+      // Then insert the current learning skills
+      const skillsToInsert = learnSkills.map(skill => ({
+        user_id: userId,
+        skill
+      }));
+      
+      if (skillsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('learning_skills')
+          .insert(skillsToInsert);
+          
+        if (insertError) throw insertError;
+      }
+      
+      toast({
+        title: "Learning skills saved",
+        description: `${learnSkills.length} skills saved successfully`,
+      });
+    } catch (error) {
+      console.error('Error saving learning skills:', error);
+      toast({
+        title: "Error saving skills",
+        description: "Failed to save your learning skills. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const filteredCategories = searchQuery.trim() 
@@ -100,6 +229,19 @@ const Skills: React.FC = () => {
           skill.toLowerCase().includes(searchQuery.toLowerCase()))
       })).filter(category => category.skills.length > 0)
     : skillCategories;
+  
+  if (isLoading) {
+    return (
+      <ProfileLayout>
+        <div className="container py-20 flex justify-center items-center">
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-skill-purple" />
+            <p className="text-lg font-medium">Loading your skills...</p>
+          </div>
+        </div>
+      </ProfileLayout>
+    );
+  }
   
   return (
     <ProfileLayout>
@@ -168,8 +310,17 @@ const Skills: React.FC = () => {
                 <Button 
                   onClick={handleSaveTeachSkills}
                   className="bg-skill-purple hover:bg-skill-purple-dark"
+                  disabled={isSaving}
                 >
-                  <Save className="mr-2 h-4 w-4" /> Save Teaching Skills
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" /> Save Teaching Skills
+                    </>
+                  )}
                 </Button>
               </div>
             )}
@@ -203,8 +354,17 @@ const Skills: React.FC = () => {
                 <Button 
                   onClick={handleSaveLearnSkills}
                   className="bg-skill-purple hover:bg-skill-purple-dark"
+                  disabled={isSaving}
                 >
-                  <Save className="mr-2 h-4 w-4" /> Save Learning Skills
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" /> Save Learning Skills
+                    </>
+                  )}
                 </Button>
               </div>
             )}

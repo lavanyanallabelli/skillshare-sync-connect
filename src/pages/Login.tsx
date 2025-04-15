@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Facebook, Mail, Github } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login: React.FC = () => {
   const { toast } = useToast();
@@ -18,7 +20,7 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
@@ -33,25 +35,48 @@ const Login: React.FC = () => {
       return;
     }
 
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
-      // Use the login from auth context
-      login();
-      toast({
-        title: "Welcome back!",
-        description: "You've been successfully logged in.",
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
-      // Redirect to profile page
-      navigate("/profile");
-    }, 1500);
+
+      if (error) throw error;
+
+      if (data?.user) {
+        login();
+        toast({
+          title: "Welcome back!",
+          description: "You've been successfully logged in.",
+        });
+        navigate("/profile");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "Failed to login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    toast({
-      title: `${provider} login`,
-      description: `Login with ${provider} is coming soon.`,
-    });
+  const handleSocialLogin = async (provider: 'github' | 'google' | 'facebook') => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+      });
+
+      if (error) throw error;
+      
+    } catch (error: any) {
+      toast({
+        title: `${provider} login failed`,
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -131,7 +156,7 @@ const Login: React.FC = () => {
               variant="outline" 
               className="w-full" 
               type="button"
-              onClick={() => handleSocialLogin("Github")}
+              onClick={() => handleSocialLogin("github")}
             >
               <Github className="mr-2 h-4 w-4" />
               Github
@@ -140,7 +165,7 @@ const Login: React.FC = () => {
               variant="outline" 
               className="w-full" 
               type="button"
-              onClick={() => handleSocialLogin("Google")}
+              onClick={() => handleSocialLogin("google")}
             >
               <Mail className="mr-2 h-4 w-4" />
               Google
@@ -149,7 +174,7 @@ const Login: React.FC = () => {
               variant="outline" 
               className="w-full" 
               type="button"
-              onClick={() => handleSocialLogin("Facebook")}
+              onClick={() => handleSocialLogin("facebook")}
             >
               <Facebook className="mr-2 h-4 w-4" />
               Facebook

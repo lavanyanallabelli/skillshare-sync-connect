@@ -9,7 +9,250 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      learning_skills: {
+        Row: {
+          created_at: string
+          id: string
+          skill: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          skill: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          skill?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          education: string | null
+          first_name: string
+          id: string
+          last_name: string
+          location: string | null
+          occupation: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          education?: string | null
+          first_name: string
+          id: string
+          last_name: string
+          location?: string | null
+          occupation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          education?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          location?: string | null
+          occupation?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          recipient_id: string
+          reviewer_id: string
+          session_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          recipient_id: string
+          reviewer_id: string
+          session_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          recipient_id?: string
+          reviewer_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          skill: string
+          status: string
+          student_id: string
+          teacher_id: string
+          time_slot: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          skill: string
+          status?: string
+          student_id: string
+          teacher_id: string
+          time_slot: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          skill?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+          time_slot?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teaching_skills: {
+        Row: {
+          created_at: string
+          id: string
+          proficiency_level: string
+          skill: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          proficiency_level?: string
+          skill: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          proficiency_level?: string
+          skill?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_availability: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          is_available: boolean
+          time_slot: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          is_available?: boolean
+          time_slot: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          is_available?: boolean
+          time_slot?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_availability_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
