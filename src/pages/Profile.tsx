@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import ProfileHeader from "@/components/profile/ProfileHeader";
+import ConnectionList from "@/components/profile/ConnectionList";
 import { useAuth } from "@/App";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,24 +59,20 @@ const Profile: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
 
-  // User data state
   const [userData, setUserData] = useState<UserData | null>(null);
   const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
   const [learningSkills, setLearningSkills] = useState<string[]>([]);
   const [skillLevels, setSkillLevels] = useState<Record<string, string>>({});
 
-  // Session data state - empty by default for new users
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
 
-  // Load user data
   useEffect(() => {
     const fetchUserData = async () => {
       if (!userId) return;
       
       try {
-        // First try to get from localStorage
         const storedUserData = localStorage.getItem("userData");
         if (storedUserData) {
           const parsedData = JSON.parse(storedUserData) as UserData;
@@ -84,16 +81,13 @@ const Profile: React.FC = () => {
           setTeachingSkills(parsedData.teachingSkills || []);
           setLearningSkills(parsedData.learningSkills || []);
           
-          // Initialize skill levels
           const initialSkillLevels: Record<string, string> = {};
           parsedData.teachingSkills?.forEach(skill => {
             initialSkillLevels[skill] = "Intermediate";
           });
           setSkillLevels(initialSkillLevels);
         } else {
-          // If not in localStorage, fetch from Supabase
           await refreshUserData();
-          // Try again after refreshing
           const refreshedData = localStorage.getItem("userData");
           if (refreshedData) {
             const parsedData = JSON.parse(refreshedData) as UserData;
@@ -110,7 +104,6 @@ const Profile: React.FC = () => {
           }
         }
         
-        // Fetch teaching skills from database to get proficiency levels
         const { data: teachingData, error: teachingError } = await supabase
           .from('teaching_skills')
           .select('skill, proficiency_level')
@@ -131,7 +124,6 @@ const Profile: React.FC = () => {
     fetchUserData();
   }, [userId, refreshUserData]);
 
-  // Session availability times
   const availabilityTimes = [
     "9:00 AM - 10:00 AM",
     "10:00 AM - 11:00 AM", 
@@ -141,7 +133,6 @@ const Profile: React.FC = () => {
   ];
 
   const handleSaveAvailability = async () => {
-    // We'll implement this functionality later
     toast({
       title: "Availability saved",
       description: "Your availability has been updated successfully",
@@ -149,7 +140,6 @@ const Profile: React.FC = () => {
   };
 
   const handleRequestAction = (id: number, action: "accept" | "decline") => {
-    // We'll implement this functionality later
     toast({
       title: action === "accept" ? "Request accepted" : "Request declined",
       description: action === "accept"
@@ -157,7 +147,6 @@ const Profile: React.FC = () => {
         : "The request has been declined",
     });
     
-    // Update session requests by removing the one that was acted upon
     setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
@@ -165,7 +154,6 @@ const Profile: React.FC = () => {
     if (!userId) return;
     
     try {
-      // Update bio in Supabase
       const { error } = await supabase
         .from('profiles')
         .update({ bio })
@@ -185,7 +173,6 @@ const Profile: React.FC = () => {
         description: "Your bio has been updated successfully",
       });
       
-      // Refresh user data to ensure consistency
       await refreshUserData();
     } catch (error: any) {
       toast({
@@ -200,8 +187,6 @@ const Profile: React.FC = () => {
     if (!userId) return;
     
     try {
-      // We'll implement the database updates for skills later
-      
       setShowSkillSaveButton(false);
       if (userData) {
         const updatedUserData = { 
@@ -218,7 +203,6 @@ const Profile: React.FC = () => {
         description: "Your skills have been updated successfully",
       });
       
-      // Refresh user data to ensure consistency
       await refreshUserData();
     } catch (error: any) {
       toast({
@@ -276,7 +260,6 @@ const Profile: React.FC = () => {
     if (!userId) return;
     
     try {
-      // Update profile in Supabase
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -311,7 +294,6 @@ const Profile: React.FC = () => {
         description: "Your profile has been updated successfully",
       });
       
-      // Refresh user data to ensure consistency
       await refreshUserData();
     } catch (error: any) {
       toast({
@@ -323,15 +305,14 @@ const Profile: React.FC = () => {
   };
 
   if (!isLoggedIn) {
-    return null; // The App's routes will redirect to login
+    return null;
   }
 
-  // Create a formatted profile object for the ProfileHeader component
   const profileData = userData ? {
     id: userData.id,
     name: `${userData.firstName} ${userData.lastName}`,
     avatar: userData.avatar || "/placeholder.svg",
-    rating: 4.8, // Default rating
+    rating: 4.8,
     location: userData.location,
     company: userData.occupation,
     education: userData.education,
@@ -365,6 +346,7 @@ const Profile: React.FC = () => {
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="skills">Skills</TabsTrigger>
+              <TabsTrigger value="connections">Connections</TabsTrigger>
               <TabsTrigger value="schedule">Schedule & Availability</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -554,6 +536,10 @@ const Profile: React.FC = () => {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="connections">
+              <ConnectionList />
             </TabsContent>
 
             <TabsContent value="add-skills">

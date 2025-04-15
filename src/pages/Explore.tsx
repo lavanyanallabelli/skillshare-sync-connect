@@ -1,14 +1,32 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { Star, Users, Clock, Filter, Search } from "lucide-react";
+import { 
+  Star, 
+  Users, 
+  Clock, 
+  Filter, 
+  Search, 
+  UserPlus, 
+  UserCheck, 
+  BookOpen
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 // Sample skills data - in a real app, this would come from an API
 const allSkills = [
@@ -92,12 +110,60 @@ const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "L
 const Explore: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isLoggedIn, userId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [minRating, setMinRating] = useState(0);
+  const [skillsData, setSkillsData] = useState(allSkills);
+  const [connectionStatus, setConnectionStatus] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch skills and connection status on component mount
+  useEffect(() => {
+    const fetchSkillsAndConnections = async () => {
+      setIsLoading(true);
+      try {
+        // In a real app, we would fetch actual teachers with their skills
+        // For now, we'll use the sample data but implement the connection functionality
+        
+        if (userId) {
+          // Fetch connection statuses for the current user
+          const { data: connections, error } = await supabase
+            .from('connections')
+            .select('*')
+            .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`);
+            
+          if (error) throw error;
+          
+          // Create a map of teacher ID to connection status
+          const statusMap: Record<string, string> = {};
+          connections?.forEach(conn => {
+            if (conn.requester_id === userId) {
+              statusMap[conn.recipient_id] = conn.status;
+            } else {
+              statusMap[conn.requester_id] = conn.status;
+            }
+          });
+          
+          setConnectionStatus(statusMap);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+          title: "Error loading data",
+          description: "Could not load skills and connection data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSkillsAndConnections();
+  }, [userId, toast]);
 
   // Filter skills based on search, category and rating
-  const filteredSkills = allSkills.filter((skill) => {
+  const filteredSkills = skillsData.filter((skill) => {
     const matchesSearch = skill.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || skill.category === selectedCategory;
     const matchesRating = skill.rating >= minRating;
@@ -105,11 +171,83 @@ const Explore: React.FC = () => {
     return matchesSearch && matchesCategory && matchesRating;
   });
 
-  const handleSendRequest = (skillId: number) => {
-    toast({
-      title: "Request Sent!",
-      description: "Your learning request has been sent to the teacher.",
-    });
+  const handleSendRequest = async (skillId: number, teacherId: string) => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to send a learning request",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+    
+    try {
+      // For learning requests, we'll implement this in a separate feature
+      toast({
+        title: "Request Sent!",
+        description: "Your learning request has been sent to the teacher.",
+      });
+    } catch (error) {
+      console.error("Error sending request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send request. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConnect = async (teacherId: string) => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to connect with teachers",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+    
+    try {
+      // Insert a new connection request
+      const { error } = await supabase
+        .from('connections')
+        .insert({
+          requester_id: userId,
+          recipient_id: teacherId,
+          status: 'pending'
+        });
+        
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Already Connected",
+            description: "You have already sent a connection request to this teacher",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        // Update local state
+        setConnectionStatus({
+          ...connectionStatus,
+          [teacherId]: 'pending'
+        });
+        
+        toast({
+          title: "Connection Request Sent!",
+          description: "Your connection request has been sent to the teacher.",
+        });
+      }
+    } catch (error) {
+      console.error("Error connecting:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send connection request. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -133,15 +271,19 @@ const Explore: React.FC = () => {
               </div>
             </div>
             <div>
-              <select
-                className="w-full h-10 px-3 rounded-md border border-input bg-background"
+              <Select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onValueChange={setSelectedCategory}
               >
-                {categories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
@@ -216,12 +358,45 @@ const Explore: React.FC = () => {
                     <span>{skill.duration}</span>
                   </div>
                 </div>
-                <Button 
-                  className="w-full bg-skill-purple hover:bg-skill-purple-dark"
-                  onClick={() => handleSendRequest(skill.id)}
-                >
-                  Send Learning Request
-                </Button>
+                
+                <div className="flex gap-2 w-full">
+                  <Button 
+                    className="flex-1 bg-skill-purple hover:bg-skill-purple-dark"
+                    onClick={() => handleSendRequest(skill.id, skill.teacherId)}
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Learn
+                  </Button>
+                  
+                  {!connectionStatus[skill.teacherId] ? (
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => handleConnect(skill.teacherId)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Connect
+                    </Button>
+                  ) : connectionStatus[skill.teacherId] === 'pending' ? (
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      disabled
+                    >
+                      <Clock className="mr-2 h-4 w-4" />
+                      Pending
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      disabled
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      Connected
+                    </Button>
+                  )}
+                </div>
               </CardFooter>
             </Card>
           ))}
