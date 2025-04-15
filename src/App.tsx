@@ -26,13 +26,15 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   userId: string | null;
+  refreshUserData: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   login: () => {},
   logout: () => {},
-  userId: null
+  userId: null,
+  refreshUserData: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -46,18 +48,75 @@ const App = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to fetch and update user profile data
+  const refreshUserData = async () => {
+    if (!userId) return;
+    
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return;
+      }
+      
+      if (profileData) {
+        // Fetch teaching skills
+        const { data: teachingSkills, error: teachingError } = await supabase
+          .from('teaching_skills')
+          .select('skill, proficiency_level')
+          .eq('user_id', userId);
+          
+        // Fetch learning skills
+        const { data: learningSkills, error: learningError } = await supabase
+          .from('learning_skills')
+          .select('skill')
+          .eq('user_id', userId);
+          
+        const userData = {
+          id: userId,
+          email: user?.email || "",
+          firstName: profileData.first_name,
+          lastName: profileData.last_name,
+          bio: profileData.bio || "",
+          location: profileData.location || "",
+          occupation: profileData.occupation || "",
+          education: profileData.education || "",
+          avatar: profileData.avatar_url || "/placeholder.svg",
+          teachingSkills: teachingSkills?.map(item => item.skill) || [],
+          learningSkills: learningSkills?.map(item => item.skill) || [],
+          createdAt: profileData.created_at
+        };
+        
+        localStorage.setItem("userData", JSON.stringify(userData));
+        console.log("Profile data refreshed:", userData);
+      }
+    } catch (error) {
+      console.error("Error in refreshUserData:", error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.id);
         const isAuthenticated = !!session;
         setSession(session);
         setUser(session?.user ?? null);
         setUserId(session?.user?.id ?? null);
         setIsLoggedIn(isAuthenticated);
         
-        if (isAuthenticated) {
+        if (isAuthenticated && session?.user?.id) {
           localStorage.setItem("isLoggedIn", "true");
+          // Use setTimeout to avoid potential Supabase auth deadlock issues
+          setTimeout(() => {
+            refreshUserData();
+          }, 0);
         } else {
           localStorage.setItem("isLoggedIn", "false");
           localStorage.removeItem("userData");
@@ -67,6 +126,7 @@ const App = () => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", session?.user?.id);
       const isAuthenticated = !!session;
       setSession(session);
       setUser(session?.user ?? null);
@@ -74,10 +134,15 @@ const App = () => {
       setIsLoggedIn(isAuthenticated);
       setIsLoading(false);
       
-      if (isAuthenticated) {
+      if (isAuthenticated && session?.user?.id) {
         localStorage.setItem("isLoggedIn", "true");
+        // Use setTimeout to avoid potential Supabase auth deadlock issues
+        setTimeout(() => {
+          refreshUserData();
+        }, 0);
       } else {
         localStorage.setItem("isLoggedIn", "false");
+        localStorage.removeItem("userData");
       }
     });
 
@@ -105,7 +170,7 @@ const App = () => {
   }
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, userId }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, userId, refreshUserData }}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />

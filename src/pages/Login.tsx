@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,11 +44,40 @@ const Login: React.FC = () => {
       if (error) throw error;
 
       if (data?.user) {
+        console.log("User authenticated successfully:", data.user.id);
         login();
         toast({
           title: "Welcome back!",
           description: "You've been successfully logged in.",
         });
+        
+        // Fetch user profile data after successful login
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+        } else if (profileData) {
+          console.log("Profile data fetched:", profileData);
+          localStorage.setItem("userData", JSON.stringify({
+            id: data.user.id,
+            email: data.user.email,
+            firstName: profileData.first_name,
+            lastName: profileData.last_name,
+            bio: profileData.bio || "",
+            location: profileData.location || "",
+            occupation: profileData.occupation || "",
+            education: profileData.education || "",
+            avatar: profileData.avatar_url || "/placeholder.svg",
+            teachingSkills: [],
+            learningSkills: [],
+            createdAt: profileData.created_at
+          }));
+        }
+        
         navigate("/profile");
       }
     } catch (error: any) {
@@ -57,6 +86,7 @@ const Login: React.FC = () => {
         description: error.message || "Failed to login",
         variant: "destructive",
       });
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +96,9 @@ const Login: React.FC = () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
+        options: {
+          redirectTo: window.location.origin + '/profile'
+        }
       });
 
       if (error) throw error;

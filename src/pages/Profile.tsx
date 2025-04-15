@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import { useAuth } from "@/App";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Clock,
   MapPin,
@@ -46,7 +46,7 @@ interface UserData {
 
 const Profile: React.FC = () => {
   const { toast } = useToast();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, userId, refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
@@ -69,24 +69,67 @@ const Profile: React.FC = () => {
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
 
-  // Load user data from localStorage
+  // Load user data
   useEffect(() => {
-    const storedUserData = localStorage.getItem("userData");
-    if (storedUserData) {
-      const parsedData = JSON.parse(storedUserData) as UserData;
-      setUserData(parsedData);
-      setBio(parsedData.bio || "");
-      setTeachingSkills(parsedData.teachingSkills || []);
-      setLearningSkills(parsedData.learningSkills || []);
+    const fetchUserData = async () => {
+      if (!userId) return;
       
-      // Initialize skill levels
-      const initialSkillLevels: Record<string, string> = {};
-      parsedData.teachingSkills?.forEach(skill => {
-        initialSkillLevels[skill] = "Intermediate";
-      });
-      setSkillLevels(initialSkillLevels);
-    }
-  }, []);
+      try {
+        // First try to get from localStorage
+        const storedUserData = localStorage.getItem("userData");
+        if (storedUserData) {
+          const parsedData = JSON.parse(storedUserData) as UserData;
+          setUserData(parsedData);
+          setBio(parsedData.bio || "");
+          setTeachingSkills(parsedData.teachingSkills || []);
+          setLearningSkills(parsedData.learningSkills || []);
+          
+          // Initialize skill levels
+          const initialSkillLevels: Record<string, string> = {};
+          parsedData.teachingSkills?.forEach(skill => {
+            initialSkillLevels[skill] = "Intermediate";
+          });
+          setSkillLevels(initialSkillLevels);
+        } else {
+          // If not in localStorage, fetch from Supabase
+          await refreshUserData();
+          // Try again after refreshing
+          const refreshedData = localStorage.getItem("userData");
+          if (refreshedData) {
+            const parsedData = JSON.parse(refreshedData) as UserData;
+            setUserData(parsedData);
+            setBio(parsedData.bio || "");
+            setTeachingSkills(parsedData.teachingSkills || []);
+            setLearningSkills(parsedData.learningSkills || []);
+            
+            const initialSkillLevels: Record<string, string> = {};
+            parsedData.teachingSkills?.forEach(skill => {
+              initialSkillLevels[skill] = "Intermediate";
+            });
+            setSkillLevels(initialSkillLevels);
+          }
+        }
+        
+        // Fetch teaching skills from database to get proficiency levels
+        const { data: teachingData, error: teachingError } = await supabase
+          .from('teaching_skills')
+          .select('skill, proficiency_level')
+          .eq('user_id', userId);
+          
+        if (!teachingError && teachingData) {
+          const levels: Record<string, string> = {};
+          teachingData.forEach(item => {
+            levels[item.skill] = item.proficiency_level;
+          });
+          setSkillLevels(levels);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [userId, refreshUserData]);
 
   // Session availability times
   const availabilityTimes = [
@@ -97,7 +140,8 @@ const Profile: React.FC = () => {
     "5:00 PM - 6:00 PM",
   ];
 
-  const handleSaveAvailability = () => {
+  const handleSaveAvailability = async () => {
+    // We'll implement this functionality later
     toast({
       title: "Availability saved",
       description: "Your availability has been updated successfully",
@@ -105,6 +149,7 @@ const Profile: React.FC = () => {
   };
 
   const handleRequestAction = (id: number, action: "accept" | "decline") => {
+    // We'll implement this functionality later
     toast({
       title: action === "accept" ? "Request accepted" : "Request declined",
       description: action === "accept"
@@ -116,34 +161,72 @@ const Profile: React.FC = () => {
     setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
-  const handleSaveBio = () => {
-    setEditingBio(false);
-    if (userData) {
-      const updatedUserData = { ...userData, bio };
-      localStorage.setItem("userData", JSON.stringify(updatedUserData));
-      setUserData(updatedUserData);
+  const handleSaveBio = async () => {
+    if (!userId) return;
+    
+    try {
+      // Update bio in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio })
+        .eq('id', userId);
+        
+      if (error) throw error;
+      
+      setEditingBio(false);
+      if (userData) {
+        const updatedUserData = { ...userData, bio };
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        setUserData(updatedUserData);
+      }
+      
+      toast({
+        title: "Profile updated",
+        description: "Your bio has been updated successfully",
+      });
+      
+      // Refresh user data to ensure consistency
+      await refreshUserData();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
     }
-    toast({
-      title: "Profile updated",
-      description: "Your bio has been updated successfully",
-    });
   };
 
-  const handleSaveSkills = () => {
-    setShowSkillSaveButton(false);
-    if (userData) {
-      const updatedUserData = { 
-        ...userData, 
-        teachingSkills, 
-        learningSkills 
-      };
-      localStorage.setItem("userData", JSON.stringify(updatedUserData));
-      setUserData(updatedUserData);
+  const handleSaveSkills = async () => {
+    if (!userId) return;
+    
+    try {
+      // We'll implement the database updates for skills later
+      
+      setShowSkillSaveButton(false);
+      if (userData) {
+        const updatedUserData = { 
+          ...userData, 
+          teachingSkills, 
+          learningSkills 
+        };
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        setUserData(updatedUserData);
+      }
+      
+      toast({
+        title: "Skills updated",
+        description: "Your skills have been updated successfully",
+      });
+      
+      // Refresh user data to ensure consistency
+      await refreshUserData();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update skills",
+        variant: "destructive",
+      });
     }
-    toast({
-      title: "Skills updated",
-      description: "Your skills have been updated successfully",
-    });
   };
 
   const handleRemoveTeachingSkill = (skill: string) => {
@@ -189,20 +272,53 @@ const Profile: React.FC = () => {
     });
   };
 
-  const handleUpdateProfile = (profileData: any) => {
-    if (userData) {
-      const updatedUserData = { 
-        ...userData,
-        firstName: profileData.name.split(' ')[0] || userData.firstName,
-        lastName: profileData.name.split(' ')[1] || userData.lastName,
-        location: profileData.location,
-        occupation: profileData.company,
-        education: profileData.education,
-        bio: profileData.bio
-      };
-      localStorage.setItem("userData", JSON.stringify(updatedUserData));
-      setUserData(updatedUserData);
-      setBio(profileData.bio);
+  const handleUpdateProfile = async (profileData: any) => {
+    if (!userId) return;
+    
+    try {
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: profileData.name.split(' ')[0] || "",
+          last_name: profileData.name.split(' ')[1] || "",
+          location: profileData.location,
+          occupation: profileData.company,
+          education: profileData.education,
+          bio: profileData.bio
+        })
+        .eq('id', userId);
+        
+      if (error) throw error;
+      
+      if (userData) {
+        const updatedUserData = { 
+          ...userData,
+          firstName: profileData.name.split(' ')[0] || userData.firstName,
+          lastName: profileData.name.split(' ')[1] || userData.lastName,
+          location: profileData.location,
+          occupation: profileData.company,
+          education: profileData.education,
+          bio: profileData.bio
+        };
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        setUserData(updatedUserData);
+        setBio(profileData.bio);
+      }
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+      
+      // Refresh user data to ensure consistency
+      await refreshUserData();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
     }
   };
 
