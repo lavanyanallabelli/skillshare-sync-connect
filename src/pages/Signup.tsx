@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea"; 
 import MainLayout from "@/components/layout/MainLayout";
-import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const Signup: React.FC = () => {
   const { toast } = useToast();
@@ -86,12 +86,13 @@ const Signup: React.FC = () => {
       
       toast({
         title: "Verification email sent",
-        description: "Please check your email for the verification code",
+        description: "Please check your email for the verification code. (Demo: use code 123456)",
       });
     }, 1000);
   };
 
   const handleVerifyEmail = () => {
+    // For demo purposes, accept any 6-digit code
     if (verificationCode.length !== 6) {
       toast({
         title: "Invalid code",
@@ -104,7 +105,7 @@ const Signup: React.FC = () => {
     setVerificationDialogOpen(false);
     setIsLoading(true);
     
-    // Create user object with unique ID
+    // Create user object with unique ID but without pre-populated data
     const userId = `user_${Date.now()}`;
     const userData = {
       id: userId,
@@ -120,6 +121,11 @@ const Signup: React.FC = () => {
       learningSkills: [],
       avatar: "/placeholder.svg",
       // No pre-populated data for new users
+      upcomingSessions: [],
+      pastSessions: [],
+      reviews: [],
+      requests: [],
+      messages: []
     };
     
     // Store user data in localStorage
@@ -148,7 +154,7 @@ const Signup: React.FC = () => {
       
       toast({
         title: "Verification email sent",
-        description: "Please check your email for the verification code",
+        description: "Please check your email for the verification code. (Demo: use code 123456)",
       });
     }, 1000);
   };
@@ -169,6 +175,17 @@ const Signup: React.FC = () => {
             <p className="text-muted-foreground">
               Join SkillSync to start learning and teaching new skills
             </p>
+          </div>
+          
+          <div className="bg-blue-50 p-4 rounded-md text-blue-700 mb-6 flex items-start gap-3">
+            <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">Demo Mode</p>
+              <p className="text-xs mt-1">
+                This is a demo application. Email verification is simulated. Use code "123456" when prompted.
+                For full functionality, connect to Supabase.
+              </p>
+            </div>
           </div>
           
           {step === 1 && (
@@ -392,6 +409,9 @@ const Signup: React.FC = () => {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Verify Your Email</DialogTitle>
+            <DialogDescription>
+              For this demo, use verification code "123456".
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="flex items-start gap-3 mb-4 p-3 bg-blue-50 rounded-md text-blue-700">
@@ -399,6 +419,7 @@ const Signup: React.FC = () => {
               <div>
                 <p className="text-sm font-medium">Check your email</p>
                 <p className="text-xs mt-1">We've sent a 6-digit verification code to {email}</p>
+                <p className="text-xs mt-1 font-bold">(Demo: use code 123456)</p>
               </div>
             </div>
 

@@ -99,8 +99,8 @@ const App = () => {
               <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/profile" element={isLoggedIn ? <Profile /> : <Navigate to="/login" />} />
               <Route path="/skills" element={isLoggedIn ? <Skills /> : <Navigate to="/login" />} />
-              <Route path="/sessions" element={isLoggedIn ? <Navigate to="/profile?tab=schedule" /> : <Navigate to="/login" />} />
-              <Route path="/communities" element={isLoggedIn ? <Navigate to="/dashboard?tab=communities" /> : <Navigate to="/login" />} />
+              <Route path="/sessions" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
+              <Route path="/communities" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
