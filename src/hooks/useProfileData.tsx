@@ -15,7 +15,7 @@ export interface UserData {
   learningSkills: string[];
   avatar: string;
   createdAt: string;
-  experiences?: { id: string; title: string; company: string; startDate: string; endDate?: string; location: string; description?: string }[];
+  experiences?: { id: string; title: string; company: string; startDate: string; endDate?: string; location?: string; description?: string }[];
   educations?: { id: string; school: string; degree: string; field: string; startDate: string; endDate?: string }[];
   skills?: string[];
   headline?: string;
@@ -97,7 +97,8 @@ export const useProfileData = (userId: string | null) => {
             id: exp.id,
             title: exp.position,
             company: exp.company,
-            location: exp.location || '',
+            // Fix: Don't access location property as it doesn't exist in the exp object
+            location: '',  // Default to empty string
             startDate: exp.start_date,
             endDate: exp.end_date,
             description: exp.description

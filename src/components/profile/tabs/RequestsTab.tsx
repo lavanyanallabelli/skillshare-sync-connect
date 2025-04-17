@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "../common/ProfileUIComponents";
 
 interface RequestsTabProps {
   sessionRequests: any[];
-  setSessionRequests: (requests: any[]) => void;
+  setSessionRequests: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests }) => {
@@ -23,7 +24,8 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         : "The request has been declined",
     });
 
-    setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
+    // Fix: properly typing the function to match React.Dispatch<React.SetStateAction<any[]>>
+    setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
   };
 
   return (
@@ -80,12 +82,10 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No pending requests</p>
-              <p className="text-sm mt-2">
-                New session requests will appear here
-              </p>
-            </div>
+            <EmptyState 
+              message="No pending requests" 
+              subMessage="New session requests will appear here"
+            />
           )}
         </CardContent>
       </Card>

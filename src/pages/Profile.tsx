@@ -14,6 +14,7 @@ import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
 import ReviewsTab from "@/components/profile/tabs/ReviewsTab";
 import RequestsTab from "@/components/profile/tabs/RequestsTab";
 import { useProfileData } from "@/hooks/useProfileData";
+import { supabase } from "@/integrations/supabase/client"; // Added missing import
 
 const Profile: React.FC = () => {
   const { toast } = useToast();
