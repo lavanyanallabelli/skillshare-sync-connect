@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -24,6 +23,7 @@ import {
   UserCheck,
   Clock as PendingIcon
 } from "lucide-react";
+import MessageDialog from "@/components/messages/MessageDialog";
 
 // Sample teacher data
 const teacherData = {
@@ -68,8 +68,9 @@ const TeacherProfile = () => {
   const [selectedSkill, setSelectedSkill] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [teacher, setTeacher] = useState(teacherData);
-  const [reviews, setReviews] = useState(reviewsData);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [teacher, setTeacher] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -83,15 +84,76 @@ const TeacherProfile = () => {
   ];
 
   useEffect(() => {
+    const fetchTeacherData = async () => {
+      if (!id) return;
+
+      try {
+        // Fetch teacher profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // Fetch teaching skills
+        const { data: teachingSkills, error: skillsError } = await supabase
+          .from('teaching_skills')
+          .select('*')
+          .eq('user_id', id);
+
+        if (skillsError) throw skillsError;
+
+        // Fetch learning skills
+        const { data: learningSkills, error: learningError } = await supabase
+          .from('learning_skills')
+          .select('*')
+          .eq('user_id', id);
+
+        if (learningError) throw learningError;
+
+        // Format the teacher data
+        const formattedTeacher = {
+          id: profileData.id,
+          name: `${profileData.first_name} ${profileData.last_name}`,
+          avatar: profileData.avatar_url || "/placeholder.svg",
+          rating: 4.8, // Default rating for now
+          location: profileData.location || "",
+          company: profileData.occupation || "",
+          education: profileData.education || "",
+          achievements: ["New Member"], // Default achievements for now
+          bio: profileData.bio || "",
+          teachingSkills: teachingSkills?.map(skill => skill.skill) || [],
+          learningSkills: learningSkills?.map(skill => skill.skill) || []
+        };
+
+        setTeacher(formattedTeacher);
+      } catch (error) {
+        console.error("Error fetching teacher data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load teacher profile",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTeacherData();
+  }, [id, toast]);
+
+  useEffect(() => {
     // In a real app, we would fetch the teacher data from the API using the ID
     // For now, we'll use the mock data
-    
+
     const checkConnectionStatus = async () => {
       if (!isLoggedIn || !userId) {
         setIsLoading(false);
         return;
       }
-      
+
       try {
         // Check if there's a connection between the current user and the teacher
         const { data, error } = await supabase
@@ -99,11 +161,11 @@ const TeacherProfile = () => {
           .select('*')
           .or(`and(requester_id.eq.${userId},recipient_id.eq.${id}),and(requester_id.eq.${id},recipient_id.eq.${userId})`)
           .single();
-          
+
         if (error && error.code !== 'PGRST116') { // PGRST116 means no rows returned
           throw error;
         }
-        
+
         if (data) {
           setConnectionStatus(data.status);
         } else {
@@ -115,7 +177,7 @@ const TeacherProfile = () => {
         setIsLoading(false);
       }
     };
-    
+
     checkConnectionStatus();
   }, [id, isLoggedIn, userId]);
 
@@ -128,7 +190,7 @@ const TeacherProfile = () => {
       });
       return;
     }
-    
+
     try {
       // Insert a new connection request
       const { error } = await supabase
@@ -138,7 +200,7 @@ const TeacherProfile = () => {
           recipient_id: id,
           status: 'pending'
         });
-        
+
       if (error) {
         if (error.code === '23505') { // Unique violation
           toast({
@@ -150,7 +212,7 @@ const TeacherProfile = () => {
         }
       } else {
         setConnectionStatus('pending');
-        
+
         toast({
           title: "Connection Request Sent!",
           description: "Your connection request has been sent to the teacher.",
@@ -175,7 +237,7 @@ const TeacherProfile = () => {
       });
       return;
     }
-    
+
     if (!selectedTimeSlot) {
       toast({
         title: "Time Slot Required",
@@ -184,17 +246,55 @@ const TeacherProfile = () => {
       });
       return;
     }
-    
+
     // In a real app, we would make an API call to book the session
     toast({
       title: "Session Requested",
       description: `Your learning request has been sent to ${teacher.name}`,
     });
-    
+
     setDialogOpen(false);
     setSelectedSkill("");
     setSelectedTimeSlot("");
   };
+
+  const handleMessageClick = () => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to send messages",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMessageDialogOpen(true);
+  };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="container max-w-6xl py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-skill-purple"></div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!teacher) {
+    return (
+      <MainLayout>
+        <div className="container max-w-6xl py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Teacher not found</h2>
+            <p className="mt-2 text-gray-600">The teacher profile you're looking for doesn't exist.</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -202,29 +302,17 @@ const TeacherProfile = () => {
         <ProfileHeader
           {...teacher}
           isOwnProfile={false}
-          actionButton={
-            isLoading ? (
-              <Button disabled>
-                <PendingIcon className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </Button>
-            ) : connectionStatus === 'accepted' ? (
-              <Button className="bg-green-500 hover:bg-green-600" disabled>
-                <UserCheck className="mr-2 h-4 w-4" />
-                Connected
-              </Button>
-            ) : connectionStatus === 'pending' ? (
-              <Button variant="outline" disabled>
-                <PendingIcon className="mr-2 h-4 w-4" />
-                Request Pending
-              </Button>
-            ) : (
-              <Button onClick={handleConnect} className="bg-skill-purple hover:bg-skill-purple-dark">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Connect
-              </Button>
-            )
-          }
+          onMessageClick={handleMessageClick}
+          onBookSessionClick={() => setDialogOpen(true)}
+          actionButton={null}
+        />
+
+        <MessageDialog
+          isOpen={messageDialogOpen}
+          onClose={() => setMessageDialogOpen(false)}
+          receiverId={teacher?.id}
+          receiverName={teacher?.name}
+          receiverAvatar={teacher?.avatar}
         />
 
         <div className="mt-8">
@@ -243,13 +331,13 @@ const TeacherProfile = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {teacher.teachingSkills.map((skill) => (
+                      {teacher.teachingSkills?.map((skill) => (
                         <Badge key={skill} className="py-2 px-3">
                           {skill}
                         </Badge>
                       ))}
                     </div>
-                    
+
                     <div className="mt-6">
                       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
@@ -265,7 +353,7 @@ const TeacherProfile = () => {
                             <div>
                               <Label>Select a skill you want to learn</Label>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {teacher.teachingSkills.map((skill) => (
+                                {teacher.teachingSkills?.map((skill) => (
                                   <Badge
                                     key={skill}
                                     variant={selectedSkill === skill ? "default" : "outline"}
@@ -277,7 +365,7 @@ const TeacherProfile = () => {
                                 ))}
                               </div>
                             </div>
-                            
+
                             <div>
                               <Label>Select a date</Label>
                               <Calendar
@@ -285,13 +373,13 @@ const TeacherProfile = () => {
                                 selected={selectedDate}
                                 onSelect={setSelectedDate}
                                 className="rounded-md border mt-2"
-                                disabled={(date) => 
-                                  date < new Date() || 
+                                disabled={(date) =>
+                                  date < new Date() ||
                                   date > new Date(new Date().setDate(new Date().getDate() + 30))
                                 }
                               />
                             </div>
-                            
+
                             <div>
                               <Label>
                                 Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
@@ -309,7 +397,7 @@ const TeacherProfile = () => {
                                 ))}
                               </div>
                             </div>
-                            
+
                             <div className="pt-4 flex justify-end gap-2">
                               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                                 Cancel
@@ -324,20 +412,20 @@ const TeacherProfile = () => {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle>Skills I'm Learning</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {teacher.learningSkills.map((skill) => (
+                      {teacher.learningSkills?.map((skill) => (
                         <Badge key={skill} variant="secondary" className="py-2 px-3">
                           {skill}
                         </Badge>
                       ))}
                     </div>
-                    
+
                     <div className="mt-6">
                       <Button className="w-full" variant="outline">
                         <MessageSquare className="mr-2 h-4 w-4" />
@@ -372,9 +460,8 @@ const TeacherProfile = () => {
                                 {Array(5).fill(0).map((_, i) => (
                                   <Star
                                     key={i}
-                                    className={`h-4 w-4 ${
-                                      i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                    }`}
+                                    className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                      }`}
                                   />
                                 ))}
                               </div>
@@ -404,13 +491,13 @@ const TeacherProfile = () => {
                         selected={selectedDate}
                         onSelect={setSelectedDate}
                         className="rounded-md border mt-2"
-                        disabled={(date) => 
-                          date < new Date() || 
+                        disabled={(date) =>
+                          date < new Date() ||
                           date > new Date(new Date().setDate(new Date().getDate() + 30))
                         }
                       />
                     </div>
-                    
+
                     <div className="space-y-4">
                       <h3 className="font-medium">
                         Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
@@ -420,8 +507,8 @@ const TeacherProfile = () => {
                           <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
                             <Clock className="h-4 w-4 text-muted-foreground" />
                             <span>{time}</span>
-                            <Button 
-                              className="ml-auto bg-skill-purple hover:bg-skill-purple-dark" 
+                            <Button
+                              className="ml-auto bg-skill-purple hover:bg-skill-purple-dark"
                               size="sm"
                               onClick={() => {
                                 setSelectedTimeSlot(time);

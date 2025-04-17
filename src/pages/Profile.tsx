@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
@@ -15,6 +14,7 @@ const ScheduleTab = lazy(() => import("@/components/profile/tabs/ScheduleTab"));
 const AvailabilityTab = lazy(() => import("@/components/profile/tabs/AvailabilityTab"));
 const ReviewsTab = lazy(() => import("@/components/profile/tabs/ReviewsTab"));
 const RequestsTab = lazy(() => import("@/components/profile/tabs/RequestsTab"));
+const ConnectionList = lazy(() => import("@/components/profile/ConnectionList"));
 
 // Import hook
 import { useProfileData } from "@/hooks/useProfileData";
@@ -94,7 +94,7 @@ const Profile: React.FC = () => {
             bio: profileData.bio || userData.bio
           })
           .eq('id', userId);
-          
+
         if (error) throw error;
 
         const updatedUserData = {
@@ -191,6 +191,10 @@ const Profile: React.FC = () => {
           </Suspense>
         </ErrorBoundary>
 
+        <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
+          <ConnectionList />
+        </Suspense>
+
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
@@ -203,7 +207,7 @@ const Profile: React.FC = () => {
 
             <TabsContent value="profile">
               <Suspense fallback={<TabLoadingPlaceholder />}>
-                <ProfileTab 
+                <ProfileTab
                   userData={userData}
                   userId={userId}
                   bio={bio}
@@ -231,7 +235,7 @@ const Profile: React.FC = () => {
 
             <TabsContent value="schedule">
               <Suspense fallback={<TabLoadingPlaceholder />}>
-                <ScheduleTab 
+                <ScheduleTab
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                   selectedTimes={selectedTimes}
@@ -255,7 +259,7 @@ const Profile: React.FC = () => {
 
             <TabsContent value="requests">
               <Suspense fallback={<TabLoadingPlaceholder />}>
-                <RequestsTab 
+                <RequestsTab
                   sessionRequests={sessionRequests}
                   setSessionRequests={setSessionRequests}
                 />
