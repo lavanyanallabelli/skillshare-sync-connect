@@ -63,6 +63,7 @@ const App = () => {
       }
       
       if (profileData) {
+        // Fetch experiences
         const { data: experiences, error: experiencesError } = await supabase
           .from('user_experiences')
           .select('*')
@@ -72,6 +73,7 @@ const App = () => {
           console.error("Error fetching experiences:", experiencesError);
         }
         
+        // Fetch education
         const { data: education, error: educationError } = await supabase
           .from('user_education')
           .select('*')
@@ -81,6 +83,7 @@ const App = () => {
           console.error("Error fetching education:", educationError);
         }
         
+        // Fetch teaching skills
         const { data: teachingSkills, error: teachingError } = await supabase
           .from('teaching_skills')
           .select('skill, proficiency_level')
@@ -90,6 +93,7 @@ const App = () => {
           console.error("Error fetching teaching skills:", teachingError);
         }
         
+        // Fetch learning skills
         const { data: learningSkills, error: learningError } = await supabase
           .from('learning_skills')
           .select('skill')

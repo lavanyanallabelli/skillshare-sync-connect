@@ -264,7 +264,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </div>
 
           <div className="mt-4">
-            {teachingSkills.length > 0 && (
+            {teachingSkills && teachingSkills.length > 0 && (
               <div className="mb-4">
                 <h3 className="text-sm font-medium mb-2">Skills I Teach</h3>
                 <div className="flex flex-wrap gap-2">
@@ -277,7 +277,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               </div>
             )}
 
-            {learningSkills.length > 0 && (
+            {learningSkills && learningSkills.length > 0 && (
               <div className="mb-4">
                 <h3 className="text-sm font-medium mb-2">Skills I Want to Learn</h3>
                 <div className="flex flex-wrap gap-2">

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserData {
   id: string;
@@ -48,6 +49,11 @@ interface UserData {
   experiences?: { id: string; title: string; company: string; startDate: string; endDate?: string; location: string; description?: string }[];
   educations?: { id: string; school: string; degree: string; field: string; startDate: string; endDate?: string }[];
   skills?: string[];
+  headline?: string;
+  website?: string;
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
 }
 
 interface Experience {
@@ -71,7 +77,7 @@ interface Education {
 
 const Profile: React.FC = () => {
   const { toast } = useToast();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, userId } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
@@ -184,17 +190,36 @@ const Profile: React.FC = () => {
     setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
-  const handleSaveBio = () => {
+  const handleSaveBio = async () => {
     setEditingBio(false);
-    if (userData) {
-      const updatedUserData = { ...userData, bio };
-      localStorage.setItem("userData", JSON.stringify(updatedUserData));
-      setUserData(updatedUserData);
+    if (userData && userId) {
+      try {
+        // Update in Supabase
+        const { error } = await supabase
+          .from('profiles')
+          .update({ bio: bio })
+          .eq('id', userId);
+          
+        if (error) throw error;
+        
+        // Update local state
+        const updatedUserData = { ...userData, bio };
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        setUserData(updatedUserData);
+        
+        toast({
+          title: "Profile updated",
+          description: "Your bio has been updated successfully",
+        });
+      } catch (error) {
+        console.error('Error updating bio:', error);
+        toast({
+          title: "Error updating bio",
+          description: "Failed to update your bio. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
-    toast({
-      title: "Profile updated",
-      description: "Your bio has been updated successfully",
-    });
   };
 
   const handleBookSession = (session: any) => {
@@ -210,45 +235,68 @@ const Profile: React.FC = () => {
     });
   };
 
-  const handleUpdateProfile = (profileData: any) => {
-    if (userData) {
-      const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
+  const handleUpdateProfile = async (profileData: any) => {
+    if (userData && userId) {
+      try {
+        const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
 
-      const updatedUserData = {
-        ...userData,
-        firstName: firstName || userData.firstName,
-        lastName: lastName || userData.lastName,
-        location: profileData.location || userData.location,
-        occupation: profileData.company || userData.occupation,
-        bio: profileData.bio || userData.bio
-      };
+        // Update profile in Supabase
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            first_name: firstName || userData.firstName,
+            last_name: lastName || userData.lastName,
+            location: profileData.location || userData.location,
+            occupation: profileData.company || userData.occupation,
+            bio: profileData.bio || userData.bio
+          })
+          .eq('id', userId);
+          
+        if (error) throw error;
 
-      // Save to localStorage
-      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        const updatedUserData = {
+          ...userData,
+          firstName: firstName || userData.firstName,
+          lastName: lastName || userData.lastName,
+          location: profileData.location || userData.location,
+          occupation: profileData.company || userData.occupation,
+          bio: profileData.bio || userData.bio
+        };
 
-      // Update state
-      setUserData(updatedUserData);
+        // Save to localStorage
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
 
-      // Update individual states
-      if (profileData.bio) {
-        setBio(profileData.bio);
-      }
+        // Update state
+        setUserData(updatedUserData);
 
-      // Force a re-render of the ProfileHeader component
-      const event = new CustomEvent('profileUpdated', {
-        detail: {
-          name: profileData.name,
-          location: profileData.location,
-          company: profileData.company,
-          bio: profileData.bio
+        // Update individual states
+        if (profileData.bio) {
+          setBio(profileData.bio);
         }
-      });
-      window.dispatchEvent(event);
 
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
-      });
+        // Force a re-render of the ProfileHeader component
+        const event = new CustomEvent('profileUpdated', {
+          detail: {
+            name: profileData.name,
+            location: profileData.location,
+            company: profileData.company,
+            bio: profileData.bio
+          }
+        });
+        window.dispatchEvent(event);
+
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully",
+        });
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        toast({
+          title: "Error updating profile",
+          description: "Failed to update your profile. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -380,6 +428,113 @@ const Profile: React.FC = () => {
     company: "",
     education: "",
     achievements: ["New Member"]
+  };
+
+  const saveExperiences = async () => {
+    if (!userId) return;
+    
+    try {
+      // First, delete all existing experiences
+      const { error: deleteError } = await supabase
+        .from('user_experiences')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (deleteError) throw deleteError;
+      
+      // Then insert the current experiences
+      if (experiences.length > 0) {
+        const experiencesToInsert = experiences.map(exp => ({
+          user_id: userId,
+          company: exp.company,
+          position: exp.title,
+          description: exp.description || '',
+          start_date: exp.startDate || null,
+          end_date: exp.endDate || null,
+          current: !exp.endDate
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('user_experiences')
+          .insert(experiencesToInsert);
+          
+        if (insertError) throw insertError;
+      }
+      
+      // Refresh user profile data
+      // await refreshUserData();
+      
+      toast({
+        title: "Experiences saved",
+        description: "Your work experiences have been updated successfully",
+      });
+    } catch (error) {
+      console.error('Error saving experiences:', error);
+      toast({
+        title: "Error saving experiences",
+        description: "Failed to save your experiences. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveEducation = async () => {
+    if (!userId) return;
+    
+    try {
+      // First, delete all existing education entries
+      const { error: deleteError } = await supabase
+        .from('user_education')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (deleteError) throw deleteError;
+      
+      // Then insert the current education entries
+      if (educations.length > 0) {
+        const educationsToInsert = educations.map(edu => ({
+          user_id: userId,
+          institution: edu.school,
+          degree: edu.degree,
+          field_of_study: edu.field || '',
+          start_date: edu.startDate || null,
+          end_date: edu.endDate || null,
+          current: !edu.endDate
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('user_education')
+          .insert(educationsToInsert);
+          
+        if (insertError) throw insertError;
+      }
+      
+      // Refresh user profile data
+      // await refreshUserData();
+      
+      toast({
+        title: "Education saved",
+        description: "Your education information has been updated successfully",
+      });
+    } catch (error) {
+      console.error('Error saving education:', error);
+      toast({
+        title: "Error saving education",
+        description: "Failed to save your education. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Update the experience and education save handlers
+  const handleSaveExperience = () => {
+    setEditingExperience(false);
+    saveExperiences();
+  };
+
+  const handleSaveEducation = () => {
+    setEditingEducation(false);
+    saveEducation();
   };
 
   return (
@@ -559,10 +714,7 @@ const Profile: React.FC = () => {
                           Add Experience
                         </Button>
                         <Button
-                          onClick={() => {
-                            setEditingExperience(false);
-                            // Save experience data here
-                          }}
+                          onClick={handleSaveExperience}
                           className="w-full mt-2"
                         >
                           Save Experience
@@ -676,10 +828,7 @@ const Profile: React.FC = () => {
                           Add Education
                         </Button>
                         <Button
-                          onClick={() => {
-                            setEditingEducation(false);
-                            // Save education data here
-                          }}
+                          onClick={handleSaveEducation}
                           className="w-full mt-2"
                         >
                           Save Education
@@ -846,269 +995,4 @@ const Profile: React.FC = () => {
                             setEditingEducation(false);
                             setEditingSkills(false);
                           }}
-                          className="w-full mt-2"
-                        >
-                          Exit Editing Mode
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Upcoming Sessions */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Upcoming Sessions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {upcomingSessions.length > 0 ? (
-                        upcomingSessions.map((session) => (
-                          <SessionCard key={session.id} session={session} />
-                        ))
-                      ) : (
-                        <EmptyState message="No upcoming sessions" subMessage="Book a session or wait for requests" />
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="availability">
-              <div className="grid grid-cols-1 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Your Availability</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {Object.entries(selectedTimes).length > 0 ? (
-                        Object.entries(selectedTimes).map(([date, times]) => (
-                          <div key={date} className="border rounded-lg p-4">
-                            <h3 className="font-medium mb-2">
-                              {format(new Date(date), "MMMM d, yyyy")}
-                            </h3>
-                            <div className="space-y-1">
-                              {times.map((time) => (
-                                <div key={time} className="flex items-center text-sm text-muted-foreground">
-                                  <Clock className="h-4 w-4 mr-2" />
-                                  {time}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No availability set yet</p>
-                          <p className="text-sm mt-2">Set your schedule to show your availability</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Session Requests */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Session Requests</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {sessionRequests.length > 0 ? (
-                        sessionRequests.map((request) => (
-                          <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={request.avatar} alt="User avatar" />
-                                <AvatarFallback>JD</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium">{request.student}</h4>
-                                <div className="flex items-center text-sm text-muted-foreground">
-                                  <Badge variant="outline" className="mr-2">Requested</Badge>
-                                  {request.skill}
-                                </div>
-                                <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                  <CalendarIcon className="h-3 w-3 mr-1" />
-                                  {request.date}, {request.time}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => handleRequestAction(request.id, "accept")}
-                                className="bg-skill-purple hover:bg-skill-purple-dark"
-                                size="sm"
-                              >
-                                Accept
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRequestAction(request.id, "decline")}
-                              >
-                                Decline
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No pending requests</p>
-                          <p className="text-sm mt-2">When someone requests a session, it will appear here</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="reviews">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reviews from Students</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {reviews.length > 0 ? (
-                    <div className="space-y-6">
-                      {reviews.map((review) => (
-                        <div key={review.id} className="border-b pb-6 last:border-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={review.avatar} alt="User avatar" />
-                                <AvatarFallback>JD</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium">{review.name}</h4>
-                                <div className="flex items-center mt-1">
-                                  {Array(5).fill(0).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                        }`}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-sm text-muted-foreground">{review.date}</span>
-                          </div>
-                          <p className="mt-3">{review.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No reviews yet</p>
-                      <p className="text-sm mt-2">Once you teach others, they can leave reviews here</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="requests">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Session Requests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {sessionRequests.length > 0 ? (
-                    <div className="space-y-4">
-                      {sessionRequests.map((request) => (
-                        <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={request.avatar} alt="User avatar" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h4 className="font-medium">{request.student}</h4>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <Badge variant="outline" className="mr-2">Requested</Badge>
-                                {request.skill}
-                              </div>
-                              <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                <CalendarIcon className="h-3 w-3 mr-1" />
-                                {request.date}, {request.time}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => handleRequestAction(request.id, "accept")}
-                              className="bg-skill-purple hover:bg-skill-purple-dark"
-                              size="sm"
-                            >
-                              Accept
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRequestAction(request.id, "decline")}
-                            >
-                              Decline
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No pending requests</p>
-                      <p className="text-sm mt-2">When someone requests a session, it will appear here</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Book Session</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            {selectedSession && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={selectedSession.avatar} alt="User avatar" />
-                    <AvatarFallback>JD</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h4 className="font-medium">{selectedSession.with}</h4>
-                    <p className="text-sm text-muted-foreground">{selectedSession.skill}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Date</Label>
-                    <div className="mt-1 font-medium">{selectedSession.date}</div>
-                  </div>
-                  <div>
-                    <Label>Time</Label>
-                    <div className="mt-1 font-medium">{selectedSession.time}</div>
-                  </div>
-                </div>
-                <div className="pt-4 space-x-2 flex justify-end">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                  <Button className="bg-skill-purple" onClick={confirmBooking}>Confirm Booking</Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </ProfileLayout>
-  );
-};
-
-export default Profile;
+                          className="w-full mt-
