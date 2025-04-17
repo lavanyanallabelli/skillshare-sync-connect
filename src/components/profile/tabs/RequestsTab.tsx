@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,45 @@ interface RequestsTabProps {
   setSessionRequests: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
+// Use memoization to prevent unnecessary re-renders
+const RequestCard = memo(({ request, onAccept, onDecline }: { 
+  request: any,
+  onAccept: () => void,
+  onDecline: () => void
+}) => (
+  <div className="flex items-center justify-between border rounded-lg p-4">
+    <div className="flex items-center gap-3">
+      <Avatar>
+        <AvatarImage src={request.avatar} alt="User avatar" />
+        <AvatarFallback>
+          {request.from.split(" ").map((n: string) => n[0]).join("")}
+        </AvatarFallback>
+      </Avatar>
+      <div>
+        <h4 className="font-medium">{request.from}</h4>
+        <div className="flex items-center text-sm text-muted-foreground">
+          <Badge variant="outline" className="mr-2">
+            {request.role === "teacher" ? "Teaching" : "Learning"}
+          </Badge>
+          {request.skill}
+        </div>
+        <p className="text-sm text-muted-foreground flex items-center mt-1">
+          <CalendarIcon className="h-3 w-3 mr-1" />
+          {request.date}, {request.time}
+        </p>
+      </div>
+    </div>
+    <div className="flex gap-2">
+      <Button variant="outline" size="sm" onClick={onDecline}>
+        Decline
+      </Button>
+      <Button size="sm" onClick={onAccept}>
+        Accept
+      </Button>
+    </div>
+  </div>
+));
+
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests }) => {
   const { toast } = useToast();
 
@@ -24,7 +63,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         : "The request has been declined",
     });
 
-    // Fix: properly typing the function to match React.Dispatch<React.SetStateAction<any[]>>
     setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
   };
 
@@ -38,47 +76,12 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           {sessionRequests.length > 0 ? (
             <div className="space-y-4">
               {sessionRequests.map((request) => (
-                <div
+                <RequestCard 
                   key={request.id}
-                  className="flex items-center justify-between border rounded-lg p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={request.avatar} alt="User avatar" />
-                      <AvatarFallback>
-                        {request.from.split(" ").map((n: string) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium">{request.from}</h4>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Badge variant="outline" className="mr-2">
-                          {request.role === "teacher" ? "Teaching" : "Learning"}
-                        </Badge>
-                        {request.skill}
-                      </div>
-                      <p className="text-sm text-muted-foreground flex items-center mt-1">
-                        <CalendarIcon className="h-3 w-3 mr-1" />
-                        {request.date}, {request.time}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRequestAction(request.id, "decline")}
-                    >
-                      Decline
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleRequestAction(request.id, "accept")}
-                    >
-                      Accept
-                    </Button>
-                  </div>
-                </div>
+                  request={request}
+                  onAccept={() => handleRequestAction(request.id, "accept")}
+                  onDecline={() => handleRequestAction(request.id, "decline")}
+                />
               ))}
             </div>
           ) : (
@@ -93,4 +96,4 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   );
 };
 
-export default RequestsTab;
+export default React.memo(RequestsTab);

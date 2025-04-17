@@ -1,23 +1,35 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useAuth } from "@/App";
-import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import ProfileHeader from "@/components/profile/ProfileHeader";
-import ProfileTab from "@/components/profile/tabs/ProfileTab";
-import ScheduleTab from "@/components/profile/tabs/ScheduleTab";
-import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
-import ReviewsTab from "@/components/profile/tabs/ReviewsTab";
-import RequestsTab from "@/components/profile/tabs/RequestsTab";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy-loaded components for better initial load time
+const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
+const ProfileTab = lazy(() => import("@/components/profile/tabs/ProfileTab"));
+const ScheduleTab = lazy(() => import("@/components/profile/tabs/ScheduleTab"));
+const AvailabilityTab = lazy(() => import("@/components/profile/tabs/AvailabilityTab"));
+const ReviewsTab = lazy(() => import("@/components/profile/tabs/ReviewsTab"));
+const RequestsTab = lazy(() => import("@/components/profile/tabs/RequestsTab"));
+
+// Import hook
 import { useProfileData } from "@/hooks/useProfileData";
-import { supabase } from "@/integrations/supabase/client"; // Added missing import
+
+// Loading placeholder
+const TabLoadingPlaceholder = () => (
+  <div className="space-y-4">
+    <Skeleton className="h-12 w-full" />
+    <Skeleton className="h-40 w-full" />
+    <Skeleton className="h-20 w-full" />
+    <Skeleton className="h-60 w-full" />
+  </div>
+);
 
 const Profile: React.FC = () => {
-  const { toast } = useToast();
   const { isLoggedIn, userId } = useAuth();
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
@@ -43,7 +55,8 @@ const Profile: React.FC = () => {
     setSkills,
     teachingSkills,
     learningSkills,
-    loading
+    loading,
+    refreshUserData
   } = useProfileData(userId);
 
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
@@ -109,18 +122,8 @@ const Profile: React.FC = () => {
           }
         });
         window.dispatchEvent(event);
-
-        toast({
-          title: "Profile updated",
-          description: "Your profile has been updated successfully",
-        });
       } catch (error) {
         console.error('Error updating profile:', error);
-        toast({
-          title: "Error updating profile",
-          description: "Failed to update your profile. Please try again.",
-          variant: "destructive",
-        });
       }
     }
   };
@@ -133,10 +136,10 @@ const Profile: React.FC = () => {
     return (
       <ProfileLayout>
         <div className="container max-w-6xl py-8">
-          <div className="animate-pulse">
-            <div className="bg-gray-200 h-40 rounded-lg mb-4"></div>
-            <div className="bg-gray-200 h-20 rounded-lg mb-4"></div>
-            <div className="bg-gray-200 h-60 rounded-lg"></div>
+          <div className="space-y-4">
+            <Skeleton className="h-40 w-full rounded-lg" />
+            <Skeleton className="h-20 w-full rounded-lg" />
+            <Skeleton className="h-60 w-full rounded-lg" />
           </div>
         </div>
       </ProfileLayout>
@@ -167,23 +170,25 @@ const Profile: React.FC = () => {
     <ProfileLayout>
       <div className="container max-w-6xl py-8">
         <ErrorBoundary>
-          <ProfileHeader
-            id={userData?.id}
-            name={`${userData?.firstName || ''} ${userData?.lastName || ''}`}
-            avatar={userData?.avatar || "/placeholder.svg"}
-            rating={4.8}
-            location={userData?.location || ""}
-            company={userData?.occupation || ""}
-            education={userData?.education || ""}
-            achievements={["New Member"]}
-            bio={userData?.bio}
-            isOwnProfile={true}
-            onUpdateProfile={handleUpdateProfile}
-            teachingSkills={teachingSkills}
-            learningSkills={learningSkills}
-            upcomingSessions={upcomingSessions}
-            setActiveTab={setActiveTab}
-          />
+          <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
+            <ProfileHeader
+              id={userData?.id}
+              name={`${userData?.firstName || ''} ${userData?.lastName || ''}`}
+              avatar={userData?.avatar || "/placeholder.svg"}
+              rating={4.8}
+              location={userData?.location || ""}
+              company={userData?.occupation || ""}
+              education={userData?.education || ""}
+              achievements={["New Member"]}
+              bio={userData?.bio}
+              isOwnProfile={true}
+              onUpdateProfile={handleUpdateProfile}
+              teachingSkills={teachingSkills}
+              learningSkills={learningSkills}
+              upcomingSessions={upcomingSessions}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
         </ErrorBoundary>
 
         <div className="mt-8">
@@ -197,54 +202,64 @@ const Profile: React.FC = () => {
             </TabsList>
 
             <TabsContent value="profile">
-              <ProfileTab 
-                userData={userData}
-                userId={userId}
-                bio={bio}
-                setBio={setBio}
-                editingBio={editingBio}
-                setEditingBio={setEditingBio}
-                experiences={experiences}
-                setExperiences={setExperiences}
-                educations={educations}
-                setEducations={setEducations}
-                skills={skills}
-                setSkills={setSkills}
-                upcomingSessions={upcomingSessions}
-                editingExperience={editingExperience}
-                setEditingExperience={setEditingExperience}
-                editingEducation={editingEducation}
-                setEditingEducation={setEditingEducation}
-                editingSkills={editingSkills}
-                setEditingSkills={setEditingSkills}
-                newSkill={newSkill}
-                setNewSkill={setNewSkill}
-              />
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <ProfileTab 
+                  userData={userData}
+                  userId={userId}
+                  bio={bio}
+                  setBio={setBio}
+                  editingBio={editingBio}
+                  setEditingBio={setEditingBio}
+                  experiences={experiences}
+                  setExperiences={setExperiences}
+                  educations={educations}
+                  setEducations={setEducations}
+                  skills={skills}
+                  setSkills={setSkills}
+                  upcomingSessions={upcomingSessions}
+                  editingExperience={editingExperience}
+                  setEditingExperience={setEditingExperience}
+                  editingEducation={editingEducation}
+                  setEditingEducation={setEditingEducation}
+                  editingSkills={editingSkills}
+                  setEditingSkills={setEditingSkills}
+                  newSkill={newSkill}
+                  setNewSkill={setNewSkill}
+                />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="schedule">
-              <ScheduleTab 
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                selectedTimes={selectedTimes}
-                setSelectedTimes={setSelectedTimes}
-                availabilityTimes={availabilityTimes}
-              />
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <ScheduleTab 
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  selectedTimes={selectedTimes}
+                  setSelectedTimes={setSelectedTimes}
+                  availabilityTimes={availabilityTimes}
+                />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="availability">
-              <AvailabilityTab selectedTimes={selectedTimes} />
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <AvailabilityTab selectedTimes={selectedTimes} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="reviews">
-              <ReviewsTab reviews={reviews} />
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <ReviewsTab reviews={reviews} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="requests">
-              <RequestsTab 
-                sessionRequests={sessionRequests}
-                setSessionRequests={setSessionRequests}
-              />
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <RequestsTab 
+                  sessionRequests={sessionRequests}
+                  setSessionRequests={setSessionRequests}
+                />
+              </Suspense>
             </TabsContent>
           </Tabs>
         </div>

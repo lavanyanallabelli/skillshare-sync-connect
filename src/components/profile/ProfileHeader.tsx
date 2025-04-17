@@ -1,5 +1,5 @@
-import React from 'react';
-import { useState, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,20 +14,18 @@ import {
   MessageSquare,
   Video,
   Edit,
-  Pencil,
-  Plus,
-  X,
-  Briefcase,
-  BookOpen,
-  Award as AwardIcon
+  Pencil
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { lazy } from "react";
+
+// Lazy loaded components
+const ProfileHeaderSkills = lazy(() => import("./partials/ProfileHeaderSkills"));
+const ProfileHeaderAchievements = lazy(() => import("./partials/ProfileHeaderAchievements"));
 
 interface ProfileHeaderProps {
   id?: string;
@@ -121,10 +119,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
     if (onUpdateProfile) {
       onUpdateProfile(updatedProfile);
-      setEditName(updatedProfile.name);
-      setEditLocation(updatedProfile.location);
-      setEditCompany(updatedProfile.company);
-      setEditBio(updatedProfile.bio);
     }
 
     setEditDialogOpen(false);
@@ -263,49 +257,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             )}
           </div>
 
-          <div className="mt-4">
-            {teachingSkills && teachingSkills.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium mb-2">Skills I Teach</h3>
-                <div className="flex flex-wrap gap-2">
-                  {teachingSkills.map((skill, index) => (
-                    <Badge key={index} variant="secondary">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Lazy loaded components */}
+          <React.Suspense fallback={<div className="h-16 bg-gray-100 animate-pulse rounded mt-4"></div>}>
+            <ProfileHeaderSkills teachingSkills={teachingSkills} learningSkills={learningSkills} />
+          </React.Suspense>
 
-            {learningSkills && learningSkills.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium mb-2">Skills I Want to Learn</h3>
-                <div className="flex flex-wrap gap-2">
-                  {learningSkills.map((skill, index) => (
-                    <Badge key={index} variant="outline">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Achievements</h3>
-            <div className="flex flex-wrap gap-2">
-              {achievements.map((achievement, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {achievement.includes("Top") ? (
-                    <Award className="h-3 w-3" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3" />
-                  )}
-                  {achievement}
-                </Badge>
-              ))}
-            </div>
-          </div>
+          <React.Suspense fallback={<div className="h-12 bg-gray-100 animate-pulse rounded mt-4"></div>}>
+            <ProfileHeaderAchievements achievements={achievements} />
+          </React.Suspense>
         </div>
       </div>
     </div>
