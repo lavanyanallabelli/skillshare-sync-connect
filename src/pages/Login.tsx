@@ -24,7 +24,6 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Basic validation
     if (!email || !password) {
       toast({
         title: "Error",
@@ -51,7 +50,6 @@ const Login: React.FC = () => {
           description: "You've been successfully logged in.",
         });
         
-        // Fetch user profile data after successful login
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -194,7 +192,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Button 
               variant="outline" 
               className="w-full" 
@@ -212,15 +210,6 @@ const Login: React.FC = () => {
             >
               <Mail className="mr-2 h-4 w-4" />
               Google
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              type="button"
-              onClick={() => handleSocialLogin("facebook")}
-            >
-              <Facebook className="mr-2 h-4 w-4" />
-              Facebook
             </Button>
           </div>
           
