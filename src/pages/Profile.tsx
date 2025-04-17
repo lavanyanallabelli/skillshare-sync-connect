@@ -92,7 +92,6 @@ const Profile: React.FC = () => {
   const [editingSkills, setEditingSkills] = useState(false);
   const [newSkill, setNewSkill] = useState("");
 
-  // User data state
   const [userData, setUserData] = useState<UserData | null>(null);
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [educations, setEducations] = useState<Education[]>([]);
@@ -100,14 +99,12 @@ const Profile: React.FC = () => {
   const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
   const [learningSkills, setLearningSkills] = useState<string[]>([]);
 
-  // Session data state
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
-  // Load user data from localStorage
   useEffect(() => {
     const storedUserData = localStorage.getItem("userData");
     if (storedUserData) {
@@ -120,7 +117,6 @@ const Profile: React.FC = () => {
       setTeachingSkills(parsedData.teachingSkills || []);
       setLearningSkills(parsedData.learningSkills || []);
 
-      // Initialize other sections if they don't exist
       if (!parsedData.experiences) {
         parsedData.experiences = [];
       }
@@ -137,12 +133,10 @@ const Profile: React.FC = () => {
         parsedData.learningSkills = [];
       }
 
-      // Save the initialized data back to localStorage
       localStorage.setItem("userData", JSON.stringify(parsedData));
     }
   }, []);
 
-  // Session availability times
   const availabilityTimes = [
     "9:00 AM - 10:00 AM",
     "10:00 AM - 11:00 AM",
@@ -163,7 +157,6 @@ const Profile: React.FC = () => {
       };
       setSelectedTimes(updatedSelectedTimes);
 
-      // Save to localStorage
       const storedUserData = localStorage.getItem("userData");
       if (storedUserData) {
         const userData = JSON.parse(storedUserData);
@@ -186,7 +179,6 @@ const Profile: React.FC = () => {
         : "The request has been declined",
     });
 
-    // Update session requests by removing the one that was acted upon
     setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
@@ -194,7 +186,6 @@ const Profile: React.FC = () => {
     setEditingBio(false);
     if (userData && userId) {
       try {
-        // Update in Supabase
         const { error } = await supabase
           .from('profiles')
           .update({ bio: bio })
@@ -202,7 +193,6 @@ const Profile: React.FC = () => {
           
         if (error) throw error;
         
-        // Update local state
         const updatedUserData = { ...userData, bio };
         localStorage.setItem("userData", JSON.stringify(updatedUserData));
         setUserData(updatedUserData);
@@ -240,7 +230,6 @@ const Profile: React.FC = () => {
       try {
         const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
 
-        // Update profile in Supabase
         const { error } = await supabase
           .from('profiles')
           .update({
@@ -263,18 +252,14 @@ const Profile: React.FC = () => {
           bio: profileData.bio || userData.bio
         };
 
-        // Save to localStorage
         localStorage.setItem("userData", JSON.stringify(updatedUserData));
 
-        // Update state
         setUserData(updatedUserData);
 
-        // Update individual states
         if (profileData.bio) {
           setBio(profileData.bio);
         }
 
-        // Force a re-render of the ProfileHeader component
         const event = new CustomEvent('profileUpdated', {
           detail: {
             name: profileData.name,
@@ -369,7 +354,6 @@ const Profile: React.FC = () => {
     setSkills(newSkills);
   };
 
-  // Consolidate the session card into a reusable component
   const SessionCard = ({ session }: { session: any }) => (
     <div className="flex items-center justify-between border rounded-lg p-4">
       <div className="flex items-center gap-3">
@@ -397,7 +381,6 @@ const Profile: React.FC = () => {
     </div>
   );
 
-  // Consolidate the empty state message
   const EmptyState = ({ message, subMessage }: { message: string; subMessage: string }) => (
     <div className="text-center py-8 text-muted-foreground">
       <p>{message}</p>
@@ -406,15 +389,14 @@ const Profile: React.FC = () => {
   );
 
   if (!isLoggedIn) {
-    return null; // The App's routes will redirect to login
+    return null;
   }
 
-  // Create a formatted profile object for the ProfileHeader component
   const profileData = userData ? {
     id: userData.id,
     name: `${userData.firstName} ${userData.lastName}`,
     avatar: userData.avatar || "/placeholder.svg",
-    rating: 4.8, // Default rating
+    rating: 4.8,
     location: userData.location,
     company: userData.occupation,
     education: userData.education,
@@ -434,7 +416,6 @@ const Profile: React.FC = () => {
     if (!userId) return;
     
     try {
-      // First, delete all existing experiences
       const { error: deleteError } = await supabase
         .from('user_experiences')
         .delete()
@@ -442,7 +423,6 @@ const Profile: React.FC = () => {
         
       if (deleteError) throw deleteError;
       
-      // Then insert the current experiences
       if (experiences.length > 0) {
         const experiencesToInsert = experiences.map(exp => ({
           user_id: userId,
@@ -460,9 +440,6 @@ const Profile: React.FC = () => {
           
         if (insertError) throw insertError;
       }
-      
-      // Refresh user profile data
-      // await refreshUserData();
       
       toast({
         title: "Experiences saved",
@@ -482,7 +459,6 @@ const Profile: React.FC = () => {
     if (!userId) return;
     
     try {
-      // First, delete all existing education entries
       const { error: deleteError } = await supabase
         .from('user_education')
         .delete()
@@ -490,7 +466,6 @@ const Profile: React.FC = () => {
         
       if (deleteError) throw deleteError;
       
-      // Then insert the current education entries
       if (educations.length > 0) {
         const educationsToInsert = educations.map(edu => ({
           user_id: userId,
@@ -509,9 +484,6 @@ const Profile: React.FC = () => {
         if (insertError) throw insertError;
       }
       
-      // Refresh user profile data
-      // await refreshUserData();
-      
       toast({
         title: "Education saved",
         description: "Your education information has been updated successfully",
@@ -526,7 +498,6 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Update the experience and education save handlers
   const handleSaveExperience = () => {
     setEditingExperience(false);
     saveExperiences();
@@ -607,7 +578,6 @@ const Profile: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Upcoming Sessions */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Upcoming Sessions</CardTitle>
@@ -625,7 +595,6 @@ const Profile: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Experience Section */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex justify-between items-center">
@@ -746,7 +715,6 @@ const Profile: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Education Section */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex justify-between items-center">
@@ -857,7 +825,6 @@ const Profile: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Skills Section */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex justify-between items-center">
@@ -988,11 +955,170 @@ const Profile: React.FC = () => {
                         <Button onClick={handleSaveAvailability} className="w-full">
                           Save Schedule
                         </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setEditingExperience(false);
-                            setEditingEducation(false);
-                            setEditingSkills(false);
-                          }}
-                          className="w-full mt-
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="availability">
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Availability</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {Object.keys(selectedTimes).length > 0 ? (
+                      <div className="space-y-4">
+                        {Object.entries(selectedTimes).map(([date, times]) => (
+                          <div key={date} className="border p-4 rounded-lg">
+                            <h3 className="font-medium mb-2">{format(new Date(date), "MMMM d, yyyy")}</h3>
+                            <div className="space-y-1">
+                              {times.map((time) => (
+                                <p key={time} className="text-sm flex items-center">
+                                  <Clock className="h-3 w-3 mr-2" /> {time}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No availability set</p>
+                        <p className="text-sm mt-2">Go to the Schedule tab to set your availability</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reviews">
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Reviews</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {reviews.length > 0 ? (
+                      <div className="space-y-4">
+                        {reviews.map((review) => (
+                          <div key={review.id} className="border p-4 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={review.userAvatar} alt="User avatar" />
+                                <AvatarFallback>
+                                  {review.userName.split(" ").map((n: string) => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{review.userName}</h4>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${
+                                        i < review.rating
+                                          ? "fill-yellow-500 text-yellow-500"
+                                          : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
+                                  <span className="text-sm ml-2 text-muted-foreground">
+                                    {review.date}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-sm">{review.comment}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No reviews yet</p>
+                        <p className="text-sm mt-2">
+                          Reviews will appear here after sessions
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="requests">
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Session Requests</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {sessionRequests.length > 0 ? (
+                      <div className="space-y-4">
+                        {sessionRequests.map((request) => (
+                          <div
+                            key={request.id}
+                            className="flex items-center justify-between border rounded-lg p-4"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={request.avatar} alt="User avatar" />
+                                <AvatarFallback>
+                                  {request.from.split(" ").map((n: string) => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{request.from}</h4>
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="mr-2">
+                                    {request.role === "teacher" ? "Teaching" : "Learning"}
+                                  </Badge>
+                                  {request.skill}
+                                </div>
+                                <p className="text-sm text-muted-foreground flex items-center mt-1">
+                                  <CalendarIcon className="h-3 w-3 mr-1" />
+                                  {request.date}, {request.time}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRequestAction(request.id, "decline")}
+                              >
+                                Decline
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleRequestAction(request.id, "accept")}
+                              >
+                                Accept
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No pending requests</p>
+                        <p className="text-sm mt-2">
+                          New session requests will appear here
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </ProfileLayout>
+  );
+};
+
+export default Profile;
