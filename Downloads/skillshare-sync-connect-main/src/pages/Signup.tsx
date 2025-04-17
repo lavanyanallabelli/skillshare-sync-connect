@@ -10,7 +10,7 @@ import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Info } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { supabase } from "@/supabaseClient";
+//import { supabase } from "@/supabaseClient";
 
 const Signup: React.FC = () => {
   const { toast } = useToast();

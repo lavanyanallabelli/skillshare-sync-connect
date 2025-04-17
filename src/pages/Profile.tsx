@@ -12,10 +12,8 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import ProfileHeader from "@/components/profile/ProfileHeader";
-import ConnectionList from "@/components/profile/ConnectionList";
 import { useAuth } from "@/App";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Clock,
   MapPin,
@@ -26,9 +24,13 @@ import {
   Save,
   CheckCircle,
   Plus,
-  X
+  X,
+  Briefcase,
+  GraduationCap,
+  AwardIcon
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface UserData {
   id: string;
@@ -43,11 +45,33 @@ interface UserData {
   learningSkills: string[];
   avatar: string;
   createdAt: string;
+  experiences?: { id: string; title: string; company: string; startDate: string; endDate?: string; location: string; description?: string }[];
+  educations?: { id: string; school: string; degree: string; field: string; startDate: string; endDate?: string }[];
+  skills?: string[];
+}
+
+interface Experience {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
+
+interface Education {
+  id: string;
+  school: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate?: string;
 }
 
 const Profile: React.FC = () => {
   const { toast } = useToast();
-  const { isLoggedIn, userId, refreshUserData } = useAuth();
+  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
@@ -55,88 +79,97 @@ const Profile: React.FC = () => {
   const [availabilityDate, setAvailabilityDate] = useState<Date | undefined>(new Date());
   const [editingBio, setEditingBio] = useState(false);
   const [bio, setBio] = useState("");
-  const [showSkillSaveButton, setShowSkillSaveButton] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [editingExperience, setEditingExperience] = useState(false);
+  const [editingEducation, setEditingEducation] = useState(false);
+  const [editingSkills, setEditingSkills] = useState(false);
+  const [newSkill, setNewSkill] = useState("");
 
+  // User data state
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [educations, setEducations] = useState<Education[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
   const [learningSkills, setLearningSkills] = useState<string[]>([]);
-  const [skillLevels, setSkillLevels] = useState<Record<string, string>>({});
 
+  // Session data state
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
+  // Load user data from localStorage
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!userId) return;
-      
-      try {
-        const storedUserData = localStorage.getItem("userData");
-        if (storedUserData) {
-          const parsedData = JSON.parse(storedUserData) as UserData;
-          setUserData(parsedData);
-          setBio(parsedData.bio || "");
-          setTeachingSkills(parsedData.teachingSkills || []);
-          setLearningSkills(parsedData.learningSkills || []);
-          
-          const initialSkillLevels: Record<string, string> = {};
-          parsedData.teachingSkills?.forEach(skill => {
-            initialSkillLevels[skill] = "Intermediate";
-          });
-          setSkillLevels(initialSkillLevels);
-        } else {
-          await refreshUserData();
-          const refreshedData = localStorage.getItem("userData");
-          if (refreshedData) {
-            const parsedData = JSON.parse(refreshedData) as UserData;
-            setUserData(parsedData);
-            setBio(parsedData.bio || "");
-            setTeachingSkills(parsedData.teachingSkills || []);
-            setLearningSkills(parsedData.learningSkills || []);
-            
-            const initialSkillLevels: Record<string, string> = {};
-            parsedData.teachingSkills?.forEach(skill => {
-              initialSkillLevels[skill] = "Intermediate";
-            });
-            setSkillLevels(initialSkillLevels);
-          }
-        }
-        
-        const { data: teachingData, error: teachingError } = await supabase
-          .from('teaching_skills')
-          .select('skill, proficiency_level')
-          .eq('user_id', userId);
-          
-        if (!teachingError && teachingData) {
-          const levels: Record<string, string> = {};
-          teachingData.forEach(item => {
-            levels[item.skill] = item.proficiency_level;
-          });
-          setSkillLevels(levels);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
+    const storedUserData = localStorage.getItem("userData");
+    if (storedUserData) {
+      const parsedData = JSON.parse(storedUserData) as UserData;
+      setUserData(parsedData);
+      setBio(parsedData.bio || "");
+      setExperiences(parsedData.experiences || []);
+      setEducations(parsedData.educations || []);
+      setSkills(parsedData.skills || []);
+      setTeachingSkills(parsedData.teachingSkills || []);
+      setLearningSkills(parsedData.learningSkills || []);
+
+      // Initialize other sections if they don't exist
+      if (!parsedData.experiences) {
+        parsedData.experiences = [];
       }
-    };
+      if (!parsedData.educations) {
+        parsedData.educations = [];
+      }
+      if (!parsedData.skills) {
+        parsedData.skills = [];
+      }
+      if (!parsedData.teachingSkills) {
+        parsedData.teachingSkills = [];
+      }
+      if (!parsedData.learningSkills) {
+        parsedData.learningSkills = [];
+      }
 
-    fetchUserData();
-  }, [userId, refreshUserData]);
+      // Save the initialized data back to localStorage
+      localStorage.setItem("userData", JSON.stringify(parsedData));
+    }
+  }, []);
 
+  // Session availability times
   const availabilityTimes = [
     "9:00 AM - 10:00 AM",
-    "10:00 AM - 11:00 AM", 
+    "10:00 AM - 11:00 AM",
     "2:00 PM - 3:00 PM",
     "3:00 PM - 4:00 PM",
     "5:00 PM - 6:00 PM",
   ];
 
-  const handleSaveAvailability = async () => {
-    toast({
-      title: "Availability saved",
-      description: "Your availability has been updated successfully",
-    });
+  const handleSaveAvailability = () => {
+    if (selectedDate) {
+      const dateKey = selectedDate.toISOString().split('T')[0];
+      const updatedSelectedTimes = {
+        ...selectedTimes,
+        [dateKey]: availabilityTimes.filter(time => {
+          const checkbox = document.querySelector(`input[type="checkbox"][data-time="${time}"]`) as HTMLInputElement;
+          return checkbox?.checked;
+        })
+      };
+      setSelectedTimes(updatedSelectedTimes);
+
+      // Save to localStorage
+      const storedUserData = localStorage.getItem("userData");
+      if (storedUserData) {
+        const userData = JSON.parse(storedUserData);
+        userData.availability = updatedSelectedTimes;
+        localStorage.setItem("userData", JSON.stringify(userData));
+      }
+
+      toast({
+        title: "Availability saved",
+        description: "Your availability has been updated successfully",
+      });
+    }
   };
 
   const handleRequestAction = (id: number, action: "accept" | "decline") => {
@@ -146,101 +179,22 @@ const Profile: React.FC = () => {
         ? "The session has been added to your schedule"
         : "The request has been declined",
     });
-    
+
+    // Update session requests by removing the one that was acted upon
     setSessionRequests(prevRequests => prevRequests.filter(request => request.id !== id));
   };
 
-  const handleSaveBio = async () => {
-    if (!userId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ bio })
-        .eq('id', userId);
-        
-      if (error) throw error;
-      
-      setEditingBio(false);
-      if (userData) {
-        const updatedUserData = { ...userData, bio };
-        localStorage.setItem("userData", JSON.stringify(updatedUserData));
-        setUserData(updatedUserData);
-      }
-      
-      toast({
-        title: "Profile updated",
-        description: "Your bio has been updated successfully",
-      });
-      
-      await refreshUserData();
-    } catch (error: any) {
-      toast({
-        title: "Update failed",
-        description: error.message || "Failed to update profile",
-        variant: "destructive",
-      });
+  const handleSaveBio = () => {
+    setEditingBio(false);
+    if (userData) {
+      const updatedUserData = { ...userData, bio };
+      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
     }
-  };
-
-  const handleSaveSkills = async () => {
-    if (!userId) return;
-    
-    try {
-      setShowSkillSaveButton(false);
-      if (userData) {
-        const updatedUserData = { 
-          ...userData, 
-          teachingSkills, 
-          learningSkills 
-        };
-        localStorage.setItem("userData", JSON.stringify(updatedUserData));
-        setUserData(updatedUserData);
-      }
-      
-      toast({
-        title: "Skills updated",
-        description: "Your skills have been updated successfully",
-      });
-      
-      await refreshUserData();
-    } catch (error: any) {
-      toast({
-        title: "Update failed",
-        description: error.message || "Failed to update skills",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRemoveTeachingSkill = (skill: string) => {
-    setTeachingSkills(prev => prev.filter(s => s !== skill));
-    setShowSkillSaveButton(true);
-  };
-
-  const handleRemoveLearningSkill = (skill: string) => {
-    setLearningSkills(prev => prev.filter(s => s !== skill));
-    setShowSkillSaveButton(true);
-  };
-
-  const handleAddTeachingSkill = (skill: string) => {
-    if (!teachingSkills.includes(skill)) {
-      setTeachingSkills([...teachingSkills, skill]);
-      setSkillLevels(prev => ({...prev, [skill]: "Intermediate"}));
-      setShowSkillSaveButton(true);
-    }
-  };
-
-  const handleAddLearningSkill = (skill: string) => {
-    if (!learningSkills.includes(skill)) {
-      setLearningSkills([...learningSkills, skill]);
-      setShowSkillSaveButton(true);
-    }
-  };
-
-  const handleUpdateSkillLevel = (skill: string, level: string) => {
-    setSkillLevels(prev => ({...prev, [skill]: level}));
-    setShowSkillSaveButton(true);
+    toast({
+      title: "Profile updated",
+      description: "Your bio has been updated successfully",
+    });
   };
 
   const handleBookSession = (session: any) => {
@@ -256,69 +210,167 @@ const Profile: React.FC = () => {
     });
   };
 
-  const handleUpdateProfile = async (profileData: any) => {
-    if (!userId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: profileData.name.split(' ')[0] || "",
-          last_name: profileData.name.split(' ')[1] || "",
-          location: profileData.location,
-          occupation: profileData.company,
-          education: profileData.education,
-          bio: profileData.bio
-        })
-        .eq('id', userId);
-        
-      if (error) throw error;
-      
-      if (userData) {
-        const updatedUserData = { 
-          ...userData,
-          firstName: profileData.name.split(' ')[0] || userData.firstName,
-          lastName: profileData.name.split(' ')[1] || userData.lastName,
-          location: profileData.location,
-          occupation: profileData.company,
-          education: profileData.education,
-          bio: profileData.bio
-        };
-        localStorage.setItem("userData", JSON.stringify(updatedUserData));
-        setUserData(updatedUserData);
+  const handleUpdateProfile = (profileData: any) => {
+    if (userData) {
+      const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
+
+      const updatedUserData = {
+        ...userData,
+        firstName: firstName || userData.firstName,
+        lastName: lastName || userData.lastName,
+        location: profileData.location || userData.location,
+        occupation: profileData.company || userData.occupation,
+        bio: profileData.bio || userData.bio
+      };
+
+      // Save to localStorage
+      localStorage.setItem("userData", JSON.stringify(updatedUserData));
+
+      // Update state
+      setUserData(updatedUserData);
+
+      // Update individual states
+      if (profileData.bio) {
         setBio(profileData.bio);
       }
-      
+
+      // Force a re-render of the ProfileHeader component
+      const event = new CustomEvent('profileUpdated', {
+        detail: {
+          name: profileData.name,
+          location: profileData.location,
+          company: profileData.company,
+          bio: profileData.bio
+        }
+      });
+      window.dispatchEvent(event);
+
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully",
       });
-      
-      await refreshUserData();
-    } catch (error: any) {
-      toast({
-        title: "Update failed",
-        description: error.message || "Failed to update profile",
-        variant: "destructive",
-      });
     }
   };
 
+  const addExperience = () => {
+    setExperiences([
+      ...experiences,
+      {
+        id: Date.now().toString(),
+        title: "",
+        company: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+        description: ""
+      }
+    ]);
+  };
+
+  const addEducation = () => {
+    setEducations([
+      ...educations,
+      {
+        id: Date.now().toString(),
+        school: "",
+        degree: "",
+        field: "",
+        startDate: "",
+        endDate: ""
+      }
+    ]);
+  };
+
+  const addSkill = () => {
+    if (newSkill.trim()) {
+      setSkills([...skills, newSkill.trim()]);
+      setNewSkill("");
+    }
+  };
+
+  const updateExperience = (index: number, field: string, value: string) => {
+    const newExperiences = [...experiences];
+    newExperiences[index] = {
+      ...newExperiences[index],
+      [field]: value
+    };
+    setExperiences(newExperiences);
+  };
+
+  const updateEducation = (index: number, field: string, value: string) => {
+    const newEducations = [...educations];
+    newEducations[index] = {
+      ...newEducations[index],
+      [field]: value
+    };
+    setEducations(newEducations);
+  };
+
+  const removeExperience = (index: number) => {
+    const newExperiences = experiences.filter((_, i) => i !== index);
+    setExperiences(newExperiences);
+  };
+
+  const removeEducation = (index: number) => {
+    const newEducations = educations.filter((_, i) => i !== index);
+    setEducations(newEducations);
+  };
+
+  const removeSkill = (index: number) => {
+    const newSkills = skills.filter((_, i) => i !== index);
+    setSkills(newSkills);
+  };
+
+  // Consolidate the session card into a reusable component
+  const SessionCard = ({ session }: { session: any }) => (
+    <div className="flex items-center justify-between border rounded-lg p-4">
+      <div className="flex items-center gap-3">
+        <Avatar>
+          <AvatarImage src={session.avatar} alt="User avatar" />
+          <AvatarFallback>JD</AvatarFallback>
+        </Avatar>
+        <div>
+          <h4 className="font-medium">{session.with}</h4>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Badge variant="outline" className="mr-2">
+              {session.role === "teacher" ? "Teaching" : "Learning"}
+            </Badge>
+            {session.skill}
+          </div>
+          <p className="text-sm text-muted-foreground flex items-center mt-1">
+            <CalendarIcon className="h-3 w-3 mr-1" />
+            {session.date}, {session.time}
+          </p>
+        </div>
+      </div>
+      <Button variant="outline" size="sm">
+        Join
+      </Button>
+    </div>
+  );
+
+  // Consolidate the empty state message
+  const EmptyState = ({ message, subMessage }: { message: string; subMessage: string }) => (
+    <div className="text-center py-8 text-muted-foreground">
+      <p>{message}</p>
+      <p className="text-sm mt-2">{subMessage}</p>
+    </div>
+  );
+
   if (!isLoggedIn) {
-    return null;
+    return null; // The App's routes will redirect to login
   }
 
+  // Create a formatted profile object for the ProfileHeader component
   const profileData = userData ? {
     id: userData.id,
     name: `${userData.firstName} ${userData.lastName}`,
     avatar: userData.avatar || "/placeholder.svg",
-    rating: 4.8,
+    rating: 4.8, // Default rating
     location: userData.location,
     company: userData.occupation,
     education: userData.education,
     achievements: ["New Member"],
-    teachingSkills,
-    learningSkills,
     bio: userData.bio
   } : {
     name: "User",
@@ -327,40 +379,51 @@ const Profile: React.FC = () => {
     location: "",
     company: "",
     education: "",
-    achievements: ["New Member"],
-    teachingSkills: [],
-    learningSkills: []
+    achievements: ["New Member"]
   };
 
   return (
     <ProfileLayout>
       <div className="container max-w-6xl py-8">
-        <ProfileHeader 
-          {...profileData} 
-          isOwnProfile={true} 
-          onUpdateProfile={handleUpdateProfile}
-        />
-        
+        <ErrorBoundary>
+          <ProfileHeader
+            id={userData?.id}
+            name={`${userData?.firstName || ''} ${userData?.lastName || ''}`}
+            avatar={userData?.avatar || "/placeholder.svg"}
+            rating={4.8}
+            location={userData?.location || ""}
+            company={userData?.occupation || ""}
+            education={userData?.education || ""}
+            achievements={["New Member"]}
+            bio={userData?.bio}
+            isOwnProfile={true}
+            onUpdateProfile={handleUpdateProfile}
+            teachingSkills={teachingSkills}
+            learningSkills={learningSkills}
+            upcomingSessions={upcomingSessions}
+            setActiveTab={setActiveTab}
+          />
+        </ErrorBoundary>
+
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="skills">Skills</TabsTrigger>
-              <TabsTrigger value="connections">Connections</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule & Availability</TabsTrigger>
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="availability">Availability</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="requests">Requests</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex justify-between items-center">
                       <span>About Me</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setEditingBio(!editingBio)}
                       >
                         <Edit className="h-4 w-4" />
@@ -370,8 +433,8 @@ const Profile: React.FC = () => {
                   <CardContent>
                     {editingBio ? (
                       <div className="space-y-2">
-                        <Textarea 
-                          value={bio} 
+                        <Textarea
+                          value={bio}
                           onChange={(e) => setBio(e.target.value)}
                           rows={5}
                           className="resize-none"
@@ -389,6 +452,7 @@ const Profile: React.FC = () => {
                   </CardContent>
                 </Card>
 
+                {/* Upcoming Sessions */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Upcoming Sessions</CardTitle>
@@ -397,286 +461,509 @@ const Profile: React.FC = () => {
                     <div className="space-y-4">
                       {upcomingSessions.length > 0 ? (
                         upcomingSessions.map((session) => (
-                          <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={session.avatar} alt="User avatar" />
-                                <AvatarFallback>JD</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h4 className="font-medium">{session.with}</h4>
-                                <div className="flex items-center text-sm text-muted-foreground">
-                                  <Badge variant="outline" className="mr-2">
-                                    {session.role === "teacher" ? "Teaching" : "Learning"}
-                                  </Badge>
-                                  {session.skill}
-                                </div>
-                                <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                  <CalendarIcon className="h-3 w-3 mr-1" />
-                                  {session.date}, {session.time}
-                                </p>
-                              </div>
-                            </div>
-                            <Button variant="outline" size="sm">
-                              Join
-                            </Button>
-                          </div>
+                          <SessionCard key={session.id} session={session} />
                         ))
                       ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No upcoming sessions</p>
-                          <p className="text-sm mt-2">Book a session or wait for requests</p>
-                        </div>
+                        <EmptyState message="No upcoming sessions" subMessage="Book a session or wait for requests" />
                       )}
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            </TabsContent>
 
-            <TabsContent value="skills">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Experience Section */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Skills I Teach</CardTitle>
+                    <CardTitle className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-5 w-5" />
+                        Experience
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingExperience(!editingExperience)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {teachingSkills.length > 0 ? (
-                        teachingSkills.map((skill) => (
-                          <div key={skill} className="border rounded-lg p-4">
-                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="font-medium">{skill}</h4>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleRemoveTeachingSkill(skill)}
-                                className="h-8 w-8 p-0"
+                    {editingExperience ? (
+                      <div className="space-y-4">
+                        {experiences.map((exp, index) => (
+                          <div key={exp.id} className="space-y-4 p-4 border rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-medium">Experience {index + 1}</h4>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeExperience(index)}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`level-${skill}`}>Proficiency level</Label>
-                              <select
-                                id={`level-${skill}`}
-                                className="w-full rounded-md border border-input bg-background px-3 py-2"
-                                value={skillLevels[skill] || "Intermediate"}
-                                onChange={(e) => handleUpdateSkillLevel(skill, e.target.value)}
+                            <div className="grid gap-2">
+                              <Label>Title</Label>
+                              <Input
+                                value={exp.title}
+                                onChange={(e) => updateExperience(index, "title", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Company</Label>
+                              <Input
+                                value={exp.company}
+                                onChange={(e) => updateExperience(index, "company", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Location</Label>
+                              <Input
+                                value={exp.location}
+                                onChange={(e) => updateExperience(index, "location", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label>Start Date</Label>
+                                <Input
+                                  type="date"
+                                  value={exp.startDate}
+                                  onChange={(e) => updateExperience(index, "startDate", e.target.value)}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label>End Date</Label>
+                                <Input
+                                  type="date"
+                                  value={exp.endDate}
+                                  onChange={(e) => updateExperience(index, "endDate", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Description</Label>
+                              <Textarea
+                                value={exp.description}
+                                onChange={(e) => updateExperience(index, "description", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={addExperience}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Experience
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setEditingExperience(false);
+                            // Save experience data here
+                          }}
+                          className="w-full mt-2"
+                        >
+                          Save Experience
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {experiences.length > 0 ? (
+                          experiences.map((exp) => (
+                            <div key={exp.id} className="border-l-2 border-skill-purple pl-4">
+                              <h4 className="font-medium">{exp.title}</h4>
+                              <p className="text-sm text-muted-foreground">{exp.company}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {exp.startDate} - {exp.endDate || 'Present'} • {exp.location}
+                              </p>
+                              {exp.description && (
+                                <p className="text-sm mt-2">{exp.description}</p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No experience added yet</p>
+                            <p className="text-sm mt-2">Add your work experience to showcase your expertise</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Education Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-5 w-5" />
+                        Education
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingEducation(!editingEducation)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {editingEducation ? (
+                      <div className="space-y-4">
+                        {educations.map((edu, index) => (
+                          <div key={edu.id} className="space-y-4 p-4 border rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-medium">Education {index + 1}</h4>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeEducation(index)}
                               >
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                                <option value="Expert">Expert</option>
-                              </select>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>School</Label>
+                              <Input
+                                value={edu.school}
+                                onChange={(e) => updateEducation(index, "school", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Degree</Label>
+                              <Input
+                                value={edu.degree}
+                                onChange={(e) => updateEducation(index, "degree", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Field of Study</Label>
+                              <Input
+                                value={edu.field}
+                                onChange={(e) => updateEducation(index, "field", e.target.value)}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label>Start Date</Label>
+                                <Input
+                                  type="date"
+                                  value={edu.startDate}
+                                  onChange={(e) => updateEducation(index, "startDate", e.target.value)}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label>End Date</Label>
+                                <Input
+                                  type="date"
+                                  value={edu.endDate}
+                                  onChange={(e) => updateEducation(index, "endDate", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={addEducation}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Education
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setEditingEducation(false);
+                            // Save education data here
+                          }}
+                          className="w-full mt-2"
+                        >
+                          Save Education
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {educations.length > 0 ? (
+                          educations.map((edu) => (
+                            <div key={edu.id} className="border-l-2 border-skill-purple pl-4">
+                              <h4 className="font-medium">{edu.school}</h4>
+                              <p className="text-sm text-muted-foreground">{edu.degree} in {edu.field}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {edu.startDate} - {edu.endDate || 'Present'}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No education added yet</p>
+                            <p className="text-sm mt-2">Add your educational background to showcase your qualifications</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Skills Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <AwardIcon className="h-5 w-5" />
+                        Skills
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingSkills(!editingSkills)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {editingSkills ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          {skills.map((skill, index) => (
+                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                              {skill}
+                              <button
+                                onClick={() => removeSkill(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Add a skill"
+                            value={newSkill}
+                            onChange={(e) => setNewSkill(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newSkill.trim()) {
+                                addSkill();
+                              }
+                            }}
+                          />
+                          <Button onClick={addSkill}>
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {skills.length > 0 ? (
+                          skills.map((skill, index) => (
+                            <Badge key={index} variant="secondary">
+                              {skill}
+                            </Badge>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No skills added yet</p>
+                            <p className="text-sm mt-2">Add your skills to showcase your expertise</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="schedule">
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Set Your Schedule</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Select Date</Label>
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          className="rounded-md border mt-2"
+                        />
+                      </div>
+
+                      {selectedDate && (
+                        <div className="space-y-2">
+                          <Label>Available Times for {format(selectedDate, "MMMM d, yyyy")}</Label>
+                          <div className="space-y-2">
+                            {availabilityTimes.map((time) => {
+                              const dateKey = selectedDate.toISOString().split('T')[0];
+                              const isSelected = selectedTimes[dateKey]?.includes(time);
+                              return (
+                                <div key={time} className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id={`time-${time}`}
+                                    data-time={time}
+                                    checked={isSelected}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                      const dateKey = selectedDate.toISOString().split('T')[0];
+                                      const updatedTimes = selectedTimes[dateKey] || [];
+                                      if (e.target.checked) {
+                                        updatedTimes.push(time);
+                                      } else {
+                                        const index = updatedTimes.indexOf(time);
+                                        if (index > -1) {
+                                          updatedTimes.splice(index, 1);
+                                        }
+                                      }
+                                      setSelectedTimes({
+                                        ...selectedTimes,
+                                        [dateKey]: updatedTimes
+                                      });
+                                    }}
+                                    className="h-4 w-4"
+                                  />
+                                  <Label htmlFor={`time-${time}`}>{time}</Label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <Button onClick={handleSaveAvailability} className="w-full">
+                          Save Schedule
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditingExperience(false);
+                            setEditingEducation(false);
+                            setEditingSkills(false);
+                          }}
+                          className="w-full mt-2"
+                        >
+                          Exit Editing Mode
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Upcoming Sessions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Sessions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {upcomingSessions.length > 0 ? (
+                        upcomingSessions.map((session) => (
+                          <SessionCard key={session.id} session={session} />
+                        ))
+                      ) : (
+                        <EmptyState message="No upcoming sessions" subMessage="Book a session or wait for requests" />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="availability">
+              <div className="grid grid-cols-1 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Availability</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(selectedTimes).length > 0 ? (
+                        Object.entries(selectedTimes).map(([date, times]) => (
+                          <div key={date} className="border rounded-lg p-4">
+                            <h3 className="font-medium mb-2">
+                              {format(new Date(date), "MMMM d, yyyy")}
+                            </h3>
+                            <div className="space-y-1">
+                              {times.map((time) => (
+                                <div key={time} className="flex items-center text-sm text-muted-foreground">
+                                  <Clock className="h-4 w-4 mr-2" />
+                                  {time}
+                                </div>
+                              ))}
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <p>No teaching skills added yet</p>
-                          <p className="text-sm mt-2">Add skills you can teach to others</p>
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No availability set yet</p>
+                          <p className="text-sm mt-2">Set your schedule to show your availability</p>
                         </div>
                       )}
-                      <Button 
-                        variant="outline" 
-                        className="w-full" 
-                        onClick={() => setActiveTab("add-skills")}
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> Add More Teaching Skills
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Session Requests */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Skills I Want to Learn</CardTitle>
+                    <CardTitle>Session Requests</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {learningSkills.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {learningSkills.map((skill) => (
-                            <Badge key={skill} variant="secondary" className="p-2 text-base">
-                              {skill}
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleRemoveLearningSkill(skill)}
-                                className="h-4 w-4 p-0 ml-2"
+                      {sessionRequests.length > 0 ? (
+                        sessionRequests.map((request) => (
+                          <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={request.avatar} alt="User avatar" />
+                                <AvatarFallback>JD</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{request.student}</h4>
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <Badge variant="outline" className="mr-2">Requested</Badge>
+                                  {request.skill}
+                                </div>
+                                <p className="text-sm text-muted-foreground flex items-center mt-1">
+                                  <CalendarIcon className="h-3 w-3 mr-1" />
+                                  {request.date}, {request.time}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleRequestAction(request.id, "accept")}
+                                className="bg-skill-purple hover:bg-skill-purple-dark"
+                                size="sm"
                               >
-                                <X className="h-3 w-3" />
+                                Accept
                               </Button>
-                            </Badge>
-                          ))}
-                        </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRequestAction(request.id, "decline")}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          </div>
+                        ))
                       ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <p>No learning skills added yet</p>
-                          <p className="text-sm mt-2">Add skills you want to learn</p>
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No pending requests</p>
+                          <p className="text-sm mt-2">When someone requests a session, it will appear here</p>
                         </div>
                       )}
-                      <Button 
-                        variant="outline" 
-                        className="w-full" 
-                        onClick={() => setActiveTab("add-skills")}
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> Add More Learning Skills
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-
-                {showSkillSaveButton && (
-                  <div className="col-span-1 md:col-span-2 flex justify-end">
-                    <Button className="bg-skill-purple" onClick={handleSaveSkills}>
-                      <Save className="h-4 w-4 mr-2" /> Save Skills
-                    </Button>
-                  </div>
-                )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="connections">
-              <ConnectionList />
-            </TabsContent>
-
-            <TabsContent value="add-skills">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add Skills</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-medium mb-4">Popular Teaching Skills</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {["TypeScript", "Vue.js", "Angular", "React Native", "GraphQL", "AWS", "Docker"].map((skill) => (
-                          <Badge 
-                            key={skill} 
-                            variant="outline" 
-                            className="cursor-pointer hover:bg-secondary transition-colors p-2"
-                            onClick={() => handleAddTeachingSkill(skill)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-4">Popular Learning Skills</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {["Swift", "Kotlin", "Flutter", "Rust", "Go", "TensorFlow", "UI/UX Design"].map((skill) => (
-                          <Badge 
-                            key={skill} 
-                            variant="outline" 
-                            className="cursor-pointer hover:bg-secondary transition-colors p-2"
-                            onClick={() => handleAddLearningSkill(skill)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button variant="outline" onClick={() => setActiveTab("skills")}>Cancel</Button>
-                  <Button className="bg-skill-purple" onClick={() => {
-                    handleSaveSkills();
-                    setActiveTab("skills");
-                  }}>
-                    <Save className="h-4 w-4 mr-2" /> Save Changes
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="schedule">
-              <Card>
-                <CardHeader>
-                  <CardTitle>My Availability</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="date">Select date</Label>
-                      <Calendar
-                        mode="single"
-                        selected={availabilityDate}
-                        onSelect={setAvailabilityDate}
-                        className="rounded-md border mt-2"
-                      />
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h3 className="font-medium">
-                        Available times for {availabilityDate && format(availabilityDate, "MMMM d, yyyy")}
-                      </h3>
-                      <div className="space-y-2">
-                        {availabilityTimes.map((time, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <input type="checkbox" id={`time-${index}`} className="h-4 w-4" />
-                            <Label htmlFor={`time-${index}`} className="font-normal">
-                              {time}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pt-4">
-                        <Button onClick={handleSaveAvailability} className="bg-skill-purple">
-                          <Save className="h-4 w-4 mr-2" /> Save Availability
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>Upcoming Sessions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {upcomingSessions.length > 0 ? (
-                      upcomingSessions.map((session) => (
-                        <div key={session.id} className="flex items-center justify-between border rounded-lg p-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={session.avatar} alt="User avatar" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h4 className="font-medium">{session.with}</h4>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <Badge variant="outline" className="mr-2">
-                                  {session.role === "teacher" ? "Teaching" : "Learning"}
-                                </Badge>
-                                {session.skill}
-                              </div>
-                              <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                <CalendarIcon className="h-3 w-3 mr-1" />
-                                {session.date}, {session.time}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">Reschedule</Button>
-                            <Button variant="outline" size="sm">Cancel</Button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No upcoming sessions</p>
-                        <p className="text-sm mt-2">Schedule a session or accept a request to see it here</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             <TabsContent value="reviews">
@@ -701,9 +988,8 @@ const Profile: React.FC = () => {
                                   {Array(5).fill(0).map((_, i) => (
                                     <Star
                                       key={i}
-                                      className={`h-4 w-4 ${
-                                        i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                      }`}
+                                      className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                        }`}
                                     />
                                   ))}
                                 </div>
@@ -753,15 +1039,15 @@ const Profile: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button 
+                            <Button
                               onClick={() => handleRequestAction(request.id, "accept")}
                               className="bg-skill-purple hover:bg-skill-purple-dark"
                               size="sm"
                             >
                               Accept
                             </Button>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleRequestAction(request.id, "decline")}
                             >
@@ -774,7 +1060,7 @@ const Profile: React.FC = () => {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <p>No pending requests</p>
-                      <p className="text-sm mt-2">When someone wants to learn from you, their request will appear here</p>
+                      <p className="text-sm mt-2">When someone requests a session, it will appear here</p>
                     </div>
                   )}
                 </CardContent>
