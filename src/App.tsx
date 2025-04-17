@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,7 +19,6 @@ import Skills from "./pages/Skills";
 import TeacherProfile from "./pages/TeacherProfile";
 import { User, Session } from '@supabase/supabase-js';
 
-// Create an auth context to manage login state
 interface AuthContextType {
   isLoggedIn: boolean;
   login: () => void;
@@ -48,7 +46,6 @@ const App = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Function to fetch and update user profile data
   const refreshUserData = async () => {
     if (!userId) return;
     
@@ -65,7 +62,24 @@ const App = () => {
       }
       
       if (profileData) {
-        // Fetch teaching skills
+        const { data: experiences, error: experiencesError } = await supabase
+          .from('user_experiences')
+          .select('*')
+          .eq('user_id', userId);
+          
+        if (experiencesError) {
+          console.error("Error fetching experiences:", experiencesError);
+        }
+        
+        const { data: education, error: educationError } = await supabase
+          .from('user_education')
+          .select('*')
+          .eq('user_id', userId);
+          
+        if (educationError) {
+          console.error("Error fetching education:", educationError);
+        }
+        
         const { data: teachingSkills, error: teachingError } = await supabase
           .from('teaching_skills')
           .select('skill, proficiency_level')
@@ -75,7 +89,6 @@ const App = () => {
           console.error("Error fetching teaching skills:", teachingError);
         }
         
-        // Fetch learning skills
         const { data: learningSkills, error: learningError } = await supabase
           .from('learning_skills')
           .select('skill')
@@ -97,7 +110,14 @@ const App = () => {
           avatar: profileData.avatar_url || "/placeholder.svg",
           teachingSkills: teachingSkills?.map(item => item.skill) || [],
           learningSkills: learningSkills?.map(item => item.skill) || [],
-          createdAt: profileData.created_at
+          experiences: experiences || [],
+          educations: education || [],
+          createdAt: profileData.created_at,
+          headline: profileData.headline,
+          website: profileData.website,
+          linkedin: profileData.linkedin,
+          github: profileData.github,
+          twitter: profileData.twitter
         };
         
         localStorage.setItem("userData", JSON.stringify(userData));
@@ -109,7 +129,6 @@ const App = () => {
   };
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("Auth state changed:", event, session?.user?.id);
@@ -121,7 +140,6 @@ const App = () => {
         
         if (isAuthenticated && session?.user?.id) {
           localStorage.setItem("isLoggedIn", "true");
-          // Use setTimeout to avoid potential Supabase auth deadlock issues
           setTimeout(() => {
             refreshUserData();
           }, 0);
@@ -132,7 +150,6 @@ const App = () => {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("Initial session check:", session?.user?.id);
       const isAuthenticated = !!session;
@@ -144,7 +161,6 @@ const App = () => {
       
       if (isAuthenticated && session?.user?.id) {
         localStorage.setItem("isLoggedIn", "true");
-        // Use setTimeout to avoid potential Supabase auth deadlock issues
         setTimeout(() => {
           refreshUserData();
         }, 0);
@@ -154,7 +170,6 @@ const App = () => {
       }
     });
 
-    // Cleanup subscription
     return () => subscription.unsubscribe();
   }, []);
 
@@ -198,7 +213,7 @@ const App = () => {
               <Route path="/skills" element={isLoggedIn ? <Skills /> : <Navigate to="/login" />} />
               <Route path="/sessions" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/communities" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
@@ -206,6 +221,18 @@ const App = () => {
       </QueryClientProvider>
     </AuthContext.Provider>
   );
+};
+
+const OAuthCallback = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    login();
+    navigate('/profile');
+  }, [navigate, login]);
+
+  return <div>Logging in...</div>;
 };
 
 export default App;

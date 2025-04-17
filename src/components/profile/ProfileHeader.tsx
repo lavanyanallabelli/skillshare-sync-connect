@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from 'react';
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -77,7 +78,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [editCompany, setEditCompany] = useState(company || "");
   const [editBio, setEditBio] = useState(bio || "");
 
-  // Update local state when props change
   useEffect(() => {
     if (name) setEditName(name);
     if (location) setEditLocation(location);
@@ -85,7 +85,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     if (bio) setEditBio(bio);
   }, [name, location, company, bio]);
 
-  // Listen for profile updates
   useEffect(() => {
     const handleProfileUpdate = (event: CustomEvent) => {
       const { name, location, company, bio } = event.detail;
@@ -120,7 +119,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
     if (onUpdateProfile) {
       onUpdateProfile(updatedProfile);
-      // Update local state immediately
       setEditName(updatedProfile.name);
       setEditLocation(updatedProfile.location);
       setEditCompany(updatedProfile.company);
@@ -203,7 +201,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       )}
 
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Avatar and action buttons */}
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
             <Avatar className="h-24 w-24 border-2 border-skill-purple">
@@ -231,7 +228,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           )}
         </div>
 
-        {/* User info */}
         <div className="flex-1">
           <div>
             <h1 className="text-2xl font-bold">{name}</h1>
@@ -261,7 +257,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             )}
           </div>
 
-          {/* Skills */}
           <div className="mt-4">
             {teachingSkills.length > 0 && (
               <div className="mb-4">
@@ -290,7 +285,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             )}
           </div>
 
-          {/* Achievements */}
           <div className="mt-4">
             <h3 className="text-sm font-medium mb-2">Achievements</h3>
             <div className="flex flex-wrap gap-2">
@@ -313,4 +307,3 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 };
 
 export default ProfileHeader;
-

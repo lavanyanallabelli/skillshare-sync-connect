@@ -87,11 +87,16 @@ export type Database = {
           created_at: string
           education: string | null
           first_name: string
+          github: string | null
+          headline: string | null
           id: string
           last_name: string
+          linkedin: string | null
           location: string | null
           occupation: string | null
+          twitter: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -99,11 +104,16 @@ export type Database = {
           created_at?: string
           education?: string | null
           first_name: string
+          github?: string | null
+          headline?: string | null
           id: string
           last_name: string
+          linkedin?: string | null
           location?: string | null
           occupation?: string | null
+          twitter?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -111,11 +121,16 @@ export type Database = {
           created_at?: string
           education?: string | null
           first_name?: string
+          github?: string | null
+          headline?: string | null
           id?: string
           last_name?: string
+          linkedin?: string | null
           location?: string | null
           occupation?: string | null
+          twitter?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -318,6 +333,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_education: {
+        Row: {
+          created_at: string
+          current: boolean | null
+          degree: string
+          end_date: string | null
+          field_of_study: string | null
+          id: string
+          institution: string
+          start_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current?: boolean | null
+          degree: string
+          end_date?: string | null
+          field_of_study?: string | null
+          id?: string
+          institution: string
+          start_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current?: boolean | null
+          degree?: string
+          end_date?: string | null
+          field_of_study?: string | null
+          id?: string
+          institution?: string
+          start_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_experiences: {
+        Row: {
+          company: string
+          created_at: string
+          current: boolean | null
+          description: string | null
+          end_date: string | null
+          id: string
+          position: string
+          start_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          current?: boolean | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          position: string
+          start_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          current?: boolean | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          position?: string
+          start_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_skills: {
+        Row: {
+          created_at: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
       }
     }
     Views: {
