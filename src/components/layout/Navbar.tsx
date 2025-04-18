@@ -1,85 +1,23 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Search, 
-  Menu, 
-  X, 
-  Bell, 
-  MessageSquare, 
-  User as UserIcon
-} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
-import { supabase } from "@/integrations/supabase/client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SearchForm } from "./SearchForm";
+import { UserMenu } from "./UserMenu";
+import { MobileNavMenu } from "./MobileNavMenu";
+import { useUnreadMessages } from "@/hooks/use-unread-messages";
 
 const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-
   const { isLoggedIn, logout, userId } = useAuth();
-
-  useEffect(() => {
-    if (!isLoggedIn || !userId) return;
-
-    const fetchUnreadCount = async () => {
-      const { data, error } = await supabase
-        .rpc('get_unread_message_count', { user_id: userId });
-      
-      if (!error && data !== null) {
-        setUnreadCount(data);
-      }
-    };
-
-    fetchUnreadCount();
-
-    // Subscribe to new messages
-    const channel = supabase
-      .channel('messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_id=eq.${userId}`
-        },
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isLoggedIn, userId]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/explore?search=${encodeURIComponent(searchQuery)}`);
-    } else {
-      toast({
-        title: "Search query empty",
-        description: "Please enter a skill to search for",
-      });
-    }
-  };
+  const unreadCount = useUnreadMessages(userId);
   
   const handleLogout = () => {
     logout();
@@ -121,65 +59,10 @@ const Navbar: React.FC = () => {
         <div className="flex items-center gap-4">
           {!isMobile ? (
             <>
-              <form onSubmit={handleSearch} className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search skills..."
-                  className="h-9 rounded-full border bg-background pl-9 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-skill-purple"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </form>
+              <SearchForm />
               
               {isLoggedIn ? (
-                <div className="flex items-center gap-2">
-                  <Link to="/messages">
-                    <Button variant="ghost" size="icon" className="relative">
-                      <MessageSquare size={20} />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-skill-purple text-[10px] text-white flex items-center justify-center">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </Button>
-                  </Link>
-                  
-                  <Link to="/dashboard">
-                    <Button variant="ghost" size="icon" className="relative">
-                      <Bell size={20} />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-skill-purple text-[10px] text-white flex items-center justify-center">
-                        3
-                      </span>
-                    </Button>
-                  </Link>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="rounded-full">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src="/placeholder.svg" alt="User avatar" />
-                          <AvatarFallback>US</AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link to="/profile">Profile</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/dashboard">Dashboard</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/skills">My Skills</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleLogout}>
-                        Log out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                <UserMenu unreadCount={unreadCount} handleLogout={handleLogout} />
               ) : (
                 <div className="flex items-center gap-2">
                   <Link to="/login">
@@ -208,76 +91,12 @@ const Navbar: React.FC = () => {
       </div>
       
       {isMobile && isMenuOpen && (
-        <div className="absolute top-16 left-0 w-full bg-background border-b shadow-lg animate-fade-in">
-          <div className="container py-4 flex flex-col gap-4">
-            <form onSubmit={handleSearch} className="relative mb-2">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search skills..."
-                className="w-full h-9 rounded-full border bg-background pl-9 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-skill-purple"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </form>
-            
-            <Link to="/explore" className="p-2 hover:bg-muted rounded-md">
-              Explore
-            </Link>
-            <Link to="/teach" className="p-2 hover:bg-muted rounded-md">
-              Teach
-            </Link>
-            <Link to="/about" className="p-2 hover:bg-muted rounded-md">
-              How It Works
-            </Link>
-            
-            {isLoggedIn ? (
-              <>
-                <Link to="/profile" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
-                  <UserIcon size={16} />
-                  Profile
-                </Link>
-                <Link to="/dashboard" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
-                  <UserIcon size={16} />
-                  Dashboard
-                </Link>
-                <Link to="/skills" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
-                  <UserIcon size={16} />
-                  My Skills
-                </Link>
-                <Link to="/messages" className="p-2 hover:bg-muted rounded-md flex items-center gap-2">
-                  <MessageSquare size={16} />
-                  Messages
-                  <span className="ml-auto bg-skill-purple text-white text-xs h-5 w-5 rounded-full flex items-center justify-center">
-                    2
-                  </span>
-                </Link>
-                <div className="pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleLogout}
-                  >
-                    Log out
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="flex gap-2 pt-2 border-t">
-                <Link to="/login" className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    Log in
-                  </Button>
-                </Link>
-                <Link to="/signup" className="flex-1">
-                  <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
-                    Sign up
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+        <MobileNavMenu
+          isLoggedIn={isLoggedIn}
+          unreadCount={unreadCount}
+          handleLogout={handleLogout}
+          onClose={() => setIsMenuOpen(false)}
+        />
       )}
     </nav>
   );
