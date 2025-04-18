@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -50,60 +49,118 @@ const Messages: React.FC = () => {
     const fetchConversations = async () => {
       try {
         // Get unique users the current user has exchanged messages with
-        const { data: userData, error: userError } = await supabase
-          .rpc('get_message_conversations', { user_id: userId });
+        const { data, error } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            sender_id,
+            receiver_id,
+            content,
+            created_at,
+            read_at,
+            profiles!messages_sender_id_fkey (
+              id,
+              first_name,
+              last_name,
+              avatar_url
+            )
+          `)
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+          .order('created_at', { ascending: false });
 
-        if (userError) throw userError;
+        if (error) throw error;
 
-        if (userData && userData.length > 0) {
-          // Format the conversation data
-          const formattedConversations: Conversation[] = await Promise.all(
-            userData.map(async (user: any) => {
-              // Get the latest message
-              const { data: latestMessage } = await supabase
-                .from('messages')
-                .select('*')
-                .or(`and(sender_id.eq.${userId},receiver_id.eq.${user.user_id}),and(sender_id.eq.${user.user_id},receiver_id.eq.${userId})`)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+        // Extract unique users from messages
+        const uniqueUsers = new Map();
+        
+        if (data) {
+          data.forEach(message => {
+            const otherUserId = message.sender_id === userId ? message.receiver_id : message.sender_id;
+            const profile = message.sender_id === userId ? null : message.profiles;
+            
+            // Skip if we already added this user
+            if (uniqueUsers.has(otherUserId)) return;
+            
+            // Get user profile info for this message
+            if (message.sender_id !== userId) {
+              uniqueUsers.set(otherUserId, {
+                user_id: otherUserId,
+                full_name: profile ? `${profile.first_name} ${profile.last_name}` : 'User',
+                avatar_url: profile?.avatar_url || '/placeholder.svg',
+                last_message: message.content,
+                timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                skill: 'General'
+              });
+            } else {
+              // We need to fetch the profile for the receiver
+              uniqueUsers.set(otherUserId, {
+                user_id: otherUserId,
+                needs_profile: true,
+                last_message: message.content,
+                timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+            }
+          });
+        }
 
-              // Get unread count
-              const { data: unreadCount } = await supabase
-                .from('messages')
-                .select('count', { count: 'exact' })
-                .eq('receiver_id', userId)
-                .eq('sender_id', user.user_id)
-                .is('read_at', null);
-
-              // Format the timestamp
-              const timestamp = latestMessage 
-                ? new Date(latestMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : '';
-
-              return {
-                id: user.user_id,
-                user: {
-                  id: user.user_id,
-                  name: user.full_name || 'User',
-                  avatar: user.avatar_url || '/placeholder.svg',
-                  status: 'online', // For simplicity, we're setting all users as online
-                },
-                lastMessage: latestMessage ? latestMessage.content : '',
-                timestamp: timestamp,
-                unread: unreadCount && unreadCount > 0,
-                skill: user.skill || 'General',
-              };
-            })
-          );
-
-          setConversations(formattedConversations);
+        // For users that need profile info, fetch it
+        const usersArray = Array.from(uniqueUsers.values());
+        const usersNeedingProfiles = usersArray.filter(user => user.needs_profile);
+        
+        if (usersNeedingProfiles.length > 0) {
+          const userIds = usersNeedingProfiles.map(user => user.user_id);
           
-          // Set the first conversation as active if there's no active conversation
-          if (formattedConversations.length > 0 && !activeConversation) {
-            setActiveConversation(formattedConversations[0]);
-            fetchMessages(formattedConversations[0].user.id);
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', userIds);
+            
+          if (profiles) {
+            profiles.forEach(profile => {
+              const user = uniqueUsers.get(profile.id);
+              if (user) {
+                user.full_name = `${profile.first_name} ${profile.last_name}`;
+                user.avatar_url = profile.avatar_url || '/placeholder.svg';
+                user.needs_profile = false;
+              }
+            });
           }
+        }
+
+        // Get unread counts for each conversation
+        for (const user of uniqueUsers.values()) {
+          const { data: unreadCount } = await supabase
+            .from('messages')
+            .select('id', { count: 'exact' })
+            .eq('receiver_id', userId)
+            .eq('sender_id', user.user_id)
+            .is('read_at', null);
+          
+          user.unread = unreadCount !== null && unreadCount > 0;
+        }
+
+        // Format the conversation data
+        const formattedConversations: Conversation[] = Array.from(uniqueUsers.values())
+          .map(user => ({
+            id: user.user_id,
+            user: {
+              id: user.user_id,
+              name: user.full_name || 'User',
+              avatar: user.avatar_url || '/placeholder.svg',
+              status: 'online', // For simplicity
+            },
+            lastMessage: user.last_message || '',
+            timestamp: user.timestamp || '',
+            unread: user.unread,
+            skill: user.skill || 'General',
+          }));
+
+        setConversations(formattedConversations);
+        
+        // Set the first conversation as active if there's no active conversation
+        if (formattedConversations.length > 0 && !activeConversation) {
+          setActiveConversation(formattedConversations[0]);
+          fetchMessages(formattedConversations[0].user.id);
         }
       } catch (error) {
         console.error('Error fetching conversations:', error);

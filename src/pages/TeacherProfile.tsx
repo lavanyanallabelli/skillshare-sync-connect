@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -68,7 +67,6 @@ const TeacherProfile = () => {
 
         if (learningError) throw learningError;
 
-        // Fetch reviews
         const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select(`
@@ -78,7 +76,7 @@ const TeacherProfile = () => {
             created_at,
             reviewer:reviewer_id (
               id,
-              profiles:profiles (
+              profile:profiles (
                 first_name,
                 last_name,
                 avatar_url
@@ -90,8 +88,8 @@ const TeacherProfile = () => {
         if (!reviewsError && reviewsData) {
           const formattedReviews = reviewsData.map(review => ({
             id: review.id,
-            name: review.reviewer?.profiles?.first_name + ' ' + review.reviewer?.profiles?.last_name,
-            avatar: review.reviewer?.profiles?.avatar_url || '/placeholder.svg',
+            name: review.reviewer?.profile?.first_name + ' ' + review.reviewer?.profile?.last_name,
+            avatar: review.reviewer?.profile?.avatar_url || '/placeholder.svg',
             rating: review.rating,
             date: format(new Date(review.created_at), 'MMMM d, yyyy'),
             comment: review.comment
@@ -162,7 +160,6 @@ const TeacherProfile = () => {
     checkConnectionStatus();
   }, [id, isLoggedIn, userId]);
 
-  // Fetch availability for the selected date
   useEffect(() => {
     if (!selectedDate || !id) return;
 
@@ -182,7 +179,6 @@ const TeacherProfile = () => {
           const available = data.map(slot => slot.time_slot);
           setAvailabilityTimes(available);
         } else {
-          // If no availability found, show default times
           setAvailabilityTimes([
             "9:00 AM - 10:00 AM",
             "10:30 AM - 11:30 AM",
@@ -279,7 +275,6 @@ const TeacherProfile = () => {
     }
 
     try {
-      // Check if the time slot is still available
       const formattedDate = selectedDate.toISOString().split('T')[0];
       const { data: availabilityCheck, error: availabilityError } = await supabase
         .from('user_availability')
@@ -300,7 +295,6 @@ const TeacherProfile = () => {
         return;
       }
 
-      // Check if a session already exists for this slot
       const { data: existingSession, error: sessionCheckError } = await supabase
         .from('sessions')
         .select('id')
@@ -320,7 +314,6 @@ const TeacherProfile = () => {
         return;
       }
 
-      // Create the session request
       const { error: sessionError } = await supabase
         .from('sessions')
         .insert({
