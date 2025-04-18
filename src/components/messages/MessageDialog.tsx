@@ -53,6 +53,15 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            // Mark messages as read
+            await supabase
+                .from('messages')
+                .update({ read_at: new Date().toISOString() })
+                .eq('receiver_id', user.id)
+                .eq('sender_id', receiverId)
+                .is('read_at', null);
+
+            // Get messages
             const { data, error } = await supabase
                 .from('messages')
                 .select('*')
@@ -89,6 +98,17 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                     },
                     (payload) => {
                         setMessages(prev => [...prev, payload.new as Message]);
+                        
+                        // If we receive a message, mark it as read
+                        if (payload.new.receiver_id === user.id) {
+                            supabase
+                                .from('messages')
+                                .update({ read_at: new Date().toISOString() })
+                                .eq('id', payload.new.id)
+                                .then(() => {
+                                    // No need to handle this response
+                                });
+                        }
                     }
                 )
                 .subscribe();
@@ -152,24 +172,33 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.map((message) => (
-                        <div
-                            key={message.id}
-                            className={`flex ${message.sender_id === receiverId ? 'justify-start' : 'justify-end'}`}
-                        >
+                    {messages.length > 0 ? (
+                        messages.map((message) => (
                             <div
-                                className={`max-w-[70%] rounded-lg p-3 ${message.sender_id === receiverId
-                                        ? 'bg-gray-100'
-                                        : 'bg-skill-purple text-white'
-                                    }`}
+                                key={message.id}
+                                className={`flex ${message.sender_id === receiverId ? 'justify-start' : 'justify-end'}`}
                             >
-                                <p>{message.content}</p>
-                                <p className="text-xs mt-1 opacity-70">
-                                    {format(new Date(message.created_at), 'h:mm a')}
-                                </p>
+                                <div
+                                    className={`max-w-[70%] rounded-lg p-3 ${message.sender_id === receiverId
+                                            ? 'bg-gray-100'
+                                            : 'bg-skill-purple text-white'
+                                        }`}
+                                >
+                                    <p>{message.content}</p>
+                                    <p className="text-xs mt-1 opacity-70">
+                                        {format(new Date(message.created_at), 'h:mm a')}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center text-muted-foreground">
+                                <p>No messages yet</p>
+                                <p className="text-sm">Start the conversation!</p>
                             </div>
                         </div>
-                    ))}
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
 

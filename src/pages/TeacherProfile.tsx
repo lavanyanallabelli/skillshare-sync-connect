@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -25,39 +26,6 @@ import {
 } from "lucide-react";
 import MessageDialog from "@/components/messages/MessageDialog";
 
-const teacherData = {
-  id: "32",
-  name: "Alex Chen",
-  avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-  rating: 4.8,
-  location: "New York, USA",
-  company: "Tech Innovators",
-  education: "Computer Science, MIT",
-  achievements: ["Top Rated", "Verified Teacher"],
-  bio: "I'm a full-stack developer with over 8 years of experience in web and mobile application development. I specialize in React, Node.js, and TypeScript and love sharing my knowledge with others.",
-  teachingSkills: ["JavaScript", "React", "Node.js", "TypeScript", "Web Development"],
-  learningSkills: ["Flutter", "Go", "Machine Learning"]
-};
-
-const reviewsData = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-    rating: 5,
-    date: "April 10, 2025",
-    comment: "Alex is an amazing teacher! His explanations are clear and he's very patient. I learned so much about React and JavaScript in just a few sessions."
-  },
-  {
-    id: 2,
-    name: "Michael Brown",
-    avatar: "https://randomuser.me/api/portraits/men/22.jpg",
-    rating: 4,
-    date: "March 27, 2025",
-    comment: "Great experience learning TypeScript with Alex. He has deep knowledge and provides practical examples that helped me understand complex concepts."
-  }
-];
-
 const TeacherProfile = () => {
   const { id } = useParams();
   const { toast } = useToast();
@@ -71,14 +39,7 @@ const TeacherProfile = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const availabilityTimes = [
-    "9:00 AM - 10:00 AM",
-    "10:30 AM - 11:30 AM",
-    "1:00 PM - 2:00 PM",
-    "3:30 PM - 4:30 PM",
-    "5:00 PM - 6:00 PM",
-  ];
+  const [availabilityTimes, setAvailabilityTimes] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchTeacherData = async () => {
@@ -106,6 +67,37 @@ const TeacherProfile = () => {
           .eq('user_id', id);
 
         if (learningError) throw learningError;
+
+        // Fetch reviews
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            created_at,
+            reviewer:reviewer_id (
+              id,
+              profiles:profiles (
+                first_name,
+                last_name,
+                avatar_url
+              )
+            )
+          `)
+          .eq('recipient_id', id);
+
+        if (!reviewsError && reviewsData) {
+          const formattedReviews = reviewsData.map(review => ({
+            id: review.id,
+            name: review.reviewer?.profiles?.first_name + ' ' + review.reviewer?.profiles?.last_name,
+            avatar: review.reviewer?.profiles?.avatar_url || '/placeholder.svg',
+            rating: review.rating,
+            date: format(new Date(review.created_at), 'MMMM d, yyyy'),
+            comment: review.comment
+          }));
+          setReviews(formattedReviews);
+        }
 
         const formattedTeacher = {
           id: profileData.id,
@@ -169,6 +161,48 @@ const TeacherProfile = () => {
 
     checkConnectionStatus();
   }, [id, isLoggedIn, userId]);
+
+  // Fetch availability for the selected date
+  useEffect(() => {
+    if (!selectedDate || !id) return;
+
+    const fetchAvailability = async () => {
+      try {
+        const formattedDate = selectedDate.toISOString().split('T')[0];
+        const { data, error } = await supabase
+          .from('user_availability')
+          .select('time_slot')
+          .eq('user_id', id)
+          .eq('day', formattedDate)
+          .eq('is_available', true);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const available = data.map(slot => slot.time_slot);
+          setAvailabilityTimes(available);
+        } else {
+          // If no availability found, show default times
+          setAvailabilityTimes([
+            "9:00 AM - 10:00 AM",
+            "10:30 AM - 11:30 AM",
+            "1:00 PM - 2:00 PM",
+            "3:30 PM - 4:30 PM",
+            "5:00 PM - 6:00 PM",
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load teacher's availability",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchAvailability();
+  }, [selectedDate, id, toast]);
 
   const handleConnect = async () => {
     if (!isLoggedIn) {
@@ -245,16 +279,19 @@ const TeacherProfile = () => {
     }
 
     try {
+      // Check if the time slot is still available
+      const formattedDate = selectedDate.toISOString().split('T')[0];
       const { data: availabilityCheck, error: availabilityError } = await supabase
         .from('user_availability')
         .select('id')
         .eq('user_id', id)
-        .eq('day', selectedDate.toISOString().split('T')[0])
+        .eq('day', formattedDate)
         .eq('time_slot', selectedTimeSlot)
-        .eq('is_available', true)
-        .single();
+        .eq('is_available', true);
 
-      if (availabilityError || !availabilityCheck) {
+      if (availabilityError) throw availabilityError;
+
+      if (!availabilityCheck || availabilityCheck.length === 0) {
         toast({
           title: "Time Slot Unavailable",
           description: "This time slot is no longer available. Please select another time.",
@@ -263,13 +300,34 @@ const TeacherProfile = () => {
         return;
       }
 
+      // Check if a session already exists for this slot
+      const { data: existingSession, error: sessionCheckError } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('teacher_id', id)
+        .eq('day', formattedDate)
+        .eq('time_slot', selectedTimeSlot)
+        .in('status', ['pending', 'accepted']);
+
+      if (sessionCheckError) throw sessionCheckError;
+
+      if (existingSession && existingSession.length > 0) {
+        toast({
+          title: "Session Unavailable",
+          description: "This time slot has already been booked. Please select another time.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create the session request
       const { error: sessionError } = await supabase
         .from('sessions')
         .insert({
           teacher_id: id,
           student_id: userId,
           skill: selectedSkill,
-          day: selectedDate.toISOString().split('T')[0],
+          day: formattedDate,
           time_slot: selectedTimeSlot,
           status: 'pending'
         });
@@ -421,16 +479,22 @@ const TeacherProfile = () => {
                                 Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
                               </Label>
                               <div className="grid grid-cols-2 gap-2 mt-2">
-                                {availabilityTimes.map((time) => (
-                                  <Badge
-                                    key={time}
-                                    variant={selectedTimeSlot === time ? "default" : "outline"}
-                                    className="py-2 px-3 cursor-pointer text-center"
-                                    onClick={() => setSelectedTimeSlot(time)}
-                                  >
-                                    {time}
-                                  </Badge>
-                                ))}
+                                {availabilityTimes.length > 0 ? (
+                                  availabilityTimes.map((time) => (
+                                    <Badge
+                                      key={time}
+                                      variant={selectedTimeSlot === time ? "default" : "outline"}
+                                      className="py-2 px-3 cursor-pointer text-center"
+                                      onClick={() => setSelectedTimeSlot(time)}
+                                    >
+                                      {time}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <p className="col-span-2 text-center text-muted-foreground py-4">
+                                    No time slots available for this date
+                                  </p>
+                                )}
                               </div>
                             </div>
 
@@ -463,7 +527,11 @@ const TeacherProfile = () => {
                     </div>
 
                     <div className="mt-6">
-                      <Button className="w-full" variant="outline">
+                      <Button 
+                        className="w-full" 
+                        variant="outline"
+                        onClick={handleMessageClick}
+                      >
                         <MessageSquare className="mr-2 h-4 w-4" />
                         Send Message
                       </Button>
@@ -480,34 +548,41 @@ const TeacherProfile = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {reviews.map((review) => (
-                      <div key={review.id} className="border-b pb-6 last:border-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={review.avatar} alt={review.name} />
-                              <AvatarFallback>
-                                {review.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h4 className="font-medium">{review.name}</h4>
-                              <div className="flex items-center mt-1">
-                                {Array(5).fill(0).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                      }`}
-                                  />
-                                ))}
+                    {reviews.length > 0 ? (
+                      reviews.map((review) => (
+                        <div key={review.id} className="border-b pb-6 last:border-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={review.avatar} alt={review.name} />
+                                <AvatarFallback>
+                                  {review.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{review.name}</h4>
+                                <div className="flex items-center mt-1">
+                                  {Array(5).fill(0).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                        }`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             </div>
+                            <span className="text-sm text-muted-foreground">{review.date}</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">{review.date}</span>
+                          <p className="mt-3">{review.comment}</p>
                         </div>
-                        <p className="mt-3">{review.comment}</p>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <p>No reviews yet</p>
+                        <p className="text-sm mt-2">Be the first to review this teacher after your session</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -538,24 +613,33 @@ const TeacherProfile = () => {
                       <h3 className="font-medium">
                         Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
                       </h3>
-                      <div className="space-y-2">
-                        {availabilityTimes.map((time, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{time}</span>
-                            <Button
-                              className="ml-auto bg-skill-purple hover:bg-skill-purple-dark"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedTimeSlot(time);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              Book
-                            </Button>
+                      {availabilityTimes.length > 0 ? (
+                        <div className="space-y-2">
+                          {availabilityTimes.map((time, index) => (
+                            <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span>{time}</span>
+                              <Button
+                                className="ml-auto bg-skill-purple hover:bg-skill-purple-dark"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTimeSlot(time);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                Book
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 border rounded-md">
+                          <div className="text-center text-muted-foreground">
+                            <p>No available times</p>
+                            <p className="text-sm mt-2">Try selecting another date</p>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

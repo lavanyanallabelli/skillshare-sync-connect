@@ -34,6 +34,18 @@ export const useUnreadMessages = (userId: string | undefined) => {
           fetchUnreadCount();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`
+        },
+        () => {
+          fetchUnreadCount();
+        }
+      )
       .subscribe();
 
     return () => {
