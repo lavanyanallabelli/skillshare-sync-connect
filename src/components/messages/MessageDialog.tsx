@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from 'date-fns';
+import { Tables } from '@/integrations/supabase/types';
+
+// Explicitly define Message type using the Supabase Tables type
+type Message = Tables<'messages'>['Row'];
 
 interface MessageDialogProps {
     isOpen: boolean;
@@ -13,15 +18,6 @@ interface MessageDialogProps {
     receiverId: string;
     receiverName: string;
     receiverAvatar: string;
-}
-
-interface Message {
-    id: string;
-    sender_id: string;
-    receiver_id: string;
-    content: string;
-    created_at: string;
-    read_at: string | null;
 }
 
 const MessageDialog: React.FC<MessageDialogProps> = ({
@@ -46,7 +42,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             fetchMessages();
             setupRealtimeSubscription();
         }
-    }, [isOpen]);
+    }, [isOpen, receiverId]);
 
     useEffect(() => {
         scrollToBottom();
@@ -79,7 +75,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
         const { data: { user } } = supabase.auth.getUser();
         if (!user) return;
 
-        const subscription = supabase
+        const channel = supabase
             .channel('messages')
             .on(
                 'postgres_changes',
@@ -96,7 +92,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             .subscribe();
 
         return () => {
-            subscription.unsubscribe();
+            supabase.removeChannel(channel);
         };
     };
 
@@ -121,6 +117,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                     sender_id: user.id,
                     receiver_id: receiverId,
                     content: newMessage.trim(),
+                    created_at: new Date().toISOString(),
                 });
 
             if (error) throw error;
@@ -200,4 +197,4 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
     );
 };
 
-export default MessageDialog; 
+export default MessageDialog;
