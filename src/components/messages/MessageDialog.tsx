@@ -9,8 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 
-// Explicitly define Message type using the Supabase Tables type
-type Message = Tables<'messages'>['Row'];
+// Correctly define Message type using the Supabase Tables type
+type Message = Tables<'messages'>;
 
 interface MessageDialogProps {
     isOpen: boolean;
@@ -72,28 +72,31 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
     };
 
     const setupRealtimeSubscription = () => {
-        const { data: { user } } = supabase.auth.getUser();
-        if (!user) return;
+        // Fix the async/await pattern here by using an immediately invoked async function
+        (async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-        const channel = supabase
-            .channel('messages')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
-                },
-                (payload) => {
-                    setMessages(prev => [...prev, payload.new as Message]);
-                }
-            )
-            .subscribe();
+            const channel = supabase
+                .channel('messages')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'messages',
+                        filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
+                    },
+                    (payload) => {
+                        setMessages(prev => [...prev, payload.new as Message]);
+                    }
+                )
+                .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        })();
     };
 
     const handleSendMessage = async () => {
