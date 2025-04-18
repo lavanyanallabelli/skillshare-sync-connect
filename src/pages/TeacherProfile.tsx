@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -67,6 +68,7 @@ const TeacherProfile = () => {
 
         if (learningError) throw learningError;
 
+        // Fetch review data with proper join
         const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select(`
@@ -74,28 +76,47 @@ const TeacherProfile = () => {
             rating,
             comment,
             created_at,
-            reviewer:reviewer_id (
-              id,
-              profile:profiles (
-                first_name,
-                last_name,
-                avatar_url
-              )
-            )
+            reviewer_id
           `)
           .eq('recipient_id', id);
+          
+        if (reviewsError) throw reviewsError;
 
-        if (!reviewsError && reviewsData) {
-          const formattedReviews = reviewsData.map(review => ({
-            id: review.id,
-            name: review.reviewer?.profile?.first_name + ' ' + review.reviewer?.profile?.last_name,
-            avatar: review.reviewer?.profile?.avatar_url || '/placeholder.svg',
-            rating: review.rating,
-            date: format(new Date(review.created_at), 'MMMM d, yyyy'),
-            comment: review.comment
-          }));
-          setReviews(formattedReviews);
+        // Separately fetch reviewer profiles
+        let formattedReviews: any[] = [];
+        if (reviewsData && reviewsData.length > 0) {
+          // Get unique reviewer IDs
+          const reviewerIds = [...new Set(reviewsData.map(review => review.reviewer_id))];
+          
+          // Fetch all reviewer profiles in one query
+          const { data: reviewerProfiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', reviewerIds);
+          
+          // Create a map of profiles for faster lookup
+          const profileMap = new Map();
+          if (reviewerProfiles) {
+            reviewerProfiles.forEach(profile => {
+              profileMap.set(profile.id, profile);
+            });
+          }
+          
+          // Format reviews with profile data
+          formattedReviews = reviewsData.map(review => {
+            const profile = profileMap.get(review.reviewer_id);
+            return {
+              id: review.id,
+              name: profile ? `${profile.first_name} ${profile.last_name}` : 'User',
+              avatar: profile?.avatar_url || '/placeholder.svg',
+              rating: review.rating,
+              date: format(new Date(review.created_at), 'MMMM d, yyyy'),
+              comment: review.comment
+            };
+          });
         }
+        
+        setReviews(formattedReviews);
 
         const formattedTeacher = {
           id: profileData.id,
@@ -418,7 +439,7 @@ const TeacherProfile = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {teacher.teachingSkills?.map((skill) => (
+                      {teacher?.teachingSkills?.map((skill) => (
                         <Badge key={skill} className="py-2 px-3">
                           {skill}
                         </Badge>
@@ -440,7 +461,7 @@ const TeacherProfile = () => {
                             <div>
                               <Label>Select a skill you want to learn</Label>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {teacher.teachingSkills?.map((skill) => (
+                                {teacher?.teachingSkills?.map((skill) => (
                                   <Badge
                                     key={skill}
                                     variant={selectedSkill === skill ? "default" : "outline"}
@@ -512,7 +533,7 @@ const TeacherProfile = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {teacher.learningSkills?.map((skill) => (
+                      {teacher?.learningSkills?.map((skill) => (
                         <Badge key={skill} variant="secondary" className="py-2 px-3">
                           {skill}
                         </Badge>

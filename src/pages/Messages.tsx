@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -57,13 +58,7 @@ const Messages: React.FC = () => {
             receiver_id,
             content,
             created_at,
-            read_at,
-            profiles!messages_sender_id_fkey (
-              id,
-              first_name,
-              last_name,
-              avatar_url
-            )
+            read_at
           `)
           .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .order('created_at', { ascending: false });
@@ -76,30 +71,17 @@ const Messages: React.FC = () => {
         if (data) {
           data.forEach(message => {
             const otherUserId = message.sender_id === userId ? message.receiver_id : message.sender_id;
-            const profile = message.sender_id === userId ? null : message.profiles;
             
             // Skip if we already added this user
             if (uniqueUsers.has(otherUserId)) return;
             
-            // Get user profile info for this message
-            if (message.sender_id !== userId) {
-              uniqueUsers.set(otherUserId, {
-                user_id: otherUserId,
-                full_name: profile ? `${profile.first_name} ${profile.last_name}` : 'User',
-                avatar_url: profile?.avatar_url || '/placeholder.svg',
-                last_message: message.content,
-                timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                skill: 'General'
-              });
-            } else {
-              // We need to fetch the profile for the receiver
-              uniqueUsers.set(otherUserId, {
-                user_id: otherUserId,
-                needs_profile: true,
-                last_message: message.content,
-                timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              });
-            }
+            uniqueUsers.set(otherUserId, {
+              user_id: otherUserId,
+              last_message: message.content,
+              timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              skill: 'General',
+              needs_profile: true
+            });
           });
         }
 
@@ -129,14 +111,14 @@ const Messages: React.FC = () => {
 
         // Get unread counts for each conversation
         for (const user of uniqueUsers.values()) {
-          const { data: unreadCount } = await supabase
+          const { data: unreadData } = await supabase
             .from('messages')
-            .select('id', { count: 'exact' })
+            .select('id')
             .eq('receiver_id', userId)
             .eq('sender_id', user.user_id)
             .is('read_at', null);
           
-          user.unread = unreadCount !== null && unreadCount > 0;
+          user.unread = unreadData !== null && unreadData.length > 0;
         }
 
         // Format the conversation data
