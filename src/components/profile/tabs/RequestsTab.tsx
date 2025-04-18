@@ -1,4 +1,3 @@
-
 import React, { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,13 +6,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "../common/ProfileUIComponents";
+import { supabase } from "@/integrations/supabase/client";
+import { generateMeetLink } from "@/utils/meetingUtils";
 
 interface RequestsTabProps {
   sessionRequests: any[];
   setSessionRequests: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-// Use memoization to prevent unnecessary re-renders
 const RequestCard = memo(({ request, onAccept, onDecline }: { 
   request: any,
   onAccept: () => void,
@@ -55,15 +55,48 @@ const RequestCard = memo(({ request, onAccept, onDecline }: {
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests }) => {
   const { toast } = useToast();
 
-  const handleRequestAction = (id: number, action: "accept" | "decline") => {
-    toast({
-      title: action === "accept" ? "Request accepted" : "Request declined",
-      description: action === "accept"
-        ? "The session has been added to your schedule"
-        : "The request has been declined",
-    });
+  const handleRequestAction = async (id: number, action: "accept" | "decline") => {
+    try {
+      if (action === "accept") {
+        const meetingLink = generateMeetLink();
+        
+        const { error } = await supabase
+          .from('sessions')
+          .update({ 
+            status: 'accepted',
+            meeting_link: meetingLink
+          })
+          .eq('id', id);
 
-    setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
+        if (error) throw error;
+
+        toast({
+          title: "Request accepted",
+          description: "The session has been added to your schedule and notifications have been sent.",
+        });
+      } else {
+        const { error } = await supabase
+          .from('sessions')
+          .update({ status: 'declined' })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Request declined",
+          description: "The request has been declined",
+        });
+      }
+
+      setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
+    } catch (error) {
+      console.error('Error handling request:', error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action} request`,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

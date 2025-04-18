@@ -218,6 +218,7 @@ export type Database = {
           created_at: string
           day: string
           id: string
+          meeting_link: string | null
           skill: string
           status: string
           student_id: string
@@ -229,6 +230,7 @@ export type Database = {
           created_at?: string
           day: string
           id?: string
+          meeting_link?: string | null
           skill: string
           status?: string
           student_id: string
@@ -240,6 +242,7 @@ export type Database = {
           created_at?: string
           day?: string
           id?: string
+          meeting_link?: string | null
           skill?: string
           status?: string
           student_id?: string
