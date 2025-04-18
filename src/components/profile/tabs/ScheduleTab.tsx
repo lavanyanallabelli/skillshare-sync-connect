@@ -1,11 +1,12 @@
-
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 interface ScheduleTabProps {
   selectedDate: Date | undefined;
@@ -23,29 +24,86 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   availabilityTimes
 }) => {
   const { toast } = useToast();
+  const { userId } = useAuth();
 
-  const handleSaveAvailability = () => {
-    if (selectedDate) {
-      const dateKey = selectedDate.toISOString().split('T')[0];
-      const updatedSelectedTimes = {
-        ...selectedTimes,
-        [dateKey]: availabilityTimes.filter(time => {
-          const checkbox = document.querySelector(`input[type="checkbox"][data-time="${time}"]`) as HTMLInputElement;
-          return checkbox?.checked;
-        })
-      };
-      setSelectedTimes(updatedSelectedTimes);
+  useEffect(() => {
+    if (!userId) return;
 
-      const storedUserData = localStorage.getItem("userData");
-      if (storedUserData) {
-        const userData = JSON.parse(storedUserData);
-        userData.availability = updatedSelectedTimes;
-        localStorage.setItem("userData", JSON.stringify(userData));
+    const fetchAvailability = async () => {
+      const { data, error } = await supabase
+        .from('user_availability')
+        .select('day, time_slot')
+        .eq('user_id', userId)
+        .eq('is_available', true);
+
+      if (error) {
+        console.error('Error fetching availability:', error);
+        return;
       }
+
+      const availabilityMap = data.reduce((acc: Record<string, string[]>, curr) => {
+        const dateKey = curr.day;
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        acc[dateKey].push(curr.time_slot);
+        return acc;
+      }, {});
+
+      setSelectedTimes(availabilityMap);
+    };
+
+    fetchAvailability();
+  }, [userId]);
+
+  const handleSaveAvailability = async () => {
+    if (!selectedDate || !userId) return;
+
+    try {
+      const dateKey = selectedDate.toISOString().split('T')[0];
+      const selectedTimesForDate = availabilityTimes.filter(time => {
+        const checkbox = document.querySelector(`input[type="checkbox"][data-time="${time}"]`) as HTMLInputElement;
+        return checkbox?.checked;
+      });
+
+      // Delete existing availability for this date
+      await supabase
+        .from('user_availability')
+        .delete()
+        .eq('user_id', userId)
+        .eq('day', dateKey);
+
+      // Insert new availability
+      if (selectedTimesForDate.length > 0) {
+        const availability = selectedTimesForDate.map(time => ({
+          user_id: userId,
+          day: dateKey,
+          time_slot: time,
+          is_available: true
+        }));
+
+        const { error } = await supabase
+          .from('user_availability')
+          .insert(availability);
+
+        if (error) throw error;
+      }
+
+      setSelectedTimes(prev => ({
+        ...prev,
+        [dateKey]: selectedTimesForDate
+      }));
 
       toast({
         title: "Availability saved",
         description: "Your availability has been updated successfully",
+      });
+    } catch (error) {
+      console.error('Error saving availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save availability",
+        variant: "destructive",
       });
     }
   };

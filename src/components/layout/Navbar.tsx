@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -27,9 +27,45 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Use auth context instead of local state
-  const { isLoggedIn, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const { isLoggedIn, logout, userId } = useAuth();
+
+  useEffect(() => {
+    if (!isLoggedIn || !userId) return;
+
+    const fetchUnreadCount = async () => {
+      const { data, error } = await supabase
+        .rpc('get_unread_message_count', { user_id: userId });
+      
+      if (!error && data !== null) {
+        setUnreadCount(data);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`
+        },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isLoggedIn, userId]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,9 +135,11 @@ const Navbar: React.FC = () => {
                   <Link to="/messages">
                     <Button variant="ghost" size="icon" className="relative">
                       <MessageSquare size={20} />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-skill-purple text-[10px] text-white flex items-center justify-center">
-                        2
-                      </span>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-skill-purple text-[10px] text-white flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
                     </Button>
                   </Link>
                   
@@ -167,7 +205,6 @@ const Navbar: React.FC = () => {
         </div>
       </div>
       
-      {/* Mobile Menu */}
       {isMobile && isMenuOpen && (
         <div className="absolute top-16 left-0 w-full bg-background border-b shadow-lg animate-fade-in">
           <div className="container py-4 flex flex-col gap-4">

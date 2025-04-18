@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import MessageDialog from "@/components/messages/MessageDialog";
 
-// Sample teacher data
 const teacherData = {
   id: "32",
   name: "Alex Chen",
@@ -40,7 +39,6 @@ const teacherData = {
   learningSkills: ["Flutter", "Go", "Machine Learning"]
 };
 
-// Sample reviews data
 const reviewsData = [
   {
     id: 1,
@@ -74,7 +72,6 @@ const TeacherProfile = () => {
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sample availability times
   const availabilityTimes = [
     "9:00 AM - 10:00 AM",
     "10:30 AM - 11:30 AM",
@@ -88,7 +85,6 @@ const TeacherProfile = () => {
       if (!id) return;
 
       try {
-        // Fetch teacher profile data
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -97,7 +93,6 @@ const TeacherProfile = () => {
 
         if (profileError) throw profileError;
 
-        // Fetch teaching skills
         const { data: teachingSkills, error: skillsError } = await supabase
           .from('teaching_skills')
           .select('*')
@@ -105,7 +100,6 @@ const TeacherProfile = () => {
 
         if (skillsError) throw skillsError;
 
-        // Fetch learning skills
         const { data: learningSkills, error: learningError } = await supabase
           .from('learning_skills')
           .select('*')
@@ -113,16 +107,15 @@ const TeacherProfile = () => {
 
         if (learningError) throw learningError;
 
-        // Format the teacher data
         const formattedTeacher = {
           id: profileData.id,
           name: `${profileData.first_name} ${profileData.last_name}`,
           avatar: profileData.avatar_url || "/placeholder.svg",
-          rating: 4.8, // Default rating for now
+          rating: 4.8,
           location: profileData.location || "",
           company: profileData.occupation || "",
           education: profileData.education || "",
-          achievements: ["New Member"], // Default achievements for now
+          achievements: ["New Member"],
           bio: profileData.bio || "",
           teachingSkills: teachingSkills?.map(skill => skill.skill) || [],
           learningSkills: learningSkills?.map(skill => skill.skill) || []
@@ -145,9 +138,6 @@ const TeacherProfile = () => {
   }, [id, toast]);
 
   useEffect(() => {
-    // In a real app, we would fetch the teacher data from the API using the ID
-    // For now, we'll use the mock data
-
     const checkConnectionStatus = async () => {
       if (!isLoggedIn || !userId) {
         setIsLoading(false);
@@ -155,14 +145,13 @@ const TeacherProfile = () => {
       }
 
       try {
-        // Check if there's a connection between the current user and the teacher
         const { data, error } = await supabase
           .from('connections')
           .select('*')
           .or(`and(requester_id.eq.${userId},recipient_id.eq.${id}),and(requester_id.eq.${id},recipient_id.eq.${userId})`)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows returned
+        if (error && error.code !== 'PGRST116') {
           throw error;
         }
 
@@ -192,7 +181,6 @@ const TeacherProfile = () => {
     }
 
     try {
-      // Insert a new connection request
       const { error } = await supabase
         .from('connections')
         .insert({
@@ -202,7 +190,7 @@ const TeacherProfile = () => {
         });
 
       if (error) {
-        if (error.code === '23505') { // Unique violation
+        if (error.code === '23505') {
           toast({
             title: "Already Connected",
             description: "You have already sent a connection request to this teacher",
@@ -228,7 +216,7 @@ const TeacherProfile = () => {
     }
   };
 
-  const handleBookSession = () => {
+  const handleBookSession = async () => {
     if (!selectedSkill) {
       toast({
         title: "Skill Required",
@@ -238,7 +226,7 @@ const TeacherProfile = () => {
       return;
     }
 
-    if (!selectedTimeSlot) {
+    if (!selectedTimeSlot || !selectedDate) {
       toast({
         title: "Time Slot Required",
         description: "Please select a time slot for your session",
@@ -247,15 +235,63 @@ const TeacherProfile = () => {
       return;
     }
 
-    // In a real app, we would make an API call to book the session
-    toast({
-      title: "Session Requested",
-      description: `Your learning request has been sent to ${teacher.name}`,
-    });
+    if (!isLoggedIn || !userId) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to book a session",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setDialogOpen(false);
-    setSelectedSkill("");
-    setSelectedTimeSlot("");
+    try {
+      const { data: availabilityCheck, error: availabilityError } = await supabase
+        .from('user_availability')
+        .select('id')
+        .eq('user_id', id)
+        .eq('day', selectedDate.toISOString().split('T')[0])
+        .eq('time_slot', selectedTimeSlot)
+        .eq('is_available', true)
+        .single();
+
+      if (availabilityError || !availabilityCheck) {
+        toast({
+          title: "Time Slot Unavailable",
+          description: "This time slot is no longer available. Please select another time.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert({
+          teacher_id: id,
+          student_id: userId,
+          skill: selectedSkill,
+          day: selectedDate.toISOString().split('T')[0],
+          time_slot: selectedTimeSlot,
+          status: 'pending'
+        });
+
+      if (sessionError) throw sessionError;
+
+      toast({
+        title: "Session Requested",
+        description: `Your learning request has been sent to ${teacher?.name}`,
+      });
+
+      setDialogOpen(false);
+      setSelectedSkill("");
+      setSelectedTimeSlot("");
+    } catch (error) {
+      console.error('Error booking session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to book session. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleMessageClick = () => {
