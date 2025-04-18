@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -89,10 +90,13 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
         if (error) throw error;
       }
 
-      setSelectedTimes(prev => ({
-        ...prev,
+      // Fix for the type error - create a new object instead of using a function
+      const updatedTimes = {
+        ...selectedTimes,
         [dateKey]: selectedTimesForDate
-      }));
+      };
+      
+      setSelectedTimes(updatedTimes);
 
       toast({
         title: "Availability saved",
@@ -151,10 +155,14 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                                 updatedTimes.splice(index, 1);
                               }
                             }
-                            setSelectedTimes({
+                            
+                            // Fix for the type error - create a new object instead of using a function
+                            const newSelectedTimes = {
                               ...selectedTimes,
                               [dateKey]: updatedTimes
-                            });
+                            };
+                            
+                            setSelectedTimes(newSelectedTimes);
                           }}
                           className="h-4 w-4"
                         />
