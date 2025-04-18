@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { useSaveProfileData } from "../actions/ProfileSaveActions";
 import ProfileAbout from "../sections/ProfileAbout";
 import ProfileExperience from "../sections/ProfileExperience";
@@ -19,6 +19,16 @@ interface ProfileTabContainerProps {
   skills: string[];
   setSkills: (skills: string[]) => void;
   upcomingSessions: any[];
+  editingBio: boolean;
+  setEditingBio: (editing: boolean) => void;
+  editingExperience: boolean;
+  setEditingExperience: (editing: boolean) => void;
+  editingEducation: boolean;
+  setEditingEducation: (editing: boolean) => void;
+  editingSkills: boolean;
+  setEditingSkills: (editing: boolean) => void;
+  newSkill: string;
+  setNewSkill: (skill: string) => void;
 }
 
 const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
@@ -32,14 +42,18 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   setEducations,
   skills,
   setSkills,
-  upcomingSessions
+  upcomingSessions,
+  editingBio,
+  setEditingBio,
+  editingExperience,
+  setEditingExperience,
+  editingEducation,
+  setEditingEducation,
+  editingSkills,
+  setEditingSkills,
+  newSkill,
+  setNewSkill
 }) => {
-  const [editingBio, setEditingBio] = useState(false);
-  const [editingExperience, setEditingExperience] = useState(false);
-  const [editingEducation, setEditingEducation] = useState(false);
-  const [editingSkills, setEditingSkills] = useState(false);
-  const [newSkill, setNewSkill] = useState("");
-
   const { 
     handleSaveBio, 
     saveExperiences, 

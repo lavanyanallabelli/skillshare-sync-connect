@@ -1,3 +1,4 @@
+
 import React from "react";
 import ProfileTabContainer from "../containers/ProfileTabContainer";
 
@@ -21,6 +22,8 @@ interface ProfileTabProps {
   setEditingSkills: (editing: boolean) => void;
   newSkill: string;
   setNewSkill: (skill: string) => void;
+  editingBio: boolean;
+  setEditingBio: (editing: boolean) => void;
 }
 
 const ProfileTab: React.FC<ProfileTabProps> = ({
@@ -42,7 +45,9 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
   editingSkills,
   setEditingSkills,
   newSkill,
-  setNewSkill
+  setNewSkill,
+  editingBio,
+  setEditingBio
 }) => {
   return (
     <ProfileTabContainer
@@ -57,6 +62,16 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
       skills={skills}
       setSkills={setSkills}
       upcomingSessions={upcomingSessions}
+      editingBio={editingBio}
+      setEditingBio={setEditingBio}
+      editingExperience={editingExperience}
+      setEditingExperience={setEditingExperience}
+      editingEducation={editingEducation}
+      setEditingEducation={setEditingEducation}
+      editingSkills={editingSkills}
+      setEditingSkills={setEditingSkills}
+      newSkill={newSkill}
+      setNewSkill={setNewSkill}
     />
   );
 };
