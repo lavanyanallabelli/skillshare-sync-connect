@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -9,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parse, addHours, subHours } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -22,9 +21,11 @@ import {
   MessageSquare,
   UserPlus,
   UserCheck,
-  Clock as PendingIcon
+  Clock as PendingIcon,
+  Trash2
 } from "lucide-react";
 import MessageDialog from "@/components/messages/MessageDialog";
+import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
 
 const TeacherProfile = () => {
   const { id } = useParams();
@@ -40,6 +41,9 @@ const TeacherProfile = () => {
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availabilityTimes, setAvailabilityTimes] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("skills");
+  const [savedAvailabilities, setSavedAvailabilities] = useState<{ id: string, time: string, date: string }[]>([]);
+  const [selectedTimes, setSelectedTimes] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
     const fetchTeacherData = async () => {
@@ -79,7 +83,7 @@ const TeacherProfile = () => {
             reviewer_id
           `)
           .eq('recipient_id', id);
-          
+
         if (reviewsError) throw reviewsError;
 
         // Separately fetch reviewer profiles
@@ -87,13 +91,13 @@ const TeacherProfile = () => {
         if (reviewsData && reviewsData.length > 0) {
           // Get unique reviewer IDs
           const reviewerIds = [...new Set(reviewsData.map(review => review.reviewer_id))];
-          
+
           // Fetch all reviewer profiles in one query
           const { data: reviewerProfiles } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url')
             .in('id', reviewerIds);
-          
+
           // Create a map of profiles for faster lookup
           const profileMap = new Map();
           if (reviewerProfiles) {
@@ -101,7 +105,7 @@ const TeacherProfile = () => {
               profileMap.set(profile.id, profile);
             });
           }
-          
+
           // Format reviews with profile data
           formattedReviews = reviewsData.map(review => {
             const profile = profileMap.get(review.reviewer_id);
@@ -115,7 +119,7 @@ const TeacherProfile = () => {
             };
           });
         }
-        
+
         setReviews(formattedReviews);
 
         const formattedTeacher = {
@@ -182,44 +186,52 @@ const TeacherProfile = () => {
   }, [id, isLoggedIn, userId]);
 
   useEffect(() => {
-    if (!selectedDate || !id) return;
-
     const fetchAvailability = async () => {
+      if (!id) return;
+
       try {
-        const formattedDate = selectedDate.toISOString().split('T')[0];
         const { data, error } = await supabase
           .from('user_availability')
-          .select('time_slot')
+          .select('*')
           .eq('user_id', id)
-          .eq('day', formattedDate)
           .eq('is_available', true);
 
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const available = data.map(slot => slot.time_slot);
-          setAvailabilityTimes(available);
-        } else {
-          setAvailabilityTimes([
-            "9:00 AM - 10:00 AM",
-            "10:30 AM - 11:30 AM",
-            "1:00 PM - 2:00 PM",
-            "3:30 PM - 4:30 PM",
-            "5:00 PM - 6:00 PM",
-          ]);
+          const timesByDate: { [key: string]: string[] } = {};
+          const availabilities: { id: string, time: string, date: string }[] = [];
+          const times: string[] = [];
+
+          data.forEach(slot => {
+            const date = slot.day;
+            const time = slot.time_slot;
+
+            if (!timesByDate[date]) {
+              timesByDate[date] = [];
+            }
+            timesByDate[date].push(time);
+
+            availabilities.push({
+              id: slot.id,
+              time: time,
+              date: date
+            });
+
+            times.push(time);
+          });
+
+          setSelectedTimes(timesByDate);
+          setSavedAvailabilities(availabilities);
+          setAvailabilityTimes(times);
         }
       } catch (error) {
         console.error('Error fetching availability:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load teacher's availability",
-          variant: "destructive",
-        });
       }
     };
 
     fetchAvailability();
-  }, [selectedDate, id, toast]);
+  }, [id]);
 
   const handleConnect = async () => {
     if (!isLoggedIn) {
@@ -379,6 +391,67 @@ const TeacherProfile = () => {
     setMessageDialogOpen(true);
   };
 
+  const handleSaveSchedule = () => {
+    setActiveTab("availability");
+  };
+
+  const handleDeleteAvailability = async (date: string, time: string) => {
+    if (!isLoggedIn || !userId) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete availability",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Format the date in YYYY-MM-DD format without timezone conversion
+      const formattedDate = format(new Date(date), 'yyyy-MM-dd');
+
+      const { error } = await supabase
+        .from('user_availability')
+        .delete()
+        .eq('user_id', id)
+        .eq('day', formattedDate)
+        .eq('time_slot', time);
+
+      if (error) throw error;
+
+      // Update all relevant states immediately
+      setSelectedTimes(prev => {
+        const updated = { ...prev };
+        if (updated[date]) {
+          updated[date] = updated[date].filter(t => t !== time);
+          if (updated[date].length === 0) {
+            delete updated[date];
+          }
+        }
+        return updated;
+      });
+
+      setSavedAvailabilities(prev =>
+        prev.filter(slot => !(slot.time === time && slot.date === formattedDate))
+      );
+
+      setAvailabilityTimes(prev =>
+        prev.filter(t => t !== time)
+      );
+
+      toast({
+        title: "Availability Deleted",
+        description: `The time slot ${time} has been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete availability. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -424,7 +497,7 @@ const TeacherProfile = () => {
         />
 
         <div className="mt-8">
-          <Tabs defaultValue="skills" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
               <TabsTrigger value="skills">Skills & Expertise</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
@@ -541,8 +614,8 @@ const TeacherProfile = () => {
                     </div>
 
                     <div className="mt-6">
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         variant="outline"
                         onClick={handleMessageClick}
                       >
@@ -603,61 +676,11 @@ const TeacherProfile = () => {
             </TabsContent>
 
             <TabsContent value="availability">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Teaching Availability</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="date">Select date</Label>
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        className="rounded-md border mt-2"
-                        disabled={(date) =>
-                          date < new Date() ||
-                          date > new Date(new Date().setDate(new Date().getDate() + 30))
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="font-medium">
-                        Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
-                      </h3>
-                      {availabilityTimes.length > 0 ? (
-                        <div className="space-y-2">
-                          {availabilityTimes.map((time, index) => (
-                            <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span>{time}</span>
-                              <Button
-                                className="ml-auto bg-skill-purple hover:bg-skill-purple-dark"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedTimeSlot(time);
-                                  setDialogOpen(true);
-                                }}
-                              >
-                                Book
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-40 border rounded-md">
-                          <div className="text-center text-muted-foreground">
-                            <p>No available times</p>
-                            <p className="text-sm mt-2">Try selecting another date</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <AvailabilityTab
+                selectedTimes={selectedTimes}
+                onDelete={handleDeleteAvailability}
+                profileUserId={id || ""}
+              />
             </TabsContent>
           </Tabs>
         </div>

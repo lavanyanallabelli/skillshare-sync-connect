@@ -1,10 +1,9 @@
-
 import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, parse, addHours, subHours } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
@@ -15,6 +14,7 @@ interface ScheduleTabProps {
   selectedTimes: Record<string, string[]>;
   setSelectedTimes: (times: Record<string, string[]>) => void;
   availabilityTimes: string[];
+  onSave?: () => void;
 }
 
 const ScheduleTab: React.FC<ScheduleTabProps> = ({
@@ -22,7 +22,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   setSelectedDate,
   selectedTimes,
   setSelectedTimes,
-  availabilityTimes
+  availabilityTimes,
+  onSave
 }) => {
   const { toast } = useToast();
   const { userId } = useAuth();
@@ -61,7 +62,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     if (!selectedDate || !userId) return;
 
     try {
-      const dateKey = selectedDate.toISOString().split('T')[0];
+      // Format the date in YYYY-MM-DD format without timezone conversion
+      const dateKey = format(selectedDate, 'yyyy-MM-dd');
       const selectedTimesForDate = availabilityTimes.filter(time => {
         const checkbox = document.querySelector(`input[type="checkbox"][data-time="${time}"]`) as HTMLInputElement;
         return checkbox?.checked;
@@ -90,18 +92,21 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
         if (error) throw error;
       }
 
-      // Fix for the type error - create a new object instead of using a function
       const updatedTimes = {
         ...selectedTimes,
         [dateKey]: selectedTimesForDate
       };
-      
+
       setSelectedTimes(updatedTimes);
 
       toast({
         title: "Availability saved",
         description: "Your availability has been updated successfully",
       });
+
+      if (onSave) {
+        onSave();
+      }
     } catch (error) {
       console.error('Error saving availability:', error);
       toast({
@@ -135,7 +140,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 <Label>Available Times for {format(selectedDate, "MMMM d, yyyy")}</Label>
                 <div className="space-y-2">
                   {availabilityTimes.map((time) => {
-                    const dateKey = selectedDate.toISOString().split('T')[0];
+                    const dateKey = format(selectedDate, 'yyyy-MM-dd');
                     const isSelected = selectedTimes[dateKey]?.includes(time);
                     return (
                       <div key={time} className="flex items-center space-x-2">
@@ -145,7 +150,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                           data-time={time}
                           checked={isSelected}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            const dateKey = selectedDate.toISOString().split('T')[0];
+                            const dateKey = format(selectedDate, 'yyyy-MM-dd');
                             const updatedTimes = selectedTimes[dateKey] || [];
                             if (e.target.checked) {
                               updatedTimes.push(time);
@@ -155,13 +160,12 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                                 updatedTimes.splice(index, 1);
                               }
                             }
-                            
-                            // Fix for the type error - create a new object instead of using a function
+
                             const newSelectedTimes = {
                               ...selectedTimes,
                               [dateKey]: updatedTimes
                             };
-                            
+
                             setSelectedTimes(newSelectedTimes);
                           }}
                           className="h-4 w-4"
@@ -175,7 +179,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
             )}
 
             <div className="flex justify-end">
-              <Button onClick={handleSaveAvailability} className="w-full">
+              <Button onClick={handleSaveAvailability} className="bg-skill-purple">
                 Save Schedule
               </Button>
             </div>
