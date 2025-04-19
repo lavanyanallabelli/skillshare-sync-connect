@@ -1,3 +1,4 @@
+
 import React, { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +56,7 @@ const RequestCard = memo(({ request, onAccept, onDecline }: {
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests }) => {
   const { toast } = useToast();
 
-  const handleRequestAction = async (id: number, action: "accept" | "decline") => {
+  const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
         const meetingLink = generateMeetLink();
