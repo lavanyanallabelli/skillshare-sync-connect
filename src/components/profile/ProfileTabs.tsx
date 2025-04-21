@@ -19,9 +19,18 @@ interface ProfileTabsProps {
 }
 
 const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiveTab }) => {
+  // Ensure URL and active tab stay in sync
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Update URL with tab parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', value);
+    window.history.replaceState({}, '', url.toString());
+  };
+
   return (
     <div className="mt-8">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="mb-6 w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -67,4 +76,3 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
 };
 
 export default ProfileTabs;
-

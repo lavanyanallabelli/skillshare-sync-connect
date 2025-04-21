@@ -92,8 +92,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         console.log("Session update response:", data);
 
-        // Only notify the student, not the teacher (to avoid sending a message to yourself)
-        if (data && data.length > 0 && data[0].student_id !== userId) {
+        // Only send a message to the student if they're not the same as the teacher
+        // This prevents the constraint violation
+        if (data && data.length > 0 && data[0].student_id !== data[0].teacher_id) {
           try {
             // Send a message to the student
             await supabase
@@ -120,7 +121,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         toast({
           title: "Request accepted",
-          description: "The session has been added to your schedule and notifications have been sent.",
+          description: "The session has been added to your schedule.",
         });
       } else {
         console.log("Declining request with ID:", id);

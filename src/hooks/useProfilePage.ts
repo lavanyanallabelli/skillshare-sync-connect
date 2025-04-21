@@ -51,22 +51,26 @@ export function useProfilePage() {
   const fetchSessions = useCallback(async () => {
     if (!userId) return;
     try {
-      const { data: requestsData } = await supabase
+      // Fetch pending session requests
+      const { data: requestsData, error: requestsError } = await supabase
         .from('sessions')
         .select('*')
         .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
+      if (requestsError) throw requestsError;
       setSessionRequests(requestsData || []);
 
-      const { data: sessionsData } = await supabase
+      // Fetch accepted sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
         .select('*')
         .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
         .eq('status', 'accepted')
         .order('created_at', { ascending: false });
 
+      if (sessionsError) throw sessionsError;
       setUpcomingSessions(sessionsData || []);
     } catch (error) {
       console.error('Error in fetchSessions:', error);
@@ -78,8 +82,18 @@ export function useProfilePage() {
     function handleSessionAccepted(event: any) {
       console.log("Session accepted event received:", event.detail);
       const session = event.detail;
-      setUpcomingSessions(prev => [session, ...prev]);
+      setUpcomingSessions(prev => {
+        // Avoid duplicates
+        if (prev.some(s => s.id === session.id)) {
+          return prev;
+        }
+        return [session, ...prev];
+      });
+      
+      // Remove from requests if it was there
+      setSessionRequests(prev => prev.filter(req => req.id !== session.id));
     }
+    
     window.addEventListener('sessionAccepted', handleSessionAccepted);
     return () => window.removeEventListener('sessionAccepted', handleSessionAccepted);
   }, []);
@@ -89,6 +103,7 @@ export function useProfilePage() {
     if (!userId) return;
     fetchSessions();
 
+    // Set up real-time subscription to session changes
     const channel = supabase
       .channel('sessions-changes')
       .on(

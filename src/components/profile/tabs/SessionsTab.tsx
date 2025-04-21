@@ -37,6 +37,9 @@ const SessionCard = ({ session }: { session: any }) => {
     format(new Date(session.day), 'EEEE, MMMM d, yyyy') : 
     session.date || 'Date not specified';
 
+  // Determine partner name based on the current user's role
+  const partnerName = session.from || session.student_name || session.teacher_name || "Session Partner";
+  
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
@@ -46,17 +49,13 @@ const SessionCard = ({ session }: { session: any }) => {
               <Avatar>
                 <AvatarImage src={session.avatar} alt="User avatar" />
                 <AvatarFallback>
-                  {session.student_name 
-                    ? session.student_name.split(" ").map((n: string) => n[0]).join("") 
-                    : session.teacher_name 
-                      ? session.teacher_name.split(" ").map((n: string) => n[0]).join("")
-                      : "?"}
+                  {partnerName 
+                    ? partnerName.split(" ").map((n: string) => n[0]).join("") 
+                    : "?"}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h4 className="font-medium">
-                  {session.student_name || session.teacher_name || "Session Partner"}
-                </h4>
+                <h4 className="font-medium">{partnerName}</h4>
                 <div className="flex items-center text-sm text-muted-foreground mt-1">
                   <Badge variant="outline" className="mr-2">
                     {session.skill}
