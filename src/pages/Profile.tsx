@@ -61,9 +61,72 @@ const Profile: React.FC = () => {
 
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+
+  // Listen for accepted session events from RequestsTab
+  useEffect(() => {
+    function handleSessionAccepted(event: any) {
+      const session = event.detail;
+      setUpcomingSessions(prev => [session, ...prev]);
+    }
+    window.addEventListener('sessionAccepted', handleSessionAccepted);
+    return () => window.removeEventListener('sessionAccepted', handleSessionAccepted);
+  }, []);
   const [reviews, setReviews] = useState<any[]>([]);
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+  // Fetch session requests for the logged-in user
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchSessionRequests = async () => {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+        .in('status', ['pending'])
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error fetching session requests:', error);
+        return;
+      }
+      setSessionRequests(data || []);
+    };
+    fetchSessionRequests();
+
+    // Set up real-time subscription for session requests
+    const channel = supabase
+      .channel('session-requests')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sessions',
+          filter: `teacher_id=eq.${userId}`
+        },
+        () => {
+          fetchSessionRequests();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sessions',
+          filter: `student_id=eq.${userId}`
+        },
+        () => {
+          fetchSessionRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (userData) {
@@ -262,6 +325,7 @@ const Profile: React.FC = () => {
                 <RequestsTab
                   sessionRequests={sessionRequests}
                   setSessionRequests={setSessionRequests}
+                  userId={userId}
                 />
               </Suspense>
             </TabsContent>
