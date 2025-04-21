@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
@@ -6,6 +7,9 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Added missing import for useProfileData hook
+import { useProfileData } from "@/hooks/useProfileData";
 
 const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
 const ProfileTab = lazy(() => import("@/components/profile/tabs/ProfileTab"));
