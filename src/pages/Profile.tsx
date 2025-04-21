@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
 const ProfileTab = lazy(() => import("@/components/profile/tabs/ProfileTab"));
 const ScheduleTab = lazy(() => import("@/components/profile/tabs/ScheduleTab"));
+const SessionsTab = lazy(() => import("@/components/profile/tabs/SessionsTab"));
 const AvailabilityTab = lazy(() => import("@/components/profile/tabs/AvailabilityTab"));
 const ReviewsTab = lazy(() => import("@/components/profile/tabs/ReviewsTab"));
 const RequestsTab = lazy(() => import("@/components/profile/tabs/RequestsTab"));
@@ -65,38 +66,57 @@ const Profile: React.FC = () => {
   // Listen for accepted session events from RequestsTab
   useEffect(() => {
     function handleSessionAccepted(event: any) {
+      console.log("Session accepted event received:", event.detail);
       const session = event.detail;
       setUpcomingSessions(prev => [session, ...prev]);
     }
     window.addEventListener('sessionAccepted', handleSessionAccepted);
     return () => window.removeEventListener('sessionAccepted', handleSessionAccepted);
   }, []);
+
   const [reviews, setReviews] = useState<any[]>([]);
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
-  // Fetch session requests for the logged-in user
+  // Fetch session requests and upcoming sessions for the logged-in user
   useEffect(() => {
     if (!userId) return;
 
-    const fetchSessionRequests = async () => {
-      const { data, error } = await supabase
+    const fetchSessions = async () => {
+      // Fetch pending session requests
+      const { data: requestsData, error: requestsError } = await supabase
         .from('sessions')
         .select('*')
         .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-        .in('status', ['pending'])
+        .eq('status', 'pending')
         .order('created_at', { ascending: false });
-      if (error) {
-        console.error('Error fetching session requests:', error);
-        return;
+      
+      if (requestsError) {
+        console.error('Error fetching session requests:', requestsError);
+      } else {
+        setSessionRequests(requestsData || []);
       }
-      setSessionRequests(data || []);
-    };
-    fetchSessionRequests();
 
-    // Set up real-time subscription for session requests
+      // Fetch accepted upcoming sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false });
+      
+      if (sessionsError) {
+        console.error('Error fetching upcoming sessions:', sessionsError);
+      } else {
+        setUpcomingSessions(sessionsData || []);
+      }
+    };
+
+    fetchSessions();
+
+    // Set up real-time subscription for sessions
     const channel = supabase
-      .channel('session-requests')
+      .channel('sessions-changes')
       .on(
         'postgres_changes',
         {
@@ -106,7 +126,7 @@ const Profile: React.FC = () => {
           filter: `teacher_id=eq.${userId}`
         },
         () => {
-          fetchSessionRequests();
+          fetchSessions();
         }
       )
       .on(
@@ -118,7 +138,7 @@ const Profile: React.FC = () => {
           filter: `student_id=eq.${userId}`
         },
         () => {
-          fetchSessionRequests();
+          fetchSessions();
         }
       )
       .subscribe();
@@ -263,6 +283,7 @@ const Profile: React.FC = () => {
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
               <TabsTrigger value="availability">Availability</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -305,6 +326,12 @@ const Profile: React.FC = () => {
                   setSelectedTimes={setSelectedTimes}
                   availabilityTimes={availabilityTimes}
                 />
+              </Suspense>
+            </TabsContent>
+
+            <TabsContent value="sessions">
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <SessionsTab upcomingSessions={upcomingSessions} />
               </Suspense>
             </TabsContent>
 

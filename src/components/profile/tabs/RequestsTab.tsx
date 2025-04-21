@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Link as LinkIcon, Video as VideoIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +72,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     try {
       if (action === "accept") {
         const meetingLink = generateMeetLink();
+        console.log("Accepting request with ID:", id);
+        console.log("Generated meeting link:", meetingLink);
+        
         // Update the session in the database
         const { data, error } = await supabase
           .from('sessions')
@@ -82,12 +85,20 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           .eq('id', id)
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Database error:", error);
+          throw error;
+        }
+
+        console.log("Session update response:", data);
 
         // Add the accepted session to upcomingSessions in parent Profile (via window event)
         if (data && data.length > 0) {
-          const acceptedSession = { ...data[0], meeting_link: meetingLink };
+          const acceptedSession = { ...data[0] };
+          console.log("Dispatching session accepted event with data:", acceptedSession);
           window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
+        } else {
+          console.error("No data returned from update operation");
         }
 
         toast({
@@ -95,12 +106,16 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           description: "The session has been added to your schedule and notifications have been sent.",
         });
       } else {
+        console.log("Declining request with ID:", id);
         const { error } = await supabase
           .from('sessions')
           .update({ status: 'declined' })
           .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Database error when declining:", error);
+          throw error;
+        }
 
         toast({
           title: "Request declined",
@@ -108,12 +123,13 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         });
       }
 
+      // Update local state to remove the handled request
       setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
     } catch (error) {
       console.error('Error handling request:', error);
       toast({
         title: "Error",
-        description: `Failed to ${action} request`,
+        description: `Failed to ${action} request. Please try again.`,
         variant: "destructive",
       });
     }
