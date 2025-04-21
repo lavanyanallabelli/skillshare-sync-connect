@@ -1,4 +1,3 @@
-
 import React, { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,11 +70,47 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
-        const meetingLink = generateMeetLink();
-        console.log("Accepting request with ID:", id);
-        console.log("Generated meeting link:", meetingLink);
-        
-        // Update the session in the database
+        const accessToken = localStorage.getItem("google_access_token");
+        if (!accessToken) {
+          toast({
+            title: "Google access required",
+            description: "Please connect your Google account to generate a Meet link",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const session = sessionRequests.find(req => req.id === id);
+        const start = new Date(`${session.date}T${session.time.split(' - ')[0]}:00`);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+        const edgeRes = await fetch("https://rojydqsndhoielitdquu.functions.supabase.co/create-google-meet-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            access_token: accessToken,
+            summary: `Learning Session: ${session.skill}`,
+            description: `Google Meet for your session with ${session.from}`,
+            start: start.toISOString(),
+            end: end.toISOString(),
+            attendees: [
+              { email: session.student_email || "" },
+              { email: session.teacher_email || "" }
+            ].filter(a => a.email),
+          }),
+        });
+        const edgeData = await edgeRes.json();
+        if (!edgeRes.ok) {
+          toast({
+            title: "Google Meet Error",
+            description: edgeData.error || "Could not create Meet link",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const meetingLink = edgeData.meetLink;
+
         const { data, error } = await supabase
           .from('sessions')
           .update({ 
@@ -86,19 +121,12 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           .select();
 
         if (error) {
-          console.error("Database error:", error);
           throw error;
         }
 
-        console.log("Session update response:", data);
-
-        // Add the accepted session to upcomingSessions in parent Profile (via window event)
         if (data && data.length > 0) {
           const acceptedSession = { ...data[0] };
-          console.log("Dispatching session accepted event with data:", acceptedSession);
           window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
-        } else {
-          console.error("No data returned from update operation");
         }
 
         toast({
@@ -123,7 +151,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         });
       }
 
-      // Update local state to remove the handled request
       setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
     } catch (error) {
       console.error('Error handling request:', error);
