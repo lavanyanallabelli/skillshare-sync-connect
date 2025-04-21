@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
@@ -8,7 +7,6 @@ import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Added missing import for useProfileData hook
 import { useProfileData } from "@/hooks/useProfileData";
 
 const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
@@ -80,30 +78,34 @@ const Profile: React.FC = () => {
     if (!userId) return;
 
     const fetchSessions = async () => {
-      const { data: requestsData, error: requestsError } = await supabase
-        .from('sessions')
-        .select('*')
-        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-      
-      if (requestsError) {
-        console.error('Error fetching session requests:', requestsError);
-      } else {
-        setSessionRequests(requestsData || []);
-      }
+      try {
+        const { data: requestsData, error: requestsError } = await supabase
+          .from('sessions')
+          .select('*')
+          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+        
+        if (requestsError) {
+          console.error('Error fetching session requests:', requestsError);
+        } else {
+          setSessionRequests(requestsData || []);
+        }
 
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('sessions')
-        .select('*')
-        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-        .eq('status', 'accepted')
-        .order('created_at', { ascending: false });
-      
-      if (sessionsError) {
-        console.error('Error fetching upcoming sessions:', sessionsError);
-      } else {
-        setUpcomingSessions(sessionsData || []);
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('sessions')
+          .select('*')
+          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+          .eq('status', 'accepted')
+          .order('created_at', { ascending: false });
+        
+        if (sessionsError) {
+          console.error('Error fetching upcoming sessions:', sessionsError);
+        } else {
+          setUpcomingSessions(sessionsData || []);
+        }
+      } catch (error) {
+        console.error('Error in fetchSessions:', error);
       }
     };
 

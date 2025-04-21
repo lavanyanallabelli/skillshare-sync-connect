@@ -92,6 +92,23 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         console.log("Session update response:", data);
 
+        // Only notify the student, not the teacher (to avoid sending a message to yourself)
+        if (data && data.length > 0 && data[0].student_id !== userId) {
+          try {
+            // Send a message to the student
+            await supabase
+              .from('messages')
+              .insert({
+                sender_id: userId,
+                receiver_id: data[0].student_id,
+                content: 'Your session request has been accepted. Join using the meeting link: ' + meetingLink
+              });
+          } catch (messageError) {
+            console.error("Failed to send notification message:", messageError);
+            // Continue even if message sending fails
+          }
+        }
+
         // Add the accepted session to upcomingSessions in parent Profile (via window event)
         if (data && data.length > 0) {
           const acceptedSession = { ...data[0] };

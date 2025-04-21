@@ -3,15 +3,19 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Video as VideoIcon, Link as LinkIcon } from "lucide-react";
+import { CalendarIcon, Video as VideoIcon, Link as LinkIcon, Copy as CopyIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmptyState } from "../common/ProfileUIComponents";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface SessionsTabProps {
   upcomingSessions: any[];
 }
 
 const SessionCard = ({ session }: { session: any }) => {
+  const { toast } = useToast();
+  
   const openMeetingLink = () => {
     if (session.meeting_link) {
       window.open(session.meeting_link, '_blank');
@@ -21,9 +25,17 @@ const SessionCard = ({ session }: { session: any }) => {
   const copyMeetingLink = () => {
     if (session.meeting_link) {
       navigator.clipboard.writeText(session.meeting_link);
-      // Toast is handled by the copy button itself
+      toast({
+        title: "Link copied",
+        description: "Meeting link copied to clipboard",
+      });
     }
   };
+
+  // Format date if it's available
+  const formattedDate = session.day ? 
+    format(new Date(session.day), 'EEEE, MMMM d, yyyy') : 
+    session.date || 'Date not specified';
 
   return (
     <Card className="overflow-hidden">
@@ -34,11 +46,17 @@ const SessionCard = ({ session }: { session: any }) => {
               <Avatar>
                 <AvatarImage src={session.avatar} alt="User avatar" />
                 <AvatarFallback>
-                  {session.student_name ? session.student_name.split(" ").map((n: string) => n[0]).join("") : "?"}
+                  {session.student_name 
+                    ? session.student_name.split(" ").map((n: string) => n[0]).join("") 
+                    : session.teacher_name 
+                      ? session.teacher_name.split(" ").map((n: string) => n[0]).join("")
+                      : "?"}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h4 className="font-medium">{session.student_name || "Student"}</h4>
+                <h4 className="font-medium">
+                  {session.student_name || session.teacher_name || "Session Partner"}
+                </h4>
                 <div className="flex items-center text-sm text-muted-foreground mt-1">
                   <Badge variant="outline" className="mr-2">
                     {session.skill}
@@ -46,7 +64,7 @@ const SessionCard = ({ session }: { session: any }) => {
                 </div>
                 <p className="text-sm text-muted-foreground flex items-center mt-1">
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {session.day}, {session.time_slot}
+                  {formattedDate}, {session.time_slot || session.time || "Time not specified"}
                 </p>
               </div>
             </div>
@@ -68,7 +86,7 @@ const SessionCard = ({ session }: { session: any }) => {
                   onClick={copyMeetingLink}
                   title="Copy link"
                 >
-                  <LinkIcon className="h-4 w-4" />
+                  <CopyIcon className="h-4 w-4" />
                 </Button>
                 <Button 
                   size="sm" 
@@ -94,7 +112,7 @@ const SessionsTab: React.FC<SessionsTabProps> = ({ upcomingSessions }) => {
           <CardTitle>Upcoming Sessions</CardTitle>
         </CardHeader>
         <CardContent>
-          {upcomingSessions.length > 0 ? (
+          {upcomingSessions && upcomingSessions.length > 0 ? (
             <div className="space-y-4">
               {upcomingSessions.map((session) => (
                 <SessionCard key={session.id} session={session} />
