@@ -18,6 +18,10 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Skills from "./pages/Skills";
 import TeacherProfile from "./pages/TeacherProfile";
+import React, { Suspense, lazy } from "react";
+
+const Sessions = lazy(() => import("./pages/Sessions"));
+
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -216,7 +220,11 @@ const App = () => {
               <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/profile" element={isLoggedIn ? <Profile /> : <Navigate to="/login" />} />
               <Route path="/skills" element={isLoggedIn ? <Skills /> : <Navigate to="/login" />} />
-              <Route path="/sessions" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
+              <Route path="/sessions" element={isLoggedIn ? (
+                <Suspense fallback={<div>Loading...</div>}>
+                  <Sessions />
+                </Suspense>
+              ) : <Navigate to="/login" />} />
               <Route path="/communities" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="*" element={<NotFound />} />

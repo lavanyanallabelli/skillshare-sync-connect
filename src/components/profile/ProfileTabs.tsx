@@ -7,7 +7,7 @@ import TabLoadingPlaceholder from "./TabLoadingPlaceholder";
 // Lazy tab components
 const ProfileTab = lazy(() => import("./tabs/ProfileTab"));
 const ScheduleTab = lazy(() => import("./tabs/ScheduleTab"));
-const SessionsTab = lazy(() => import("./tabs/SessionsTab"));
+
 const AvailabilityTab = lazy(() => import("./tabs/AvailabilityTab"));
 const ReviewsTab = lazy(() => import("./tabs/ReviewsTab"));
 const RequestsTab = lazy(() => import("./tabs/RequestsTab"));
@@ -34,7 +34,7 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
         <TabsList className="mb-6 w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -50,11 +50,7 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
             <ScheduleTab {...tabProps.scheduleTabProps} />
           </Suspense>
         </TabsContent>
-        <TabsContent value="sessions">
-          <Suspense fallback={<TabLoadingPlaceholder />}>
-            <SessionsTab {...tabProps.sessionsTabProps} />
-          </Suspense>
-        </TabsContent>
+
         <TabsContent value="availability">
           <Suspense fallback={<TabLoadingPlaceholder />}>
             <AvailabilityTab {...tabProps.availabilityTabProps} />

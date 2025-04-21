@@ -11,7 +11,7 @@ const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
 const ConnectionList = lazy(() => import("@/components/profile/ConnectionList"));
 
 const Profile: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const {
     isLoggedIn,
@@ -52,6 +52,18 @@ const Profile: React.FC = () => {
     setSelectedDate,
     availabilityTimes,
   } = useProfilePage();
+
+  // Keep tab state and URL in sync
+  React.useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+  React.useEffect(() => {
+    if (activeTab && tabFromUrl !== activeTab) {
+      setSearchParams({ tab: activeTab });
+    }
+  }, [activeTab]);
 
   // Map props for each tab
   const tabProps = {

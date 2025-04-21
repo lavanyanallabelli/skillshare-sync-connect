@@ -91,7 +91,15 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
                         <div key={time} className="flex items-center justify-between">
                           <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-2 text-muted-foreground" />
-                            <span className="text-sm">{time}</span>
+                            <span className="text-sm">
+  {(() => {
+    try {
+      return format(parse(time, 'HH:mm', new Date()), 'h:mm a');
+    } catch {
+      return time;
+    }
+  })()}
+</span>
                           </div>
                           {isProfileOwner && (
                             <Button

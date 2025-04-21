@@ -24,11 +24,33 @@ const SessionCard = ({ session }: { session: any }) => {
 
   const copyMeetingLink = () => {
     if (session.meeting_link) {
-      navigator.clipboard.writeText(session.meeting_link);
-      toast({
-        title: "Link copied",
-        description: "Meeting link copied to clipboard",
-      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(session.meeting_link);
+        toast({
+          title: "Link copied",
+          description: "Meeting link copied to clipboard",
+        });
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = session.meeting_link;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          toast({
+            title: "Link copied",
+            description: "Meeting link copied to clipboard",
+          });
+        } catch {
+          toast({
+            title: "Copy failed",
+            description: "Unable to copy meeting link",
+            variant: "destructive",
+          });
+        }
+        document.body.removeChild(textarea);
+      }
     }
   };
 

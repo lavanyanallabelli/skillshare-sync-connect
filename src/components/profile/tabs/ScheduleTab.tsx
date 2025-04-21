@@ -14,7 +14,6 @@ interface ScheduleTabProps {
   setSelectedDate: (date: Date | undefined) => void;
   selectedTimes: Record<string, string[]>;
   setSelectedTimes: (times: Record<string, string[]>) => void;
-  availabilityTimes: string[];
   onSave?: () => void;
 }
 
@@ -23,9 +22,19 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   setSelectedDate,
   selectedTimes,
   setSelectedTimes,
-  availabilityTimes,
   onSave
 }) => {
+  const [hour, setHour] = React.useState("12");
+  const [minute, setMinute] = React.useState("00");
+  const [ampm, setAmpm] = React.useState("AM");
+
+  // Helper to convert 12-hour input to 24-hour 'HH:mm' string
+  const get24HourTime = () => {
+    let h = parseInt(hour, 10);
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return `${h.toString().padStart(2, "0")}:${minute}`;
+  };
   const { toast } = useToast();
   const { userId } = useAuth();
 
@@ -38,6 +47,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
         .select('day, time_slot')
         .eq('user_id', userId)
         .eq('is_available', true);
+      // Ensure dates are treated as local, not UTC, to avoid off-by-one errors.
 
       if (error) {
         console.error('Error fetching availability:', error);
@@ -59,59 +69,18 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     fetchAvailability();
   }, [userId]);
 
-  const handleDeleteAvailability = async (date: string, time: string) => {
-    if (!userId) return;
-
-    try {
-      const { error } = await supabase
-        .from('user_availability')
-        .delete()
-        .eq('user_id', userId)
-        .eq('day', date)
-        .eq('time_slot', time);
-
-      if (error) throw error;
-
-      const updatedTimes = { ...selectedTimes };
-      updatedTimes[date] = updatedTimes[date].filter(t => t !== time);
-      
-      if (updatedTimes[date].length === 0) {
-        delete updatedTimes[date];
-      }
-      
-      setSelectedTimes(updatedTimes);
-
-      toast({
-        title: "Availability deleted",
-        description: "The time slot has been removed from your schedule",
-      });
-    } catch (error) {
-      console.error('Error deleting availability:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete availability",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSaveAvailability = async () => {
     if (!selectedDate || !userId) return;
-
     try {
-      // Format the date in YYYY-MM-DD format without timezone conversion
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
-      const selectedTimesForDate = availabilityTimes.filter(time => {
-        const checkbox = document.querySelector(`input[type="checkbox"][data-time="${time}"]`) as HTMLInputElement;
-        return checkbox?.checked;
-      });
-
+      const selectedTimesForDate = selectedTimes[dateKey] || [];
+      // Remove all for this date, then add new
       await supabase
         .from('user_availability')
         .delete()
         .eq('user_id', userId)
         .eq('day', dateKey);
-
       if (selectedTimesForDate.length > 0) {
         const availability = selectedTimesForDate.map(time => ({
           user_id: userId,
@@ -119,28 +88,24 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
           time_slot: time,
           is_available: true
         }));
-
         const { error } = await supabase
           .from('user_availability')
           .insert(availability);
-
         if (error) throw error;
       }
-
-      const updatedTimes = {
-        ...selectedTimes,
-        [dateKey]: selectedTimesForDate
-      };
-
-      setSelectedTimes(updatedTimes);
-
+      // Parent state is already updated via setSelectedTimes
       toast({
         title: "Availability saved",
         description: "Your availability has been updated successfully",
       });
-
       if (onSave) {
-        onSave();
+        onSave(); // Parent should setActiveTab('availability')
+      }
+      // (Optional fallback) Redirect to Availability tab after save if onSave is not provided
+      if (!onSave && typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', 'availability');
+        window.history.replaceState({}, '', url.toString());
       }
     } catch (error) {
       console.error('Error saving availability:', error);
@@ -170,71 +135,51 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
               />
             </div>
 
-            {Object.keys(selectedTimes).length > 0 && (
-              <div className="space-y-2">
-                <Label>Your Availability</Label>
-                {Object.entries(selectedTimes).map(([date, times]) => (
-                  <div key={date} className="border p-4 rounded-lg">
-                    <h3 className="font-medium mb-2">{format(new Date(date), "MMMM d, yyyy")}</h3>
-                    <div className="space-y-2">
-                      {times.map((time) => (
-                        <div key={time} className="flex items-center justify-between p-2 bg-muted rounded-md">
-                          <span>{time}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteAvailability(date, time)}
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {selectedDate && (
               <div className="space-y-2">
                 <Label>Available Times for {format(selectedDate, "MMMM d, yyyy")}</Label>
-                <div className="space-y-2">
-                  {availabilityTimes.map((time) => {
-                    const dateKey = format(selectedDate, 'yyyy-MM-dd');
-                    const isSelected = selectedTimes[dateKey]?.includes(time);
-                    return (
-                      <div key={time} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`time-${time}`}
-                          data-time={time}
-                          checked={isSelected}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            const dateKey = format(selectedDate, 'yyyy-MM-dd');
-                            const updatedTimes = selectedTimes[dateKey] || [];
-                            if (e.target.checked) {
-                              updatedTimes.push(time);
-                            } else {
-                              const index = updatedTimes.indexOf(time);
-                              if (index > -1) {
-                                updatedTimes.splice(index, 1);
-                              }
-                            }
-
-                            const newSelectedTimes = {
-                              ...selectedTimes,
-                              [dateKey]: updatedTimes
-                            };
-
-                            setSelectedTimes(newSelectedTimes);
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <Label htmlFor={`time-${time}`}>{time}</Label>
-                      </div>
-                    );
-                  })}
+                <div className="flex items-center gap-2">
+                  <select value={hour} onChange={e => setHour(e.target.value)} className="border rounded px-1 py-1">
+                    {[...Array(12)].map((_, i) => {
+                      const val = (i + 1).toString().padStart(2, "0");
+                      return <option key={val} value={val}>{val}</option>;
+                    })}
+                  </select>
+                  :
+                  <select value={minute} onChange={e => setMinute(e.target.value)} className="border rounded px-1 py-1">
+  {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")).map(m => (
+    <option key={m} value={m}>{m}</option>
+  ))}
+</select>
+                  <select value={ampm} onChange={e => setAmpm(e.target.value)} className="border rounded px-1 py-1">
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedDate) return;
+                      const time24 = get24HourTime();
+                      const dateKey = format(selectedDate, 'yyyy-MM-dd');
+                      const timesForDate = selectedTimes[dateKey] || [];
+                      if (timesForDate.includes(time24)) {
+                        toast({ title: "Duplicate time", description: "This time slot is already added." });
+                        return;
+                      }
+                      const updated = new Set(timesForDate);
+                      updated.add(time24);
+                      setSelectedTimes({
+                        ...selectedTimes,
+                        [dateKey]: Array.from(updated)
+                      });
+                      setHour("12");
+                      setMinute("00");
+                      setAmpm("AM");
+                    }}
+                    className="ml-2"
+                  >
+                    Add Time
+                  </Button>
                 </div>
               </div>
             )}
