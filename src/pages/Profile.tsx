@@ -7,7 +7,6 @@ import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Lazy-loaded components for better initial load time
 const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
 const ProfileTab = lazy(() => import("@/components/profile/tabs/ProfileTab"));
 const ScheduleTab = lazy(() => import("@/components/profile/tabs/ScheduleTab"));
@@ -17,10 +16,6 @@ const ReviewsTab = lazy(() => import("@/components/profile/tabs/ReviewsTab"));
 const RequestsTab = lazy(() => import("@/components/profile/tabs/RequestsTab"));
 const ConnectionList = lazy(() => import("@/components/profile/ConnectionList"));
 
-// Import hook
-import { useProfileData } from "@/hooks/useProfileData";
-
-// Loading placeholder
 const TabLoadingPlaceholder = () => (
   <div className="space-y-4">
     <Skeleton className="h-12 w-full" />
@@ -63,7 +58,6 @@ const Profile: React.FC = () => {
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
 
-  // Listen for accepted session events from RequestsTab
   useEffect(() => {
     function handleSessionAccepted(event: any) {
       console.log("Session accepted event received:", event.detail);
@@ -78,12 +72,10 @@ const Profile: React.FC = () => {
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
-  // Fetch session requests and upcoming sessions for the logged-in user
   useEffect(() => {
     if (!userId) return;
 
     const fetchSessions = async () => {
-      // Fetch pending session requests
       const { data: requestsData, error: requestsError } = await supabase
         .from('sessions')
         .select('*')
@@ -97,7 +89,6 @@ const Profile: React.FC = () => {
         setSessionRequests(requestsData || []);
       }
 
-      // Fetch accepted upcoming sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
         .select('*')
@@ -114,7 +105,6 @@ const Profile: React.FC = () => {
 
     fetchSessions();
 
-    // Set up real-time subscription for sessions
     const channel = supabase
       .channel('sessions-changes')
       .on(
@@ -337,7 +327,20 @@ const Profile: React.FC = () => {
 
             <TabsContent value="availability">
               <Suspense fallback={<TabLoadingPlaceholder />}>
-                <AvailabilityTab selectedTimes={selectedTimes} />
+                <AvailabilityTab 
+                  selectedTimes={selectedTimes} 
+                  profileUserId={userId || ''}
+                  onDelete={(date, time) => {
+                    const updatedTimes = { ...selectedTimes };
+                    if (updatedTimes[date]) {
+                      updatedTimes[date] = updatedTimes[date].filter(t => t !== time);
+                      if (updatedTimes[date].length === 0) {
+                        delete updatedTimes[date];
+                      }
+                      setSelectedTimes(updatedTimes);
+                    }
+                  }}
+                />
               </Suspense>
             </TabsContent>
 
