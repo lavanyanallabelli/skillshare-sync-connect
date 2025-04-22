@@ -18,7 +18,6 @@ const Signup: React.FC = () => {
   const { login } = useAuth();
   const [step, setStep] = useState(1);
   
-  // Basic info
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -26,7 +25,6 @@ const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   
-  // Profile info
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [occupation, setOccupation] = useState("");
@@ -41,7 +39,6 @@ const Signup: React.FC = () => {
   const handleSubmitStep1 = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
     if (!firstName || !lastName || !email || !password) {
       toast({
         title: "Error",
@@ -69,7 +66,6 @@ const Signup: React.FC = () => {
       return;
     }
 
-    // Move to step 2
     setStep(2);
   };
 
@@ -78,7 +74,6 @@ const Signup: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Sign up with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -93,7 +88,6 @@ const Signup: React.FC = () => {
       if (error) throw error;
 
       if (data?.user) {
-        // Update profile with additional information
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -113,10 +107,8 @@ const Signup: React.FC = () => {
           description: "Please check your email for verification.",
         });
 
-        // Log the user in
         login();
         
-        // Redirect to profile page
         navigate("/profile");
       }
     } catch (error: any) {
@@ -134,7 +126,6 @@ const Signup: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Sign up with Supabase without additional profile info
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -154,10 +145,8 @@ const Signup: React.FC = () => {
           description: "Please check your email for verification.",
         });
 
-        // Log the user in
         login();
         
-        // Redirect to profile page
         navigate("/profile");
       }
     } catch (error: any) {
@@ -171,11 +160,22 @@ const Signup: React.FC = () => {
     }
   };
 
-  const handleSocialSignup = (provider: string) => {
-    toast({
-      title: `${provider} signup`,
-      description: `Signup with ${provider} is coming soon.`,
-    });
+  const handleSocialSignup = async (provider: 'github' | 'google') => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin + "/oauth/callback",
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: `${provider.charAt(0).toUpperCase() + provider.slice(1)} signup failed`,
+        description: error.message || "Failed to sign up with " + provider,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -303,7 +303,7 @@ const Signup: React.FC = () => {
                   variant="outline" 
                   className="w-full" 
                   type="button"
-                  onClick={() => handleSocialSignup("Github")}
+                  onClick={() => handleSocialSignup("github")}
                 >
                   <Github className="mr-2 h-4 w-4" />
                   Github
@@ -312,7 +312,7 @@ const Signup: React.FC = () => {
                   variant="outline" 
                   className="w-full" 
                   type="button"
-                  onClick={() => handleSocialSignup("Google")}
+                  onClick={() => handleSocialSignup("google")}
                 >
                   <Mail className="mr-2 h-4 w-4" />
                   Google
@@ -321,7 +321,7 @@ const Signup: React.FC = () => {
                   variant="outline" 
                   className="w-full" 
                   type="button"
-                  onClick={() => handleSocialSignup("Facebook")}
+                  onClick={() => toast({ title: "Facebook signup", description: "Facebook is coming soon." })}
                 >
                   <Facebook className="mr-2 h-4 w-4" />
                   Facebook

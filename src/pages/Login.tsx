@@ -95,16 +95,15 @@ const Login: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + '/oauth/callback'
+          redirectTo: window.location.origin + "/oauth/callback",
         }
       });
 
       if (error) throw error;
-      
     } catch (error: any) {
       toast({
-        title: `${provider} login failed`,
-        description: error.message,
+        title: `${provider.charAt(0).toUpperCase() + provider.slice(1)} login failed`,
+        description: error.message || "Failed to sign in with " + provider,
         variant: "destructive",
       });
     }
