@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarIcon, Link as LinkIcon, Video as VideoIcon } from "lucide-react";
+import { CalendarIcon, Link as LinkIcon, Video as VideoIcon, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +70,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const { isLoggedIn } = useAuth();
   const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(false);
+  const [isRefreshingToken, setIsRefreshingToken] = useState<boolean>(false);
 
   // Fetch Google access token
   useEffect(() => {
@@ -90,10 +91,10 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         // Always fetch the latest token from database
         const { data, error } = await supabase
           .from('user_oauth_tokens')
-          .select('access_token, created_at')
+          .select('access_token, updated_at')
           .eq('user_id', userId)
           .eq('provider', 'google')
-          .order('created_at', { ascending: false })
+          .order('updated_at', { ascending: false })
           .limit(1)
           .single();
 
@@ -107,7 +108,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
 
         if (data?.access_token) {
-          console.log("Found token in database, created at:", data.created_at);
+          console.log("Found token in database, updated at:", data.updated_at);
           setGoogleAccessToken(data.access_token);
           localStorage.setItem("google_access_token", data.access_token);
           setIsGoogleConnected(true);
@@ -123,6 +124,69 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     fetchGoogleAccessToken();
   }, [isLoggedIn, userId]);
 
+  const refreshGoogleConnection = async () => {
+    try {
+      setIsRefreshingToken(true);
+      toast({
+        title: "Reconnecting with Google",
+        description: "Please wait while we refresh your connection...",
+      });
+      
+      // First try to see if we already have a session that can be refreshed
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (sessionData?.session) {
+        // Try to get a new session by refreshing the current one
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (!refreshError) {
+          // Check if we got a new token
+          const { data: newSession } = await supabase.auth.getSession();
+          
+          if (newSession?.session?.provider_token) {
+            // Store the new token
+            localStorage.setItem("google_access_token", newSession.session.provider_token);
+            setGoogleAccessToken(newSession.session.provider_token);
+            
+            // Update the token in the database
+            await supabase
+              .from('user_oauth_tokens')
+              .upsert({
+                user_id: userId,
+                provider: 'google',
+                access_token: newSession.session.provider_token,
+                refresh_token: newSession.session.provider_refresh_token || null,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'user_id,provider'
+              });
+              
+            setIsGoogleConnected(true);
+            toast({
+              title: "Google reconnected",
+              description: "Your Google account has been successfully reconnected.",
+            });
+            
+            return;
+          }
+        }
+      }
+      
+      // If refreshing didn't work, we need to reconnect with Google
+      await connectWithGoogle();
+      
+    } catch (error) {
+      console.error("Error refreshing Google connection:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh Google connection. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingToken(false);
+    }
+  };
+
   const connectWithGoogle = async () => {
     try {
       toast({
@@ -130,7 +194,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         description: "You will be redirected to authorize with Google...",
       });
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/profile`,
@@ -139,6 +203,11 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
       });
 
       if (error) throw error;
+      
+      // If we get a url property, redirect the user instead of waiting for auto-redirect
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (error: any) {
       console.error("Google connection error:", error);
       toast({
@@ -242,8 +311,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           const edgeData = await edgeRes.json();
           console.error("Edge function error:", edgeData);
           
-          // Check if token is expired or invalid
-          if (edgeData.details?.error?.message?.includes('invalid_grant') || 
+          // Handle token expiration more explicitly
+          if (edgeData.error_code === 'token_expired' || 
+              edgeData.details?.error?.message?.includes('invalid_grant') || 
               edgeData.details?.error?.message?.includes('Invalid Credentials')) {
             toast({
               title: "Google Token Expired",
@@ -253,9 +323,25 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             // Clear invalid token
             localStorage.removeItem("google_access_token");
             setGoogleAccessToken(null);
+            setIsGoogleConnected(false);
             
             // Offer to reconnect
             if (window.confirm("Reconnect with Google to generate meeting links?")) {
+              await connectWithGoogle();
+            }
+            return;
+          }
+          
+          // Handle permission issues
+          if (edgeData.error_code === 'insufficient_permissions' || 
+              edgeData.details?.error?.message?.includes('insufficient permission')) {
+            toast({
+              title: "Insufficient Permissions",
+              description: "Your Google account doesn't have calendar permissions. Please reconnect.",
+              variant: "destructive",
+            });
+            
+            if (window.confirm("Reconnect with Google Calendar permissions?")) {
               await connectWithGoogle();
             }
             return;
@@ -344,7 +430,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           <CardTitle>Session Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          {!isGoogleConnected && (
+          {!isGoogleConnected ? (
             <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-yellow-800 text-sm font-medium mb-2">Google Calendar Not Connected</p>
               <p className="text-yellow-700 text-xs mb-2">
@@ -353,6 +439,31 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               <Button size="sm" variant="outline" onClick={connectWithGoogle} className="bg-white">
                 Connect Google Account
               </Button>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-green-800 text-sm font-medium">Google Calendar Connected</p>
+                  <p className="text-green-700 text-xs">
+                    You can now generate Google Meet links when accepting sessions.
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={refreshGoogleConnection} 
+                  className="bg-white"
+                  disabled={isRefreshingToken}
+                >
+                  {isRefreshingToken ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
             </div>
           )}
           

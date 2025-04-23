@@ -39,49 +39,60 @@ const Login: React.FC = () => {
     }
   }, [searchParams, toast]);
 
-  // Check for access token after OAuth login
+  // Check for access token after OAuth login using a safer approach
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.provider_token && session?.user) {
-        console.log("OAuth provider token found, storing...", {
-          provider: session.provider_refresh_token ? 'google' : 'github',
-          tokenPreview: `${session.provider_token.substring(0, 10)}...`
-        });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
-        try {
-          // Store the OAuth token in the database
-          const { error } = await supabase
-            .from('user_oauth_tokens')
-            .upsert({
-              user_id: session.user.id,
-              provider: session.provider_refresh_token ? 'google' : 'github',
-              access_token: session.provider_token,
-              refresh_token: session.provider_refresh_token || null,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id,provider'
-            });
-
-          if (error) {
-            console.error("Error storing OAuth token:", error);
-            toast({
-              title: "Error",
-              description: "Failed to store your Google access token. Some features may not work correctly.",
-              variant: "destructive",
-            });
-          } else {
-            console.log("OAuth token stored successfully");
-            localStorage.setItem("google_access_token", session.provider_token);
-            toast({
-              title: "Success",
-              description: "Your Google account has been connected successfully.",
-            });
+        if (session?.provider_token && session?.user) {
+          console.log("OAuth provider token found, storing...", {
+            provider: session.provider_refresh_token ? 'google' : 'github',
+            tokenPreview: `${session.provider_token.substring(0, 10)}...`
+          });
+          
+          // Store the token in localStorage first for immediate availability
+          localStorage.setItem("google_access_token", session.provider_token);
+          if (session.provider_refresh_token) {
+            localStorage.setItem("google_refresh_token", session.provider_refresh_token);
           }
-        } catch (error) {
-          console.error("Error handling OAuth token:", error);
+          
+          // Then store in database - wrapped in setTimeout to avoid blocking the auth flow
+          setTimeout(async () => {
+            try {
+              const { error } = await supabase
+                .from('user_oauth_tokens')
+                .upsert({
+                  user_id: session.user.id,
+                  provider: session.provider_refresh_token ? 'google' : 'github',
+                  access_token: session.provider_token,
+                  refresh_token: session.provider_refresh_token || null,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'user_id,provider'
+                });
+  
+              if (error) {
+                console.error("Error storing OAuth token:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to store your access token. Some features may not work correctly.",
+                  variant: "destructive",
+                });
+              } else {
+                console.log("OAuth token stored successfully in database");
+                toast({
+                  title: "Success",
+                  description: "Your account has been connected successfully.",
+                });
+              }
+            } catch (error) {
+              console.error("Error handling OAuth token:", error);
+            }
+          }, 0);
         }
+      } catch (error) {
+        console.error("Error checking session:", error);
       }
     };
 
@@ -170,7 +181,7 @@ const Login: React.FC = () => {
         description: "You will be redirected to continue login...",
       });
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/profile`,
@@ -180,6 +191,11 @@ const Login: React.FC = () => {
 
       if (error) throw error;
       
+      // If we get a url property, redirect the user instead of waiting for auto-redirect
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+      
     } catch (error: any) {
       setAuthError(error.message || `Failed to sign in with ${provider}`);
       toast({
@@ -187,7 +203,6 @@ const Login: React.FC = () => {
         description: error.message || "Failed to sign in with " + provider,
         variant: "destructive",
       });
-    } finally {
       setAuthInProgress(false);
     }
   };

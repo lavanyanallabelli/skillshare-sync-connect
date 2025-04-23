@@ -72,15 +72,23 @@ serve(async (req) => {
       
       // Provide more specific error information for common issues
       let errorMessage = eventData.error?.message || "Failed to create event.";
+      let errorCode = "unknown";
       
       // Add handling for invalid_grant errors which mean the token is expired or revoked
       if (eventData.error?.message?.includes('invalid_grant')) {
         errorMessage = "Your Google authorization has expired. Please reconnect your Google account.";
+        errorCode = "token_expired";
+      }
+      // Check for insufficient permissions
+      else if (eventData.error?.message?.includes('insufficient permission')) {
+        errorMessage = "Insufficient permissions to create meetings. Please reconnect your Google account with calendar permissions.";
+        errorCode = "insufficient_permissions";
       }
       
       return new Response(
         JSON.stringify({ 
           error: errorMessage,
+          error_code: errorCode,
           details: eventData.error || null
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
