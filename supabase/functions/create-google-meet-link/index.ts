@@ -69,9 +69,18 @@ serve(async (req) => {
     
     if (!response.ok) {
       console.error("Google Calendar API error:", eventData);
+      
+      // Provide more specific error information for common issues
+      let errorMessage = eventData.error?.message || "Failed to create event.";
+      
+      // Add handling for invalid_grant errors which mean the token is expired or revoked
+      if (eventData.error?.message?.includes('invalid_grant')) {
+        errorMessage = "Your Google authorization has expired. Please reconnect your Google account.";
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: eventData.error?.message || "Failed to create event.",
+          error: errorMessage,
           details: eventData.error || null
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

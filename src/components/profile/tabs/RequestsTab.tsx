@@ -1,3 +1,4 @@
+
 import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +69,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   const { toast } = useToast();
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const { isLoggedIn } = useAuth();
+  const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(false);
 
+  // Fetch Google access token
   useEffect(() => {
     const fetchGoogleAccessToken = async () => {
       if (!isLoggedIn || !userId) return;
@@ -80,6 +83,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
       if (localToken) {
         console.log("Found token in localStorage");
         setGoogleAccessToken(localToken);
+        setIsGoogleConnected(true);
       }
 
       try {
@@ -95,6 +99,10 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         if (error) {
           console.error("Error fetching Google access token:", error);
+          if (error.code === 'PGRST116') {
+            console.log("No Google token found in database");
+            setIsGoogleConnected(false);
+          }
           return;
         }
 
@@ -102,8 +110,10 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           console.log("Found token in database, created at:", data.created_at);
           setGoogleAccessToken(data.access_token);
           localStorage.setItem("google_access_token", data.access_token);
+          setIsGoogleConnected(true);
         } else {
           console.log("No Google access token found in database");
+          setIsGoogleConnected(false);
         }
       } catch (error) {
         console.error("Unexpected error fetching Google token:", error);
@@ -113,10 +123,50 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     fetchGoogleAccessToken();
   }, [isLoggedIn, userId]);
 
+  const connectWithGoogle = async () => {
+    try {
+      toast({
+        title: "Connecting to Google",
+        description: "You will be redirected to authorize with Google...",
+      });
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/profile`,
+          scopes: 'https://www.googleapis.com/auth/calendar',
+        }
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Google connection error:", error);
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect with Google",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
         console.log("Accepting request:", id);
+        
+        // Check if user has Google connected
+        if (!isGoogleConnected) {
+          toast({
+            title: "Google Calendar Required",
+            description: "Please connect your Google account to generate a meeting link.",
+            variant: "destructive",
+          });
+          // Offer to connect with Google
+          if (window.confirm("Connect with Google to generate meeting links?")) {
+            await connectWithGoogle();
+          }
+          return;
+        }
         
         // First, try to get token from state or local storage
         let accessToken = googleAccessToken || localStorage.getItem("google_access_token");
@@ -135,9 +185,13 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             console.error("Failed to get Google token:", error);
             toast({
               title: "Google access required",
-              description: "Please reconnect your Google account to generate a Meet link",
+              description: "Please connect your Google account to generate a Meet link",
               variant: "destructive",
             });
+            // Offer to connect with Google
+            if (window.confirm("Connect with Google to generate meeting links?")) {
+              await connectWithGoogle();
+            }
             return;
           }
 
@@ -187,6 +241,26 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         if (!edgeRes.ok) {
           const edgeData = await edgeRes.json();
           console.error("Edge function error:", edgeData);
+          
+          // Check if token is expired or invalid
+          if (edgeData.details?.error?.message?.includes('invalid_grant') || 
+              edgeData.details?.error?.message?.includes('Invalid Credentials')) {
+            toast({
+              title: "Google Token Expired",
+              description: "Your Google authorization has expired. Please reconnect your account.",
+              variant: "destructive",
+            });
+            // Clear invalid token
+            localStorage.removeItem("google_access_token");
+            setGoogleAccessToken(null);
+            
+            // Offer to reconnect
+            if (window.confirm("Reconnect with Google to generate meeting links?")) {
+              await connectWithGoogle();
+            }
+            return;
+          }
+          
           toast({
             title: "Google Meet Error",
             description: edgeData.error || "Could not create Meet link",
@@ -270,6 +344,18 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           <CardTitle>Session Requests</CardTitle>
         </CardHeader>
         <CardContent>
+          {!isGoogleConnected && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-yellow-800 text-sm font-medium mb-2">Google Calendar Not Connected</p>
+              <p className="text-yellow-700 text-xs mb-2">
+                You need to connect your Google account to generate meeting links when accepting sessions.
+              </p>
+              <Button size="sm" variant="outline" onClick={connectWithGoogle} className="bg-white">
+                Connect Google Account
+              </Button>
+            </div>
+          )}
+          
           {sessionRequests.length > 0 ? (
             <div className="space-y-4">
               {sessionRequests.map((request) => (

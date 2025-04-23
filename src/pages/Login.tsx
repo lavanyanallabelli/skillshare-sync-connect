@@ -44,8 +44,12 @@ const Login: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session?.provider_token && session.user) {
-        console.log("OAuth provider token found, storing...");
+      if (session?.provider_token && session?.user) {
+        console.log("OAuth provider token found, storing...", {
+          provider: session.provider_refresh_token ? 'google' : 'github',
+          tokenPreview: `${session.provider_token.substring(0, 10)}...`
+        });
+        
         try {
           // Store the OAuth token in the database
           const { error } = await supabase
@@ -62,9 +66,18 @@ const Login: React.FC = () => {
 
           if (error) {
             console.error("Error storing OAuth token:", error);
+            toast({
+              title: "Error",
+              description: "Failed to store your Google access token. Some features may not work correctly.",
+              variant: "destructive",
+            });
           } else {
             console.log("OAuth token stored successfully");
             localStorage.setItem("google_access_token", session.provider_token);
+            toast({
+              title: "Success",
+              description: "Your Google account has been connected successfully.",
+            });
           }
         } catch (error) {
           console.error("Error handling OAuth token:", error);
@@ -73,7 +86,7 @@ const Login: React.FC = () => {
     };
 
     checkSession();
-  }, []);
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
