@@ -1,4 +1,3 @@
-
 import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +7,7 @@ import { CalendarIcon, Link as LinkIcon, Video as VideoIcon } from "lucide-react
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 interface RequestsTabProps {
   sessionRequests: any[];
@@ -67,40 +67,79 @@ const RequestCard = memo(({ request, userId, onAccept, onDecline }: {
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests, userId }) => {
   const { toast } = useToast();
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const { isLoggedIn } = useAuth();
 
-  // Check and retrieve Google access token on component mount
   useEffect(() => {
-    // Try to get the token from localStorage
-    const token = localStorage.getItem("google_access_token");
-    console.log("Initial Google access token from localStorage:", token ? "Found" : "Not found");
-    setGoogleAccessToken(token);
-    
-    // Add listener for token changes (in case it's set in another tab/component)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "google_access_token") {
-        console.log("Google access token changed in storage:", e.newValue ? "Found" : "Not found");
-        setGoogleAccessToken(e.newValue);
+    const fetchGoogleAccessToken = async () => {
+      if (!isLoggedIn || !userId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_oauth_tokens')
+          .select('access_token')
+          .eq('user_id', userId)
+          .eq('provider', 'google')
+          .single();
+
+        if (error) {
+          console.error("Error fetching Google access token:", error);
+          return;
+        }
+
+        if (data?.access_token) {
+          setGoogleAccessToken(data.access_token);
+          localStorage.setItem("google_access_token", data.access_token);
+        }
+      } catch (error) {
+        console.error("Unexpected error fetching Google token:", error);
       }
     };
-    
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+
+    fetchGoogleAccessToken();
+  }, [isLoggedIn, userId]);
 
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
-        // Check if we have Google access token in state first
-        const accessToken = googleAccessToken || localStorage.getItem("google_access_token");
-        console.log("Accepting with access token:", accessToken ? "Present" : "Missing");
-        
+        // First, try to get token from state or local storage
+        let accessToken = googleAccessToken || localStorage.getItem("google_access_token");
+
+        // If no token in state or local storage, fetch from database
         if (!accessToken) {
-          toast({
-            title: "Google access required",
-            description: "Please connect your Google account to generate a Meet link",
-            variant: "destructive",
+          const { data, error } = await supabase
+            .from('user_oauth_tokens')
+            .select('access_token')
+            .eq('user_id', userId)
+            .eq('provider', 'google')
+            .single();
+
+          if (error || !data?.access_token) {
+            toast({
+              title: "Google access required",
+              description: "Please reconnect your Google account to generate a Meet link",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          accessToken = data.access_token;
+          setGoogleAccessToken(accessToken);
+          localStorage.setItem("google_access_token", accessToken);
+        }
+
+        // Store the new Google access token in the database if it's not already there
+        const { error: upsertError } = await supabase
+          .from('user_oauth_tokens')
+          .upsert({
+            user_id: userId,
+            provider: 'google',
+            access_token: accessToken,
+          }, {
+            onConflict: 'user_id,provider'
           });
-          return;
+
+        if (upsertError) {
+          console.error("Error storing Google access token:", upsertError);
         }
 
         const session = sessionRequests.find(req => req.id === id);
