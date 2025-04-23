@@ -1,4 +1,5 @@
-import React, { memo } from "react";
+
+import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,6 @@ import { CalendarIcon, Link as LinkIcon, Video as VideoIcon } from "lucide-react
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { supabase } from "@/integrations/supabase/client";
-import { generateMeetLink } from "@/utils/meetingUtils";
 
 interface RequestsTabProps {
   sessionRequests: any[];
@@ -66,11 +66,34 @@ const RequestCard = memo(({ request, userId, onAccept, onDecline }: {
 
 const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRequests, userId }) => {
   const { toast } = useToast();
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+
+  // Check and retrieve Google access token on component mount
+  useEffect(() => {
+    // Try to get the token from localStorage
+    const token = localStorage.getItem("google_access_token");
+    console.log("Initial Google access token from localStorage:", token ? "Found" : "Not found");
+    setGoogleAccessToken(token);
+    
+    // Add listener for token changes (in case it's set in another tab/component)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "google_access_token") {
+        console.log("Google access token changed in storage:", e.newValue ? "Found" : "Not found");
+        setGoogleAccessToken(e.newValue);
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
-        const accessToken = localStorage.getItem("google_access_token");
+        // Check if we have Google access token in state first
+        const accessToken = googleAccessToken || localStorage.getItem("google_access_token");
+        console.log("Accepting with access token:", accessToken ? "Present" : "Missing");
+        
         if (!accessToken) {
           toast({
             title: "Google access required",
@@ -81,8 +104,25 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
 
         const session = sessionRequests.find(req => req.id === id);
+        if (!session) {
+          console.error("Session not found:", id);
+          toast({
+            title: "Error",
+            description: "Session not found. Please refresh and try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        console.log("Processing session:", session);
         const start = new Date(`${session.date}T${session.time.split(' - ')[0]}:00`);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+        console.log("Calling edge function with data:", {
+          start: start.toISOString(),
+          end: end.toISOString(),
+          access_token: accessToken ? "Token provided" : "No token",
+        });
 
         const edgeRes = await fetch("https://rojydqsndhoielitdquu.functions.supabase.co/create-google-meet-link", {
           method: "POST",
@@ -99,11 +139,26 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             ].filter(a => a.email),
           }),
         });
-        const edgeData = await edgeRes.json();
+        
         if (!edgeRes.ok) {
+          const edgeData = await edgeRes.json();
+          console.error("Edge function error:", edgeData);
           toast({
             title: "Google Meet Error",
             description: edgeData.error || "Could not create Meet link",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const edgeData = await edgeRes.json();
+        console.log("Edge function response:", edgeData);
+        
+        if (!edgeData.meetLink) {
+          console.error("No meet link in response:", edgeData);
+          toast({
+            title: "Google Meet Error",
+            description: "No meeting link was returned from Google",
             variant: "destructive",
           });
           return;
@@ -121,11 +176,13 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           .select();
 
         if (error) {
+          console.error("Database error:", error);
           throw error;
         }
 
         if (data && data.length > 0) {
           const acceptedSession = { ...data[0] };
+          console.log("Session accepted:", acceptedSession);
           window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
         }
 
