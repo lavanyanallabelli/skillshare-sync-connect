@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, parse } from "date-fns";
@@ -43,17 +44,22 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
     }
 
     try {
-      const formattedDate = date;
-
+      console.log("Deleting availability:", { date, time, userId });
+      
       const { error } = await supabase
         .from('user_availability')
         .delete()
         .eq('user_id', userId)
-        .eq('day', formattedDate)
+        .eq('day', date)
         .eq('time_slot', time);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Delete availability error:", error);
+        throw error;
+      }
 
+      console.log("Availability deleted successfully");
+      
       if (onDelete) {
         onDelete(date, time);
       }
@@ -69,6 +75,20 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
         description: "Failed to delete availability. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Function to format time for display
+  const formatTimeDisplay = (timeString: string) => {
+    try {
+      // Check if the time is already in HH:mm format (24-hour)
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        return format(parse(timeString, 'HH:mm', new Date()), 'h:mm a');
+      }
+      return timeString;
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return timeString;
     }
   };
 
@@ -91,15 +111,7 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
                         <div key={time} className="flex items-center justify-between">
                           <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-2 text-muted-foreground" />
-                            <span className="text-sm">
-  {(() => {
-    try {
-      return format(parse(time, 'HH:mm', new Date()), 'h:mm a');
-    } catch {
-      return time;
-    }
-  })()}
-</span>
+                            <span className="text-sm">{formatTimeDisplay(time)}</span>
                           </div>
                           {isProfileOwner && (
                             <Button

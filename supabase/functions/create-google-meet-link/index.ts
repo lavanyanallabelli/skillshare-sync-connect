@@ -15,14 +15,30 @@ serve(async (req) => {
     const body = await req.json();
     const { access_token, summary, description, start, end, attendees } = body;
 
+    console.log("Received request to create Google Meet link with data:", {
+      summary,
+      start,
+      end,
+      attendeesCount: attendees?.length || 0,
+      hasAccessToken: !!access_token,
+      tokenPreview: access_token ? `${access_token.substring(0, 5)}...` : null
+    });
+
     if (!access_token || !summary || !start || !end) {
+      console.error("Missing required parameters:", {
+        accessToken: !!access_token,
+        summary: !!summary,
+        start: !!start,
+        end: !!end,
+      });
       return new Response(
         JSON.stringify({ error: "Missing required parameters." }),
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Create Google Calendar event with Google Meet link
+    console.log("Making request to Google Calendar API");
     const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1", {
       method: "POST",
       headers: {
@@ -46,30 +62,64 @@ serve(async (req) => {
       }),
     });
 
+    // Log response status
+    console.log("Google Calendar API response status:", response.status);
+    
     const eventData = await response.json();
-
+    
     if (!response.ok) {
+      console.error("Google Calendar API error:", eventData);
+      
+      // Provide more specific error information for common issues
+      let errorMessage = eventData.error?.message || "Failed to create event.";
+      let errorCode = "unknown";
+      
+      // Add handling for invalid_grant errors which mean the token is expired or revoked
+      if (eventData.error?.message?.includes('invalid_grant')) {
+        errorMessage = "Your Google authorization has expired. Please reconnect your Google account.";
+        errorCode = "token_expired";
+      }
+      // Check for insufficient permissions
+      else if (eventData.error?.message?.includes('insufficient permission')) {
+        errorMessage = "Insufficient permissions to create meetings. Please reconnect your Google account with calendar permissions.";
+        errorCode = "insufficient_permissions";
+      }
+      
       return new Response(
-        JSON.stringify({ error: eventData.error || "Failed to create event." }),
-        { status: 500, headers: corsHeaders }
+        JSON.stringify({ 
+          error: errorMessage,
+          error_code: errorCode,
+          details: eventData.error || null
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Extract Meet link from event
     const meetLink = eventData.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
+    
+    console.log("Successfully created event, meet link:", meetLink || "Not found");
 
     if (!meetLink) {
+      console.error("No meet link found in response:", eventData);
       return new Response(
-        JSON.stringify({ error: "Google Meet link not found in event data." }),
-        { status: 500, headers: corsHeaders }
+        JSON.stringify({ 
+          error: "Google Meet link not found in event data.",
+          eventData: eventData
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(JSON.stringify({ meetLink }), { headers: corsHeaders });
+    return new Response(
+      JSON.stringify({ meetLink }), 
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (error) {
+    console.error("Unexpected error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Unknown error" }),
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

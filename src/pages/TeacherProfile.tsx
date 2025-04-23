@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -322,7 +323,12 @@ const TeacherProfile = () => {
         .eq('time_slot', selectedTimeSlot)
         .eq('is_available', true);
 
-      if (availabilityError) throw availabilityError;
+      if (availabilityError) {
+        console.error("Availability check error:", availabilityError);
+        throw availabilityError;
+      }
+
+      console.log("Availability check result:", availabilityCheck);
 
       if (!availabilityCheck || availabilityCheck.length === 0) {
         toast({
@@ -333,6 +339,7 @@ const TeacherProfile = () => {
         return;
       }
 
+      // Next, check if this time slot is already booked
       const { data: existingSession, error: sessionCheckError } = await supabase
         .from('sessions')
         .select('id')
@@ -341,7 +348,12 @@ const TeacherProfile = () => {
         .eq('time_slot', selectedTimeSlot)
         .in('status', ['pending', 'accepted']);
 
-      if (sessionCheckError) throw sessionCheckError;
+      if (sessionCheckError) {
+        console.error("Session check error:", sessionCheckError);
+        throw sessionCheckError;
+      }
+
+      console.log("Existing session check result:", existingSession);
 
       if (existingSession && existingSession.length > 0) {
         toast({
@@ -352,7 +364,8 @@ const TeacherProfile = () => {
         return;
       }
 
-      const { error: sessionError } = await supabase
+      // If we reached here, the slot is available, so book it
+      const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
         .insert({
           teacher_id: id,
@@ -361,9 +374,15 @@ const TeacherProfile = () => {
           day: formattedDate,
           time_slot: selectedTimeSlot,
           status: 'pending'
-        });
+        })
+        .select();
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error("Session creation error:", sessionError);
+        throw sessionError;
+      }
+
+      console.log("Session created successfully:", sessionData);
 
       toast({
         title: "Session Requested",

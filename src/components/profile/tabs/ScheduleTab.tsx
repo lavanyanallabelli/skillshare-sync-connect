@@ -1,13 +1,15 @@
+
 import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { format, parse, addHours, subHours } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Trash2 } from "lucide-react";
+import { format, parse } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
-import { Trash2 } from "lucide-react";
 
 interface ScheduleTabProps {
   selectedDate: Date | undefined;
@@ -42,18 +44,21 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     if (!userId) return;
 
     const fetchAvailability = async () => {
+      console.log("Fetching availability for user:", userId);
+      
       const { data, error } = await supabase
         .from('user_availability')
         .select('day, time_slot')
         .eq('user_id', userId)
         .eq('is_available', true);
-      // Ensure dates are treated as local, not UTC, to avoid off-by-one errors.
-
+      
       if (error) {
         console.error('Error fetching availability:', error);
         return;
       }
 
+      console.log("Availability data from database:", data);
+      
       const availabilityMap = data.reduce((acc: Record<string, string[]>, curr) => {
         const dateKey = curr.day;
         if (!acc[dateKey]) {
@@ -63,50 +68,66 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
         return acc;
       }, {});
 
+      console.log("Processed availability map:", availabilityMap);
+      
       setSelectedTimes(availabilityMap);
     };
 
     fetchAvailability();
-  }, [userId]);
+  }, [userId, setSelectedTimes]);
 
 
   const handleSaveAvailability = async () => {
     if (!selectedDate || !userId) return;
+    
     try {
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
+      console.log("Saving availability for date:", dateKey);
+      
       const selectedTimesForDate = selectedTimes[dateKey] || [];
-      // Remove all for this date, then add new
-      await supabase
+      console.log("Selected times for this date:", selectedTimesForDate);
+      
+      // Remove all availability for this date, then add new ones
+      console.log("Deleting existing availability for this date");
+      const { error: deleteError } = await supabase
         .from('user_availability')
         .delete()
         .eq('user_id', userId)
         .eq('day', dateKey);
+        
+      if (deleteError) throw deleteError;
+
       if (selectedTimesForDate.length > 0) {
+        console.log("Creating new availability entries");
         const availability = selectedTimesForDate.map(time => ({
           user_id: userId,
           day: dateKey,
           time_slot: time,
           is_available: true
         }));
-        const { error } = await supabase
+        
+        console.log("Availability entries to insert:", availability);
+        
+        const { data, error } = await supabase
           .from('user_availability')
-          .insert(availability);
+          .insert(availability)
+          .select();
+          
         if (error) throw error;
+        
+        console.log("Successfully inserted availability:", data);
       }
+      
       // Parent state is already updated via setSelectedTimes
       toast({
         title: "Availability saved",
         description: "Your availability has been updated successfully",
       });
+      
       if (onSave) {
         onSave(); // Parent should setActiveTab('availability')
       }
-      // (Optional fallback) Redirect to Availability tab after save if onSave is not provided
-      if (!onSave && typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', 'availability');
-        window.history.replaceState({}, '', url.toString());
-      }
+      
     } catch (error) {
       console.error('Error saving availability:', error);
       toast({
@@ -147,10 +168,10 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   </select>
                   :
                   <select value={minute} onChange={e => setMinute(e.target.value)} className="border rounded px-1 py-1">
-  {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")).map(m => (
-    <option key={m} value={m}>{m}</option>
-  ))}
-</select>
+                    {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
                   <select value={ampm} onChange={e => setAmpm(e.target.value)} className="border rounded px-1 py-1">
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -159,19 +180,27 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     type="button"
                     onClick={() => {
                       if (!selectedDate) return;
+                      
                       const time24 = get24HourTime();
+                      console.log("Adding time slot:", time24);
+                      
                       const dateKey = format(selectedDate, 'yyyy-MM-dd');
                       const timesForDate = selectedTimes[dateKey] || [];
+                      
                       if (timesForDate.includes(time24)) {
                         toast({ title: "Duplicate time", description: "This time slot is already added." });
                         return;
                       }
-                      const updated = new Set(timesForDate);
-                      updated.add(time24);
-                      setSelectedTimes({
-                        ...selectedTimes,
-                        [dateKey]: Array.from(updated)
-                      });
+                      
+                      const updated = { ...selectedTimes };
+                      if (!updated[dateKey]) {
+                        updated[dateKey] = [];
+                      }
+                      updated[dateKey] = [...updated[dateKey], time24].sort();
+                      
+                      console.log("Updated selected times:", updated);
+                      setSelectedTimes(updated);
+                      
                       setHour("12");
                       setMinute("00");
                       setAmpm("AM");
@@ -181,6 +210,46 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     Add Time
                   </Button>
                 </div>
+                
+                {/* Display the currently added time slots for this date */}
+                {selectedTimes[format(selectedDate, 'yyyy-MM-dd')] && selectedTimes[format(selectedDate, 'yyyy-MM-dd')].length > 0 && (
+                  <div className="mt-4">
+                    <Label className="mb-2 block">Added time slots:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTimes[format(selectedDate, 'yyyy-MM-dd')].map(time => {
+                        // Convert 24h format to 12h for display
+                        const displayTime = format(parse(time, 'HH:mm', new Date()), 'h:mm a');
+                        
+                        return (
+                          <Badge 
+                            key={time} 
+                            className="py-1 flex items-center gap-1"
+                            variant="secondary"
+                          >
+                            {displayTime}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 ml-1 hover:bg-red-100 rounded-full p-0"
+                              onClick={() => {
+                                const dateKey = format(selectedDate, 'yyyy-MM-dd');
+                                const updated = { ...selectedTimes };
+                                updated[dateKey] = updated[dateKey].filter(t => t !== time);
+                                if (updated[dateKey].length === 0) {
+                                  delete updated[dateKey];
+                                }
+                                setSelectedTimes(updated);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
