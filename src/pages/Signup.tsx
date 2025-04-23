@@ -1,24 +1,27 @@
 
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea"; 
 import MainLayout from "@/components/layout/MainLayout";
-import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Info } from "lucide-react";
+import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Signup: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [step, setStep] = useState(1);
   
+  // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -26,12 +29,31 @@ const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   
+  // Profile information
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [occupation, setOccupation] = useState("");
   const [education, setEducation] = useState("");
   
+  // UI state
   const [isLoading, setIsLoading] = useState(false);
+  const [authInProgress, setAuthInProgress] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Check for authentication error on page load
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error) {
+      setAuthError(`Authentication failed: ${errorDescription || error}`);
+      toast({
+        title: "Authentication Error",
+        description: errorDescription || "Failed to authenticate with provider",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -73,6 +95,7 @@ const Signup: React.FC = () => {
   const handleSubmitStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setAuthError(null);
     
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -113,6 +136,7 @@ const Signup: React.FC = () => {
         navigate("/profile");
       }
     } catch (error: any) {
+      setAuthError(error.message || "Failed to create account");
       toast({
         title: "Error",
         description: error.message || "Failed to create account",
@@ -125,6 +149,7 @@ const Signup: React.FC = () => {
 
   const handleSkipProfileInfo = async () => {
     setIsLoading(true);
+    setAuthError(null);
     
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -151,6 +176,7 @@ const Signup: React.FC = () => {
         navigate("/profile");
       }
     } catch (error: any) {
+      setAuthError(error.message || "Failed to create account");
       toast({
         title: "Error",
         description: error.message || "Failed to create account",
@@ -163,19 +189,32 @@ const Signup: React.FC = () => {
 
   const handleSocialSignup = async (provider: 'github' | 'google') => {
     try {
+      setAuthInProgress(true);
+      setAuthError(null);
+      
+      toast({
+        title: `Connecting to ${provider}`,
+        description: "You will be redirected to continue sign up...",
+      });
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/profile`,
         }
       });
+      
       if (error) throw error;
+      
     } catch (error: any) {
+      setAuthError(error.message || `Failed to sign up with ${provider}`);
       toast({
         title: `${provider.charAt(0).toUpperCase() + provider.slice(1)} signup failed`,
-        description: error.message || "Failed to sign up with " + provider,
+        description: error.message || `Failed to sign up with ${provider}`,
         variant: "destructive",
       });
+    } finally {
+      setAuthInProgress(false);
     }
   };
 
@@ -189,6 +228,13 @@ const Signup: React.FC = () => {
               Join SkillSync to start learning and teaching new skills
             </p>
           </div>
+          
+          {authError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
           
           <div className="bg-blue-50 p-4 rounded-md text-blue-700 mb-6 flex items-start gap-3">
             <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -284,6 +330,7 @@ const Signup: React.FC = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-skill-purple hover:bg-skill-purple-dark"
+                disabled={authInProgress}
               >
                 Continue
               </Button>
@@ -305,8 +352,9 @@ const Signup: React.FC = () => {
                   className="w-full" 
                   type="button"
                   onClick={() => handleSocialSignup("github")}
+                  disabled={authInProgress}
                 >
-                  <Github className="mr-2 h-4 w-4" />
+                  {authInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
                   Github
                 </Button>
                 <Button 
@@ -314,8 +362,9 @@ const Signup: React.FC = () => {
                   className="w-full" 
                   type="button"
                   onClick={() => handleSocialSignup("google")}
+                  disabled={authInProgress}
                 >
-                  <Mail className="mr-2 h-4 w-4" />
+                  {authInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                   Google
                 </Button>
                 <Button 
@@ -323,6 +372,7 @@ const Signup: React.FC = () => {
                   className="w-full" 
                   type="button"
                   onClick={() => toast({ title: "Facebook signup", description: "Facebook is coming soon." })}
+                  disabled={authInProgress}
                 >
                   <Facebook className="mr-2 h-4 w-4" />
                   Facebook

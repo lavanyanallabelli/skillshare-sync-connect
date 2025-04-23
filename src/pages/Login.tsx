@@ -1,29 +1,49 @@
 
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import MainLayout from "@/components/layout/MainLayout";
-import { Facebook, Mail, Github, Eye, EyeOff } from "lucide-react";
+import { Facebook, Mail, Github, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authInProgress, setAuthInProgress] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Check for authentication error on page load
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error) {
+      setAuthError(`Authentication failed: ${errorDescription || error}`);
+      toast({
+        title: "Authentication Error",
+        description: errorDescription || "Failed to authenticate with provider",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setAuthError(null);
     
     if (!email || !password) {
       toast({
@@ -80,6 +100,7 @@ const Login: React.FC = () => {
         navigate("/profile");
       }
     } catch (error: any) {
+      setAuthError(error.message || "Failed to login");
       toast({
         title: "Login failed",
         description: error.message || "Failed to login",
@@ -93,6 +114,14 @@ const Login: React.FC = () => {
 
   const handleSocialLogin = async (provider: 'github' | 'google') => {
     try {
+      setAuthInProgress(true);
+      setAuthError(null);
+      
+      toast({
+        title: `Connecting to ${provider}`,
+        description: "You will be redirected to continue login...",
+      });
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -101,12 +130,16 @@ const Login: React.FC = () => {
       });
 
       if (error) throw error;
+      
     } catch (error: any) {
+      setAuthError(error.message || `Failed to sign in with ${provider}`);
       toast({
         title: `${provider.charAt(0).toUpperCase() + provider.slice(1)} login failed`,
         description: error.message || "Failed to sign in with " + provider,
         variant: "destructive",
       });
+    } finally {
+      setAuthInProgress(false);
     }
   };
 
@@ -120,6 +153,13 @@ const Login: React.FC = () => {
               Sign in to your account to continue your learning journey
             </p>
           </div>
+          
+          {authError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -175,7 +215,7 @@ const Login: React.FC = () => {
             <Button 
               type="submit" 
               className="w-full bg-skill-purple hover:bg-skill-purple-dark"
-              disabled={isLoading}
+              disabled={isLoading || authInProgress}
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
@@ -198,8 +238,9 @@ const Login: React.FC = () => {
               className="w-full" 
               type="button"
               onClick={() => handleSocialLogin("github")}
+              disabled={authInProgress}
             >
-              <Github className="mr-2 h-4 w-4" />
+              {authInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
               Github
             </Button>
             <Button 
@@ -207,8 +248,9 @@ const Login: React.FC = () => {
               className="w-full" 
               type="button"
               onClick={() => handleSocialLogin("google")}
+              disabled={authInProgress}
             >
-              <Mail className="mr-2 h-4 w-4" />
+              {authInProgress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               Google
             </Button>
           </div>
