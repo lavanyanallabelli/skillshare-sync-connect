@@ -73,12 +73,24 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     const fetchGoogleAccessToken = async () => {
       if (!isLoggedIn || !userId) return;
 
+      console.log("Fetching Google access token for user:", userId);
+      
+      // First try to get from localStorage for fast startup
+      const localToken = localStorage.getItem("google_access_token");
+      if (localToken) {
+        console.log("Found token in localStorage");
+        setGoogleAccessToken(localToken);
+      }
+
       try {
+        // Always fetch the latest token from database
         const { data, error } = await supabase
           .from('user_oauth_tokens')
-          .select('access_token')
+          .select('access_token, created_at')
           .eq('user_id', userId)
           .eq('provider', 'google')
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
         if (error) {
@@ -87,8 +99,11 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
 
         if (data?.access_token) {
+          console.log("Found token in database, created at:", data.created_at);
           setGoogleAccessToken(data.access_token);
           localStorage.setItem("google_access_token", data.access_token);
+        } else {
+          console.log("No Google access token found in database");
         }
       } catch (error) {
         console.error("Unexpected error fetching Google token:", error);
@@ -101,11 +116,14 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       if (action === "accept") {
+        console.log("Accepting request:", id);
+        
         // First, try to get token from state or local storage
         let accessToken = googleAccessToken || localStorage.getItem("google_access_token");
 
         // If no token in state or local storage, fetch from database
         if (!accessToken) {
+          console.log("No token in state or localStorage, fetching from database...");
           const { data, error } = await supabase
             .from('user_oauth_tokens')
             .select('access_token')
@@ -114,6 +132,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             .single();
 
           if (error || !data?.access_token) {
+            console.error("Failed to get Google token:", error);
             toast({
               title: "Google access required",
               description: "Please reconnect your Google account to generate a Meet link",
@@ -125,21 +144,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           accessToken = data.access_token;
           setGoogleAccessToken(accessToken);
           localStorage.setItem("google_access_token", accessToken);
-        }
-
-        // Store the new Google access token in the database if it's not already there
-        const { error: upsertError } = await supabase
-          .from('user_oauth_tokens')
-          .upsert({
-            user_id: userId,
-            provider: 'google',
-            access_token: accessToken,
-          }, {
-            onConflict: 'user_id,provider'
-          });
-
-        if (upsertError) {
-          console.error("Error storing Google access token:", upsertError);
+          console.log("Retrieved token from database");
         }
 
         const session = sessionRequests.find(req => req.id === id);

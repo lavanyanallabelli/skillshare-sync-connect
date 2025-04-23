@@ -21,6 +21,7 @@ serve(async (req) => {
       end,
       attendeesCount: attendees?.length || 0,
       hasAccessToken: !!access_token,
+      tokenPreview: access_token ? `${access_token.substring(0, 5)}...` : null
     });
 
     if (!access_token || !summary || !start || !end) {
