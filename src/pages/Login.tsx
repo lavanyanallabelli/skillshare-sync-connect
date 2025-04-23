@@ -13,6 +13,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login: React.FC = () => {
+  // --- Google OAuth Token Extraction ---
+  useEffect(() => {
+    const getGoogleAccessToken = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[Google OAuth] Supabase session:', session);
+      if (session) {
+        let googleAccessToken = session.provider_token || session.provider_access_token;
+        console.log('[Google OAuth] provider_token:', session.provider_token);
+        console.log('[Google OAuth] provider_access_token:', session.provider_access_token);
+        // Fallback: check identities
+        if (!googleAccessToken && session.user && session.user.identities && session.user.identities.length > 0) {
+          googleAccessToken = session.user.identities[0].identity_data?.access_token;
+          console.log('[Google OAuth] identity_data.access_token:', session.user.identities[0].identity_data?.access_token);
+        }
+        if (googleAccessToken) {
+          localStorage.setItem("google_access_token", googleAccessToken);
+          console.log('[Google OAuth] Google access token saved to localStorage:', googleAccessToken);
+        } else {
+          console.warn('[Google OAuth] Google access token NOT FOUND in session.');
+        }
+      } else {
+        console.warn('[Google OAuth] No Supabase session found.');
+      }
+    };
+    getGoogleAccessToken();
+  }, []);
+
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

@@ -309,6 +309,11 @@ const TeacherProfile = () => {
 
     try {
       const formattedDate = selectedDate.toISOString().split('T')[0];
+      console.log('Booking DEBUG:', {
+        teacherId: id,
+        formattedDate,
+        selectedTimeSlot
+      });
       const { data: availabilityCheck, error: availabilityError } = await supabase
         .from('user_availability')
         .select('id')
