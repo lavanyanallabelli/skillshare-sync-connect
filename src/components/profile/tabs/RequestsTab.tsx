@@ -281,7 +281,8 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           description: "Please wait while we generate your meeting...",
         });
 
-        const userSession = await supabase.auth.getSession().data.session;
+        const sessionResult = await supabase.auth.getSession();
+        const userSession = sessionResult.data.session;
         
         if (!userSession) {
           toast({
