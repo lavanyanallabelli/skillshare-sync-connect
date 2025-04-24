@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -46,27 +47,31 @@ const Login: React.FC = () => {
             console.log('[Google OAuth] Token saved to localStorage');
             
             // Then store in database
-            const { error: tokenError } = await supabase
-              .from('user_oauth_tokens')
-              .upsert({
-                user_id: session.user.id,
-                provider: 'google',
-                access_token: googleAccessToken,
-                refresh_token: session.provider_refresh_token || null,
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'user_id,provider'
-              });
+            try {
+              const { error: tokenError } = await supabase
+                .from('user_oauth_tokens')
+                .upsert({
+                  user_id: session.user.id,
+                  provider: 'google',
+                  access_token: googleAccessToken,
+                  refresh_token: session.provider_refresh_token || null,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'user_id,provider'
+                });
 
-            if (tokenError) {
-              console.error('[Google OAuth] Error storing token in database:', tokenError);
-              toast({
-                title: "Warning",
-                description: "Failed to store Google token. Some features may not work correctly.",
-                variant: "destructive",
-              });
-            } else {
-              console.log('[Google OAuth] Token successfully stored in database');
+              if (tokenError) {
+                console.error('[Google OAuth] Error storing token in database:', tokenError);
+                toast({
+                  title: "Warning",
+                  description: "Failed to store Google token. Some features may not work correctly.",
+                  variant: "destructive",
+                });
+              } else {
+                console.log('[Google OAuth] Token successfully stored in database');
+              }
+            } catch (dbError) {
+              console.error('[Google OAuth] Database error:', dbError);
             }
           } else {
             console.warn('[Google OAuth] No Google access token found in session');
