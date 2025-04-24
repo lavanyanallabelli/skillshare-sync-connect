@@ -56,44 +56,53 @@ const Signup: React.FC = () => {
       
       if (session?.provider_token && session.user) {
         console.log("OAuth provider token found in signup, storing...");
-        try {
-          const { error } = await supabase
-            .from('user_oauth_tokens')
-            .upsert({
-              user_id: session.user.id,
-              provider: session.provider_refresh_token ? 'google' : 'github',
-              access_token: session.provider_token,
-              refresh_token: session.provider_refresh_token || null,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id,provider'
-            });
-
-          if (error) {
-            console.error("Error storing OAuth token:", error);
-          } else {
-            console.log("OAuth token stored successfully");
-            localStorage.setItem("google_access_token", session.provider_token);
-            
-            const userData = session.user.user_metadata || {};
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .update({
-                first_name: userData.full_name ? userData.full_name.split(' ')[0] : userData.name || '',
-                last_name: userData.full_name ? userData.full_name.split(' ').slice(1).join(' ') : '',
-                avatar_url: userData.avatar_url || '',
+        
+        const isGoogleLogin = session.user?.app_metadata?.provider === 'google' ||
+                            session.user?.identities?.some(id => id.provider === 'google') || 
+                            !!session.provider_refresh_token;
+        
+        if (isGoogleLogin) {
+          try {
+            const { error } = await supabase
+              .from('user_oauth_tokens')
+              .upsert({
+                user_id: session.user.id,
+                provider: 'google',
+                access_token: session.provider_token,
+                refresh_token: session.provider_refresh_token || null,
                 updated_at: new Date().toISOString()
-              })
-              .eq('id', session.user.id);
-              
-            if (profileError) {
-              console.error("Error updating profile:", profileError);
+              }, {
+                onConflict: 'user_id,provider'
+              });
+
+            if (error) {
+              console.error("Error storing OAuth token:", error);
             } else {
-              console.log("Profile updated with OAuth data");
+              console.log("OAuth token stored successfully as google provider");
+              localStorage.setItem("google_access_token", session.provider_token);
+              
+              const userData = session.user.user_metadata || {};
+              const { error: profileError } = await supabase
+                .from('profiles')
+                .update({
+                  first_name: userData.full_name ? userData.full_name.split(' ')[0] : userData.name || '',
+                  last_name: userData.full_name ? userData.full_name.split(' ').slice(1).join(' ') : '',
+                  avatar_url: userData.avatar_url || '',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', session.user.id);
+                
+              if (profileError) {
+                console.error("Error updating profile:", profileError);
+              } else {
+                console.log("Profile updated with OAuth data");
+              }
             }
+          } catch (error) {
+            console.error("Error handling OAuth token:", error);
           }
-        } catch (error) {
-          console.error("Error handling OAuth token:", error);
+        } else {
+          console.log("Not a Google login; token not stored");
         }
       }
     };

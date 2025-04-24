@@ -33,8 +33,9 @@ const Login: React.FC = () => {
         if (session) {
           console.log('[Google OAuth] Supabase session after login:', session);
           
-          // Check if this is a Google login by examining identities
-          const isGoogleLogin = session.user?.identities?.some(id => id.provider === 'google') || 
+          // Check if this is a Google login
+          const isGoogleLogin = session.user?.app_metadata?.provider === 'google' ||
+                               session.user?.identities?.some(id => id.provider === 'google') || 
                                !!session.provider_refresh_token;
                                
           console.log('[Google OAuth] Is Google login:', isGoogleLogin);
@@ -42,28 +43,20 @@ const Login: React.FC = () => {
           if (!session.provider_token) {
             console.warn('[Google OAuth] No provider_token found in session. Google OAuth may not be configured correctly in Supabase.');
           }
-          let googleAccessToken = session.provider_token;
-          console.log('[Google OAuth] provider_token:', session.provider_token);
           
-          // Fallback: check identities
-          if (!googleAccessToken && session.user && session.user.identities && session.user.identities.length > 0) {
-            googleAccessToken = session.user.identities[0].identity_data?.access_token;
-            console.log('[Google OAuth] identity_data.access_token:', session.user.identities[0].identity_data?.access_token);
-          }
-          
-          if (googleAccessToken && isGoogleLogin) {
+          // Store Google OAuth tokens only
+          if (isGoogleLogin && session.provider_token) {
             // First store in localStorage for immediate availability
-            localStorage.setItem("google_access_token", googleAccessToken);
+            localStorage.setItem("google_access_token", session.provider_token);
             console.log('[Google OAuth] Token saved to localStorage');
             
-            // Only store Google tokens in the database
             try {
               const { error: tokenError } = await supabase
                 .from('user_oauth_tokens')
                 .upsert({
                   user_id: session.user.id,
                   provider: 'google',
-                  access_token: googleAccessToken,
+                  access_token: session.provider_token,
                   refresh_token: session.provider_refresh_token || null,
                   updated_at: new Date().toISOString()
                 }, {
@@ -78,12 +71,12 @@ const Login: React.FC = () => {
                   variant: "destructive",
                 });
               } else {
-                console.log('[Google OAuth] Token successfully stored in database');
+                console.log('[Google OAuth] Token successfully stored in database with provider: google');
               }
             } catch (dbError) {
               console.error('[Google OAuth] Database error:', dbError);
             }
-          } else if (!isGoogleLogin && googleAccessToken) {
+          } else if (!isGoogleLogin) {
             console.log('[Google OAuth] Not a Google login; token not stored in database.');
           } else {
             console.warn('[Google OAuth] No Google access token found in session');
@@ -119,19 +112,24 @@ const Login: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.provider_token && session?.user) {
-          console.log("OAuth provider token found, storing...", {
-            provider: session.provider_refresh_token ? 'google' : 'github',
-            tokenPreview: `${session.provider_token.substring(0, 10)}...`
+          // Determine if this is a Google login
+          const isGoogleLogin = session.user?.app_metadata?.provider === 'google' ||
+                               session.user?.identities?.some(id => id.provider === 'google') || 
+                               !!session.provider_refresh_token;
+                               
+          console.log("OAuth provider check:", {
+            provider: session.user?.app_metadata?.provider || 'unknown',
+            hasProviderToken: !!session.provider_token,
+            isGoogleLogin: isGoogleLogin
           });
-          
-          // Store the token in localStorage first for immediate availability
-          localStorage.setItem("google_access_token", session.provider_token);
-          if (session.provider_refresh_token) {
-            localStorage.setItem("google_refresh_token", session.provider_refresh_token);
-          }
-          
-          // Only store Google tokens in the database
-          if (session.user && session.user.identities && session.user.identities.some((id) => id.provider === 'google')) {
+                               
+          if (isGoogleLogin) {
+            // Store the token in localStorage for immediate availability
+            localStorage.setItem("google_access_token", session.provider_token);
+            if (session.provider_refresh_token) {
+              localStorage.setItem("google_refresh_token", session.provider_refresh_token);
+            }
+            
             setTimeout(async () => {
               try {
                 const { error } = await supabase

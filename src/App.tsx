@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -67,7 +66,6 @@ const App = () => {
       }
       
       if (profileData) {
-        // Fetch experiences
         const { data: experiences, error: experiencesError } = await supabase
           .from('user_experiences')
           .select('*')
@@ -77,7 +75,6 @@ const App = () => {
           console.error("Error fetching experiences:", experiencesError);
         }
         
-        // Fetch education
         const { data: education, error: educationError } = await supabase
           .from('user_education')
           .select('*')
@@ -87,7 +84,6 @@ const App = () => {
           console.error("Error fetching education:", educationError);
         }
         
-        // Fetch teaching skills
         const { data: teachingSkills, error: teachingError } = await supabase
           .from('teaching_skills')
           .select('skill, proficiency_level')
@@ -97,7 +93,6 @@ const App = () => {
           console.error("Error fetching teaching skills:", teachingError);
         }
         
-        // Fetch learning skills
         const { data: learningSkills, error: learningError } = await supabase
           .from('learning_skills')
           .select('skill')
@@ -147,41 +142,51 @@ const App = () => {
         setUserId(session?.user?.id ?? null);
         setIsLoggedIn(isAuthenticated);
         
-        // Store Google OAuth token if available
         if (session?.provider_token && event === "SIGNED_IN") {
-          localStorage.setItem("google_access_token", session.provider_token);
-          
-          // Use setTimeout to avoid blocking auth flow
-          setTimeout(async () => {
-            try {
-              if (session.user) {
-                // Check if the provider is Google by examining identities or provider_token
-                const isGoogleLogin = session.provider_refresh_token || 
-                  (session.user?.identities?.some(id => id.provider === 'google'));
-
-                const { error } = await supabase
-                  .from('user_oauth_tokens')
-                  .upsert({
-                    user_id: session.user.id,
-                    provider: isGoogleLogin ? 'google' : 'github',
-                    access_token: session.provider_token,
-                    refresh_token: session.provider_refresh_token || null,
-                    updated_at: new Date().toISOString(),
-                    expires_at: null
-                  }, {
-                    onConflict: 'user_id,provider'
-                  });
-                  
-                if (error) {
-                  console.error("Error storing OAuth token:", error);
-                } else {
-                  console.log("OAuth token stored successfully");
+          const isGoogleLogin = session.provider_refresh_token || 
+                              (session.user?.app_metadata?.provider === 'google') ||
+                              (session.user?.identities?.some(id => id.provider === 'google'));
+                                
+          console.log("Auth provider check:", {
+            provider: session.user?.app_metadata?.provider || 'unknown',
+            isGoogleLogin,
+            hasProviderToken: !!session.provider_token,
+            hasRefreshToken: !!session.provider_refresh_token
+          });
+                                
+          if (isGoogleLogin) {
+            console.log("Google login detected, storing token");
+            localStorage.setItem("google_access_token", session.provider_token);
+            
+            setTimeout(async () => {
+              try {
+                if (session.user) {
+                  const { error } = await supabase
+                    .from('user_oauth_tokens')
+                    .upsert({
+                      user_id: session.user.id,
+                      provider: 'google',
+                      access_token: session.provider_token,
+                      refresh_token: session.provider_refresh_token || null,
+                      updated_at: new Date().toISOString(),
+                      expires_at: null
+                    }, {
+                      onConflict: 'user_id,provider'
+                    });
+                    
+                  if (error) {
+                    console.error("Error storing OAuth token:", error);
+                  } else {
+                    console.log("OAuth token stored successfully with provider: google");
+                  }
                 }
+              } catch (error) {
+                console.error("Error handling OAuth token:", error);
               }
-            } catch (error) {
-              console.error("Error handling OAuth token:", error);
-            }
-          }, 0);
+            }, 0);
+          } else {
+            console.log("Not storing non-Google OAuth token");
+          }
         }
         
         if (isAuthenticated && session?.user?.id) {
