@@ -121,10 +121,11 @@ export const useRequestActions = (
           return;
         }
         
-        const timeSlot = session.data.time_slot || session.data.time || "";
+        // Get time slot from the correct property
+        const timeSlot = session.data.time_slot || "";
         const startTime = timeSlot.includes(" - ") ? timeSlot.split(" - ")[0] : timeSlot;
         
-        if (!session.data.day && !session.data.date) {
+        if (!session.data.day) {
           console.error("No date information found in session:", session.data);
           toast({
             title: "Error",
@@ -134,7 +135,7 @@ export const useRequestActions = (
           return;
         }
         
-        const dateString = session.data.day || session.data.date;
+        const dateString = session.data.day;
         const timeString = startTime + ":00";
         
         console.log("Creating calendar event with:", {
@@ -156,6 +157,26 @@ export const useRequestActions = (
           title: "Creating Google Meet link",
           description: "Please wait while we generate your meeting...",
         });
+        
+        // Get participant information using the session data
+        const { data: teacherData } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', session.data.teacher_id)
+          .single();
+          
+        const { data: studentData } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', session.data.student_id)
+          .single();
+
+        // Fetch user emails from auth.users table
+        const { data: teacherEmail } = await supabase.rpc('get_user_email', { user_id: session.data.teacher_id });
+        const { data: studentEmail } = await supabase.rpc('get_user_email', { user_id: session.data.student_id });
+
+        const teacherName = teacherData ? `${teacherData.first_name} ${teacherData.last_name}` : "Teacher";
+        const studentName = studentData ? `${studentData.first_name} ${studentData.last_name}` : "Student";
 
         const edgeRes = await fetch("https://rojydqsndhoielitdquu.functions.supabase.co/create-google-meet-link", {
           method: "POST",
@@ -166,12 +187,12 @@ export const useRequestActions = (
           body: JSON.stringify({
             access_token: accessToken,
             summary: `Learning Session: ${session.data.skill}`,
-            description: `Google Meet for your session with ${session.data.from}`,
+            description: `Google Meet for your session with ${studentName}`,
             start: start.toISOString(),
             end: end.toISOString(),
             attendees: [
-              { email: session.data.student_email || "" },
-              { email: session.data.teacher_email || "" }
+              { email: studentEmail || "" },
+              { email: teacherEmail || "" }
             ].filter(a => a.email),
           }),
         });
