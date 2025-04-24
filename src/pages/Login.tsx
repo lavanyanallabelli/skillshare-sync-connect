@@ -12,32 +12,64 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login: React.FC = () => {
-  // --- Google OAuth Token Extraction ---
   useEffect(() => {
     const getGoogleAccessToken = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('[Google OAuth] Supabase session:', session);
-      if (session) {
-        let googleAccessToken = session.provider_token || session.provider_access_token;
-        console.log('[Google OAuth] provider_token:', session.provider_token);
-        console.log('[Google OAuth] provider_access_token:', session.provider_access_token);
-        // Fallback: check identities
-        if (!googleAccessToken && session.user && session.user.identities && session.user.identities.length > 0) {
-          googleAccessToken = session.user.identities[0].identity_data?.access_token;
-          console.log('[Google OAuth] identity_data.access_token:', session.user.identities[0].identity_data?.access_token);
-        }
-        if (googleAccessToken) {
-          localStorage.setItem("google_access_token", googleAccessToken);
-          console.log('[Google OAuth] Google access token saved to localStorage:', googleAccessToken);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('[Google OAuth] Supabase session:', session);
+        
+        if (session) {
+          let googleAccessToken = session.provider_token || session.provider_access_token;
+          console.log('[Google OAuth] provider_token:', session.provider_token);
+          console.log('[Google OAuth] provider_access_token:', session.provider_access_token);
+          
+          // Fallback: check identities
+          if (!googleAccessToken && session.user && session.user.identities && session.user.identities.length > 0) {
+            googleAccessToken = session.user.identities[0].identity_data?.access_token;
+            console.log('[Google OAuth] identity_data.access_token:', session.user.identities[0].identity_data?.access_token);
+          }
+          
+          if (googleAccessToken) {
+            // First store in localStorage for immediate availability
+            localStorage.setItem("google_access_token", googleAccessToken);
+            console.log('[Google OAuth] Token saved to localStorage');
+            
+            // Then store in database
+            const { error: tokenError } = await supabase
+              .from('user_oauth_tokens')
+              .upsert({
+                user_id: session.user.id,
+                provider: 'google',
+                access_token: googleAccessToken,
+                refresh_token: session.provider_refresh_token || null,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'user_id,provider'
+              });
+
+            if (tokenError) {
+              console.error('[Google OAuth] Error storing token in database:', tokenError);
+              toast({
+                title: "Warning",
+                description: "Failed to store Google token. Some features may not work correctly.",
+                variant: "destructive",
+              });
+            } else {
+              console.log('[Google OAuth] Token successfully stored in database');
+            }
+          } else {
+            console.warn('[Google OAuth] No Google access token found in session');
+          }
         } else {
-          console.warn('[Google OAuth] Google access token NOT FOUND in session.');
+          console.warn('[Google OAuth] No Supabase session found');
         }
-      } else {
-        console.warn('[Google OAuth] No Supabase session found.');
+      } catch (error) {
+        console.error('[Google OAuth] Error handling token:', error);
       }
     };
+    
     getGoogleAccessToken();
-  }, []);
+  }, [toast]);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -51,7 +83,6 @@ const Login: React.FC = () => {
   const [authInProgress, setAuthInProgress] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Check for authentication error on page load
   useEffect(() => {
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
@@ -66,7 +97,6 @@ const Login: React.FC = () => {
     }
   }, [searchParams, toast]);
 
-  // Check for access token after OAuth login using a safer approach
   useEffect(() => {
     const checkSession = async () => {
       try {

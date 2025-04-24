@@ -1,4 +1,3 @@
-
 import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,22 +71,21 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
   const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(false);
   const [isRefreshingToken, setIsRefreshingToken] = useState<boolean>(false);
 
-  // Fetch Google access token
   useEffect(() => {
     const fetchGoogleAccessToken = async () => {
       if (!isLoggedIn || !userId) return;
 
-      console.log("Fetching Google access token for user:", userId);
-      
-      // First try to get from localStorage for fast startup
-      const localToken = localStorage.getItem("google_access_token");
-      if (localToken) {
-        console.log("Found token in localStorage");
-        setGoogleAccessToken(localToken);
-        setIsGoogleConnected(true);
-      }
-
       try {
+        console.log("Fetching Google access token for user:", userId);
+        
+        // First try to get from localStorage for fast startup
+        const localToken = localStorage.getItem("google_access_token");
+        if (localToken) {
+          console.log("Found token in localStorage");
+          setGoogleAccessToken(localToken);
+          setIsGoogleConnected(true);
+        }
+
         // Always fetch the latest token from database
         const { data, error } = await supabase
           .from('user_oauth_tokens')
@@ -99,10 +97,16 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           .single();
 
         if (error) {
-          console.error("Error fetching Google access token:", error);
           if (error.code === 'PGRST116') {
             console.log("No Google token found in database");
             setIsGoogleConnected(false);
+          } else {
+            console.error("Error fetching Google access token:", error);
+            toast({
+              title: "Error",
+              description: "Failed to verify Google connection. Please try reconnecting.",
+              variant: "destructive",
+            });
           }
           return;
         }
@@ -122,7 +126,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     };
 
     fetchGoogleAccessToken();
-  }, [isLoggedIn, userId]);
+  }, [isLoggedIn, userId, toast]);
 
   const refreshGoogleConnection = async () => {
     try {
