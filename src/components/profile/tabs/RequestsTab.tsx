@@ -77,7 +77,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
       if (!isLoggedIn || !userId) return;
 
       try {
-        console.log("Fetching Google access token for user:", userId);
+        console.log("Fetching Google access token for user:", userId, "(type:", typeof userId, ")");
+        const provider = 'google';
+        console.log("Using provider:", provider, "(type:", typeof provider, ")");
         
         // First try to get from localStorage for fast startup
         const localToken = localStorage.getItem("google_access_token");
@@ -93,7 +95,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             .from('user_oauth_tokens')
             .select('access_token, updated_at')
             .eq('user_id', userId)
-            .eq('provider', 'google')
+            .eq('provider', provider)
             .order('updated_at', { ascending: false })
             .limit(1)
             .single();
@@ -106,6 +108,14 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               if (!localToken) {
                 setIsGoogleConnected(false);
               }
+            } else if (error.status === 406) {
+              console.error("406 Not Acceptable error while fetching Google access token. Full error:", error);
+              console.log("Query params:", { userId, userIdType: typeof userId, provider, providerType: typeof provider });
+              toast({
+                title: "Error (406 Not Acceptable)",
+                description: "Failed to fetch Google token due to a 406 error. Please check your account or contact support.",
+                variant: "destructive",
+              });
             } else {
               console.error("Error fetching Google access token:", error);
               toast({
