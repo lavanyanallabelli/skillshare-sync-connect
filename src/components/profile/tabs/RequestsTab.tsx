@@ -1,4 +1,3 @@
-
 import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -89,38 +88,31 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         // Always fetch the latest token from database
         try {
+          // Remove the select parameter to simplify the query
           const { data, error } = await supabase
             .from('user_oauth_tokens')
-            .select('access_token, updated_at')
+            .select('*')
             .eq('user_id', userId)
             .eq('provider', 'google')
             .order('updated_at', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
+
+          console.log("OAuth token query response:", { data, error });
 
           if (error) {
-            if (error.code === 'PGRST116') {
-              console.log("No Google token found in database");
-              // If a local token exists but no database token, we'll still consider connected
-              // but not update any state since we're already using the local token
-              if (!localToken) {
-                setIsGoogleConnected(false);
-              }
-            } else {
-              console.error("Error fetching Google access token:", error);
-              toast({
-                title: "Error",
-                description: "Failed to verify Google connection. Please try reconnecting.",
-                variant: "destructive",
-              });
-            }
+            console.error("Error fetching Google access token:", error);
+            toast({
+              title: "Error",
+              description: "Failed to verify Google connection. Please try reconnecting.",
+              variant: "destructive",
+            });
             return;
           }
 
-          if (data?.access_token) {
-            console.log("Found token in database, updated at:", data.updated_at);
-            setGoogleAccessToken(data.access_token);
-            localStorage.setItem("google_access_token", data.access_token);
+          if (data && data.length > 0) {
+            console.log("Found token in database, updated at:", data[0].updated_at);
+            setGoogleAccessToken(data[0].access_token);
+            localStorage.setItem("google_access_token", data[0].access_token);
             setIsGoogleConnected(true);
           } else {
             console.log("No Google access token found in database");

@@ -147,6 +147,39 @@ const App = () => {
         setUserId(session?.user?.id ?? null);
         setIsLoggedIn(isAuthenticated);
         
+        // Store Google OAuth token if available
+        if (session?.provider_token && event === "SIGNED_IN") {
+          localStorage.setItem("google_access_token", session.provider_token);
+          
+          // Use setTimeout to avoid blocking auth flow
+          setTimeout(async () => {
+            try {
+              if (session.user) {
+                const { error } = await supabase
+                  .from('user_oauth_tokens')
+                  .upsert({
+                    user_id: session.user.id,
+                    provider: session.provider_refresh_token ? 'google' : 'github',
+                    access_token: session.provider_token,
+                    refresh_token: session.provider_refresh_token || null,
+                    updated_at: new Date().toISOString(),
+                    expires_at: null // Add expires_at field if available
+                  }, {
+                    onConflict: 'user_id,provider'
+                  });
+                  
+                if (error) {
+                  console.error("Error storing OAuth token:", error);
+                } else {
+                  console.log("OAuth token stored successfully");
+                }
+              }
+            } catch (error) {
+              console.error("Error handling OAuth token:", error);
+            }
+          }, 0);
+        }
+        
         if (isAuthenticated && session?.user?.id) {
           localStorage.setItem("isLoggedIn", "true");
           setTimeout(() => {
