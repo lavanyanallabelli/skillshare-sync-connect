@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -255,7 +254,32 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           return;
         }
         
-        const start = new Date(`${session.date}T${session.time.split(' - ')[0]}:00`);
+        // Fix here: Use session.day and session.time_slot, and handle undefined values properly
+        // For time, properly extract the start time from time_slot that could be in format "10:00 AM - 11:00 AM"
+        const timeSlot = session.time_slot || session.time || "";
+        const startTime = timeSlot.includes(" - ") ? timeSlot.split(" - ")[0] : timeSlot;
+        
+        // Validate date and time before proceeding
+        if (!session.day && !session.date) {
+          console.error("No date information found in session:", session);
+          toast({
+            title: "Error",
+            description: "Session date information is missing. Please contact support.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const dateString = session.day || session.date;
+        const timeString = startTime + ":00";
+        
+        console.log("Creating calendar event with:", {
+          date: dateString,
+          time: timeString
+        });
+        
+        const start = new Date(`${dateString}T${timeString}`);
+        // Add 1 hour for end time
         const end = new Date(start.getTime() + 60 * 60 * 1000);
 
         console.log("Calling edge function with data:", {

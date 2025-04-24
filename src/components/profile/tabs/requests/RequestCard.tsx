@@ -3,8 +3,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 
 interface RequestCardProps {
   request: any;
@@ -42,7 +41,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
           </div>
           <p className="text-sm text-muted-foreground flex items-center mt-1">
             <Calendar className="h-3 w-3 mr-1" />
-            {request.date}, {request.time}
+            {request.day || request.date}, {request.time_slot || request.time}
           </p>
           {!isReceiver && (
             <p className="text-xs text-muted-foreground mt-2">

@@ -13,6 +13,7 @@ export const useGoogleToken = (userId: string | null, isLoggedIn: boolean) => {
   const fetchGoogleAccessToken = useCallback(async () => {
     if (!isLoggedIn || !userId) {
       console.log("[useGoogleToken] Not logged in or no user ID, skipping token fetch");
+      setIsGoogleConnected(false);
       return;
     }
 
@@ -41,11 +42,9 @@ export const useGoogleToken = (userId: string | null, isLoggedIn: boolean) => {
 
         if (error) {
           console.error("[useGoogleToken] Error fetching Google access token from DB:", error);
-          toast({
-            title: "Error",
-            description: "Failed to verify Google connection. Please try reconnecting.",
-            variant: "destructive",
-          });
+          if (!localToken) {
+            setIsGoogleConnected(false);
+          }
           return;
         }
 
@@ -70,6 +69,7 @@ export const useGoogleToken = (userId: string | null, isLoggedIn: boolean) => {
       setLastChecked(new Date());
     } catch (error) {
       console.error("[useGoogleToken] Unexpected error fetching Google token:", error);
+      setIsGoogleConnected(false);
     }
   }, [isLoggedIn, userId, toast]);
 
