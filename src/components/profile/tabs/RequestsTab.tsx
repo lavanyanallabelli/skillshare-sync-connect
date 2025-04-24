@@ -30,18 +30,16 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     lastChecked
   } = useGoogleToken(userId, isLoggedIn);
 
-  // Check Google connection status periodically
   useEffect(() => {
     const checkInterval = setInterval(() => {
       if (isLoggedIn && userId) {
         fetchGoogleAccessToken();
       }
-    }, 60000); // Check every minute
+    }, 60000);
     
     return () => clearInterval(checkInterval);
   }, [isLoggedIn, userId, fetchGoogleAccessToken]);
   
-  // Debug log
   useEffect(() => {
     console.log("[RequestsTab] Google connection status:", {
       isGoogleConnected,
@@ -58,7 +56,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         description: "You will be redirected to authorize with Google...",
       });
       
-      // Store current URL to return to this page after auth
       const currentPath = window.location.pathname + window.location.search;
       sessionStorage.setItem("authRedirectPath", currentPath);
       
@@ -158,7 +155,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             variant: "destructive",
           });
           
-          // Store the request ID in session storage to resume after connection
           sessionStorage.setItem("pendingRequestId", id);
           sessionStorage.setItem("pendingRequestAction", "accept");
           
@@ -179,8 +175,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         
         if (!accessToken) {
           try {
-            // Attempt to fetch token from database
-            console.log('[RequestsTab] Attempting to fetch Google token from database for user:', userId);
             const { data, error } = await supabase
               .from('user_oauth_tokens')
               .select('access_token')
@@ -191,7 +185,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             if (error || !data?.access_token) {
               console.error("[RequestsTab] Failed to get Google token from DB:", error);
               
-              // Store the request ID in session storage to resume after connection
               sessionStorage.setItem("pendingRequestId", id);
               sessionStorage.setItem("pendingRequestAction", "accept");
               
@@ -214,7 +207,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           } catch (dbError) {
             console.error("[RequestsTab] Database error when fetching token:", dbError);
             
-            // Store the request ID in session storage to resume after connection
             sessionStorage.setItem("pendingRequestId", id);
             sessionStorage.setItem("pendingRequestAction", "accept");
             
@@ -232,7 +224,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           }
         }
 
-        // Check if we have valid access token after all attempts
         if (!accessToken) {
           console.error('[RequestsTab] No Google access token found after all attempts.');
           toast({
@@ -254,12 +245,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           return;
         }
         
-        // Fix here: Use session.day and session.time_slot, and handle undefined values properly
-        // For time, properly extract the start time from time_slot that could be in format "10:00 AM - 11:00 AM"
         const timeSlot = session.time_slot || session.time || "";
         const startTime = timeSlot.includes(" - ") ? timeSlot.split(" - ")[0] : timeSlot;
         
-        // Validate date and time before proceeding
         if (!session.day && !session.date) {
           console.error("No date information found in session:", session);
           toast({
@@ -279,7 +267,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         });
         
         const start = new Date(`${dateString}T${timeString}`);
-        // Add 1 hour for end time
         const end = new Date(start.getTime() + 60 * 60 * 1000);
 
         console.log("Calling edge function with data:", {
@@ -294,9 +281,23 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           description: "Please wait while we generate your meeting...",
         });
 
+        const userSession = await supabase.auth.getSession().data.session;
+        
+        if (!userSession) {
+          toast({
+            title: "Authentication Error",
+            description: "User session not found. Please try logging in again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const edgeRes = await fetch("https://rojydqsndhoielitdquu.functions.supabase.co/create-google-meet-link", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${userSession.access_token}`
+          },
           body: JSON.stringify({
             access_token: accessToken,
             summary: `Learning Session: ${session.skill}`,
@@ -327,7 +328,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             setGoogleAccessToken(null);
             setIsGoogleConnected(false);
             
-            // Store the request ID in session storage to resume after connection
             sessionStorage.setItem("pendingRequestId", id);
             sessionStorage.setItem("pendingRequestAction", "accept");
             
@@ -340,7 +340,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
           
           if (edgeData.error_code === 'insufficient_permissions' || 
               edgeData.details?.error?.message?.includes('insufficient permission')) {
-            // Store the request ID in session storage to resume after connection
             sessionStorage.setItem("pendingRequestId", id);
             sessionStorage.setItem("pendingRequestAction", "accept");
             
@@ -405,7 +404,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               description: "The session has been added to your schedule with a Google Meet link.",
             });
             
-            // Update UI
             setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
           }
         } catch (dbError) {
@@ -435,7 +433,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             description: "The request has been declined",
           });
           
-          // Update UI
           setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
         } catch (dbError) {
           console.error("Database error when declining session:", dbError);
@@ -459,7 +456,6 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     }
   };
 
-  // Check if there's a pending request to resume after Google auth
   useEffect(() => {
     const checkPendingRequest = async () => {
       const pendingId = sessionStorage.getItem("pendingRequestId");
@@ -468,11 +464,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
       if (pendingId && pendingAction && isGoogleConnected) {
         console.log("[RequestsTab] Found pending request to resume:", pendingId, pendingAction);
         
-        // Clear pending data
         sessionStorage.removeItem("pendingRequestId");
         sessionStorage.removeItem("pendingRequestAction");
         
-        // Wait a moment for everything to initialize
         setTimeout(() => {
           handleRequestAction(pendingId, pendingAction as "accept" | "decline");
         }, 1000);

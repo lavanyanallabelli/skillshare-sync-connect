@@ -36,6 +36,19 @@ serve(async (req) => {
       return new Response(null, { headers, status: 204 });
     }
 
+    // Validate authentication header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log("Missing or invalid authorization header");
+      return new Response(
+        JSON.stringify({ 
+          error: "Missing or invalid authorization header", 
+          error_code: "unauthorized" 
+        }),
+        { headers, status: 401 }
+      );
+    }
+
     // Validate request method
     if (req.method !== "POST") {
       console.log(`Error: Invalid method ${req.method}`);
