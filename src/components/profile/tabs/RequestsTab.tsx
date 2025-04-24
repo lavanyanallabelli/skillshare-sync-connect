@@ -1,11 +1,12 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
 import { EmptyState } from "../common/ProfileUIComponents";
-import { RequestCard } from "./requests/RequestCard";
-import { GoogleConnectionStatus } from "./requests/GoogleConnectionStatus";
+import RequestCard from "./requests/RequestCard";
+import GoogleConnectionStatus from "./requests/GoogleConnectionStatus";
 import { useGoogleToken } from "@/hooks/useGoogleToken";
 
 interface RequestsTabProps {
