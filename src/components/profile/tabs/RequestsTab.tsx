@@ -119,19 +119,18 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
     try {
       if (action === "accept") {
         if (!isGoogleConnected) {
+          console.warn('[RequestsTab] Google not connected: isGoogleConnected is false');
           toast({
             title: "Google Calendar Required",
             description: "Please connect your Google account to generate a meeting link.",
             variant: "destructive",
           });
           
-          // Use a more direct approach rather than window.confirm
           toast({
             title: "Action Required",
             description: "Redirecting to Google authorization...",
           });
           
-          // Short delay to allow toast to be seen
           setTimeout(() => {
             connectWithGoogle();
           }, 1500);
@@ -140,10 +139,12 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
         
         let accessToken = googleAccessToken || localStorage.getItem("google_access_token");
+        console.log('[RequestsTab] Initial accessToken:', accessToken ? accessToken.substring(0, 10) + '...' : 'None');
         
         if (!accessToken) {
           try {
             // Attempt to fetch token from database
+            console.log('[RequestsTab] Attempting to fetch Google token from database for user:', userId);
             const { data, error } = await supabase
               .from('user_oauth_tokens')
               .select('access_token')
@@ -152,13 +153,12 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               .single();
 
             if (error || !data?.access_token) {
-              console.error("Failed to get Google token:", error);
+              console.error("[RequestsTab] Failed to get Google token from DB:", error);
               toast({
                 title: "Google Access Required",
                 description: "Redirecting to Google authorization...",
               });
               
-              // Short delay to allow toast to be seen
               setTimeout(() => {
                 connectWithGoogle();
               }, 1500);
@@ -169,9 +169,9 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             accessToken = data.access_token;
             setGoogleAccessToken(accessToken);
             localStorage.setItem("google_access_token", accessToken);
-            console.log("Retrieved token from database:", accessToken.substring(0, 10) + "...");
+            console.log("[RequestsTab] Retrieved token from database:", accessToken.substring(0, 10) + "...");
           } catch (dbError) {
-            console.error("Database error when fetching token:", dbError);
+            console.error("[RequestsTab] Database error when fetching token:", dbError);
             toast({
               title: "Error",
               description: "Could not retrieve your Google token. Redirecting to reconnect.",
@@ -188,6 +188,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         // Check if we have valid access token after all attempts
         if (!accessToken) {
+          console.error('[RequestsTab] No Google access token found after all attempts.');
           toast({
             title: "Authentication Error",
             description: "Could not retrieve Google token. Please try again.",
