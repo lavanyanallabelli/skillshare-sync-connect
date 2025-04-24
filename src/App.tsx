@@ -1,8 +1,9 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useState, createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
@@ -142,13 +143,19 @@ const App = () => {
         setUserId(session?.user?.id ?? null);
         setIsLoggedIn(isAuthenticated);
         
-        if (session?.provider_token && event === "SIGNED_IN") {
-          const isGoogleLogin = session.provider_refresh_token || 
-                              (session.user?.app_metadata?.provider === 'google') ||
-                              (session.user?.identities?.some(id => id.provider === 'google'));
+        if (session?.provider_token && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+          // Determine if this is a Google login by checking multiple indicators
+          const identities = session.user?.identities || [];
+          const googleIdentity = identities.find(id => id.provider === 'google');
+          
+          const isGoogleLogin = 
+            !!googleIdentity || 
+            session.user?.app_metadata?.provider === 'google' || 
+            !!session.provider_refresh_token;
                                 
           console.log("Auth provider check:", {
             provider: session.user?.app_metadata?.provider || 'unknown',
+            identityProviders: identities.map(id => id.provider),
             isGoogleLogin,
             hasProviderToken: !!session.provider_token,
             hasRefreshToken: !!session.provider_refresh_token
@@ -194,6 +201,16 @@ const App = () => {
           setTimeout(() => {
             refreshUserData();
           }, 0);
+          
+          // Check for redirect after authentication
+          const redirectPath = sessionStorage.getItem("authRedirectPath");
+          if (redirectPath && event === "SIGNED_IN") {
+            console.log("Redirecting to:", redirectPath);
+            setTimeout(() => {
+              sessionStorage.removeItem("authRedirectPath");
+              window.location.href = redirectPath;
+            }, 500);
+          }
         } else {
           localStorage.setItem("isLoggedIn", "false");
           localStorage.removeItem("userData");
@@ -237,6 +254,7 @@ const App = () => {
     setUserId(null);
     localStorage.setItem("isLoggedIn", "false");
     localStorage.removeItem("userData");
+    localStorage.removeItem("google_access_token");
   };
 
   if (isLoading) {
@@ -280,14 +298,22 @@ const App = () => {
 
 const OAuthCallback = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   useEffect(() => {
     login();
-    navigate('/profile');
-  }, [navigate, login]);
+    
+    const params = new URLSearchParams(location.search);
+    const redirectPath = sessionStorage.getItem("authRedirectPath") || "/profile";
+    
+    setTimeout(() => {
+      navigate(redirectPath);
+    }, 500);
+    
+  }, [navigate, login, location]);
 
-  return <div>Logging in...</div>;
+  return <div className="flex items-center justify-center h-screen">Completing authentication...</div>;
 };
 
 export default App;

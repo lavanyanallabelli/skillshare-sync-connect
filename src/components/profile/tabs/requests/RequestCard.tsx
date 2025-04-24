@@ -4,15 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface RequestCardProps {
   request: any;
   userId: string;
   onAccept: () => void;
   onDecline: () => void;
+  isProcessing?: boolean;
 }
 
-const RequestCard: React.FC<RequestCardProps> = ({ request, userId, onAccept, onDecline }) => {
+const RequestCard: React.FC<RequestCardProps> = ({ 
+  request, 
+  userId, 
+  onAccept, 
+  onDecline,
+  isProcessing = false 
+}) => {
   const isReceiver = request.teacher_id === userId;
   
   return (
@@ -45,10 +53,12 @@ const RequestCard: React.FC<RequestCardProps> = ({ request, userId, onAccept, on
       </div>
       {isReceiver && (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onDecline}>
+          <Button variant="outline" size="sm" onClick={onDecline} disabled={isProcessing}>
+            {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
             Decline
           </Button>
-          <Button size="sm" onClick={onAccept}>
+          <Button size="sm" onClick={onAccept} disabled={isProcessing}>
+            {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
             Accept
           </Button>
         </div>
