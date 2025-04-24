@@ -200,6 +200,7 @@ const TeacherProfile = () => {
         if (error) throw error;
 
         if (data && data.length > 0) {
+          console.log("Fetched availability data:", data);
           const timesByDate: { [key: string]: string[] } = {};
           const availabilities: { id: string, time: string, date: string }[] = [];
           const times: string[] = [];
@@ -220,6 +221,12 @@ const TeacherProfile = () => {
             });
 
             times.push(time);
+          });
+
+          console.log("Processed availability data:", {
+            timesByDate,
+            availabilities,
+            times
           });
 
           setSelectedTimes(timesByDate);
@@ -309,15 +316,27 @@ const TeacherProfile = () => {
     }
 
     try {
-      const formattedDate = selectedDate.toISOString().split('T')[0];
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       console.log('Booking DEBUG:', {
         teacherId: id,
         formattedDate,
         selectedTimeSlot
       });
       
-      // Fix: Log available time slots for debugging
-      console.log("Available time slots:", availabilityTimes);
+      // Log available time slots for this specific date
+      const timeSlots = selectedTimes[formattedDate] || [];
+      console.log("Available time slots for this date:", timeSlots);
+      console.log("All selected times:", selectedTimes);
+      
+      // Check if the selected time exists in the available slots for this date
+      if (!timeSlots.includes(selectedTimeSlot)) {
+        toast({
+          title: "Time Slot Error",
+          description: `The selected time slot (${selectedTimeSlot}) is not in the available slots for date ${formattedDate}`,
+          variant: "destructive",
+        });
+        return;
+      }
       
       const { data: availabilityCheck, error: availabilityError } = await supabase
         .from('user_availability')
@@ -581,7 +600,10 @@ const TeacherProfile = () => {
                               <Calendar
                                 mode="single"
                                 selected={selectedDate}
-                                onSelect={setSelectedDate}
+                                onSelect={(date) => {
+                                  setSelectedDate(date);
+                                  setSelectedTimeSlot("");  // Clear time selection when date changes
+                                }}
                                 className="rounded-md border mt-2"
                                 disabled={(date) =>
                                   date < new Date() ||
@@ -596,7 +618,6 @@ const TeacherProfile = () => {
                               </Label>
                               <div className="grid grid-cols-2 gap-2 mt-2">
                                 {selectedDate && selectedTimes[format(selectedDate, 'yyyy-MM-dd')] ? (
-                                  // Updated: Use the time slots for the selected date
                                   selectedTimes[format(selectedDate, 'yyyy-MM-dd')].map((time) => (
                                     <Badge
                                       key={time}
