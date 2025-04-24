@@ -38,7 +38,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/profile`,
+          redirectTo: `${window.location.origin}/profile?tab=requests`,
           scopes: 'https://www.googleapis.com/auth/calendar',
         }
       });
@@ -124,9 +124,18 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             description: "Please connect your Google account to generate a meeting link.",
             variant: "destructive",
           });
-          if (window.confirm("Connect with Google to generate meeting links?")) {
-            await connectWithGoogle();
-          }
+          
+          // Use a more direct approach rather than window.confirm
+          toast({
+            title: "Action Required",
+            description: "Redirecting to Google authorization...",
+          });
+          
+          // Short delay to allow toast to be seen
+          setTimeout(() => {
+            connectWithGoogle();
+          }, 1500);
+          
           return;
         }
         
@@ -134,6 +143,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         
         if (!accessToken) {
           try {
+            // Attempt to fetch token from database
             const { data, error } = await supabase
               .from('user_oauth_tokens')
               .select('access_token')
@@ -144,29 +154,46 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             if (error || !data?.access_token) {
               console.error("Failed to get Google token:", error);
               toast({
-                title: "Google access required",
-                description: "Please connect your Google account to generate a Meet link",
-                variant: "destructive",
+                title: "Google Access Required",
+                description: "Redirecting to Google authorization...",
               });
-              if (window.confirm("Connect with Google to generate meeting links?")) {
-                await connectWithGoogle();
-              }
+              
+              // Short delay to allow toast to be seen
+              setTimeout(() => {
+                connectWithGoogle();
+              }, 1500);
+              
               return;
             }
 
             accessToken = data.access_token;
             setGoogleAccessToken(accessToken);
             localStorage.setItem("google_access_token", accessToken);
-            console.log("Retrieved token from database");
+            console.log("Retrieved token from database:", accessToken.substring(0, 10) + "...");
           } catch (dbError) {
             console.error("Database error when fetching token:", dbError);
             toast({
               title: "Error",
-              description: "Could not retrieve your Google token. Please reconnect your account.",
+              description: "Could not retrieve your Google token. Redirecting to reconnect.",
               variant: "destructive",
             });
+            
+            setTimeout(() => {
+              connectWithGoogle();
+            }, 1500);
+            
             return;
           }
+        }
+
+        // Check if we have valid access token after all attempts
+        if (!accessToken) {
+          toast({
+            title: "Authentication Error",
+            description: "Could not retrieve Google token. Please try again.",
+            variant: "destructive",
+          });
+          return;
         }
 
         const session = sessionRequests.find(req => req.id === id);
@@ -186,7 +213,8 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         console.log("Calling edge function with data:", {
           start: start.toISOString(),
           end: end.toISOString(),
-          access_token: accessToken ? "Token provided" : "No token",
+          access_token_length: accessToken ? accessToken.length : 0,
+          token_preview: accessToken ? `${accessToken.substring(0, 10)}...` : "No token",
         });
 
         const edgeRes = await fetch("https://rojydqsndhoielitdquu.functions.supabase.co/create-google-meet-link", {
@@ -214,16 +242,18 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               edgeData.details?.error?.message?.includes('Invalid Credentials')) {
             toast({
               title: "Google Token Expired",
-              description: "Your Google authorization has expired. Please reconnect your account.",
+              description: "Redirecting to reconnect your Google account...",
               variant: "destructive",
             });
+            
             localStorage.removeItem("google_access_token");
             setGoogleAccessToken(null);
             setIsGoogleConnected(false);
             
-            if (window.confirm("Reconnect with Google to generate meeting links?")) {
-              await connectWithGoogle();
-            }
+            setTimeout(() => {
+              connectWithGoogle();
+            }, 1500);
+            
             return;
           }
           
@@ -231,13 +261,14 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
               edgeData.details?.error?.message?.includes('insufficient permission')) {
             toast({
               title: "Insufficient Permissions",
-              description: "Your Google account doesn't have calendar permissions. Please reconnect.",
+              description: "Redirecting to reconnect with proper permissions...",
               variant: "destructive",
             });
             
-            if (window.confirm("Reconnect with Google Calendar permissions?")) {
-              await connectWithGoogle();
-            }
+            setTimeout(() => {
+              connectWithGoogle();
+            }, 1500);
+            
             return;
           }
           
@@ -283,12 +314,12 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             const acceptedSession = { ...data[0] };
             console.log("Session accepted:", acceptedSession);
             window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
+            
+            toast({
+              title: "Request accepted",
+              description: "The session has been added to your schedule with a Google Meet link.",
+            });
           }
-
-          toast({
-            title: "Request accepted",
-            description: "The session has been added to your schedule.",
-          });
         } catch (dbError) {
           console.error("Database error when updating session:", dbError);
           toast({
@@ -326,6 +357,7 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
       }
 
+      // Update UI after successful action
       setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
     } catch (error) {
       console.error('Error handling request:', error);

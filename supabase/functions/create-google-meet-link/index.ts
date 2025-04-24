@@ -21,12 +21,14 @@ serve(async (req) => {
       end,
       attendeesCount: attendees?.length || 0,
       hasAccessToken: !!access_token,
-      tokenPreview: access_token ? `${access_token.substring(0, 5)}...` : null
+      tokenLength: access_token ? access_token.length : 0,
+      tokenPreview: access_token ? `${access_token.substring(0, 5)}...${access_token.substring(access_token.length - 5)}` : null
     });
 
     if (!access_token || !summary || !start || !end) {
       console.error("Missing required parameters:", {
         accessToken: !!access_token,
+        accessTokenLength: access_token ? access_token.length : 0,
         summary: !!summary,
         start: !!start,
         end: !!end,
@@ -69,6 +71,7 @@ serve(async (req) => {
     
     if (!response.ok) {
       console.error("Google Calendar API error:", eventData);
+      console.error("Error details:", JSON.stringify(eventData, null, 2));
       
       // Provide more specific error information for common issues
       let errorMessage = eventData.error?.message || "Failed to create event.";
@@ -99,6 +102,7 @@ serve(async (req) => {
     const meetLink = eventData.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
     
     console.log("Successfully created event, meet link:", meetLink || "Not found");
+    console.log("Full event data:", JSON.stringify(eventData.conferenceData, null, 2));
 
     if (!meetLink) {
       console.error("No meet link found in response:", eventData);

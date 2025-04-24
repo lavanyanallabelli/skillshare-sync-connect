@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 interface RequestCardProps {
   request: any;
@@ -33,7 +33,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ request, userId, onAccept, on
             {request.skill}
           </div>
           <p className="text-sm text-muted-foreground flex items-center mt-1">
-            <CalendarIcon className="h-3 w-3 mr-1" />
+            <Calendar className="h-3 w-3 mr-1" />
             {request.date}, {request.time}
           </p>
           {!isReceiver && (

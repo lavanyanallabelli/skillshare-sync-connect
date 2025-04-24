@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,13 @@ const Login: React.FC = () => {
         
         if (session) {
           console.log('[Google OAuth] Supabase session after login:', session);
+          
+          // Check if this is a Google login by examining identities
+          const isGoogleLogin = session.user?.identities?.some(id => id.provider === 'google') || 
+                               !!session.provider_refresh_token;
+                               
+          console.log('[Google OAuth] Is Google login:', isGoogleLogin);
+          
           if (!session.provider_token) {
             console.warn('[Google OAuth] No provider_token found in session. Google OAuth may not be configured correctly in Supabase.');
           }
@@ -45,42 +51,40 @@ const Login: React.FC = () => {
             console.log('[Google OAuth] identity_data.access_token:', session.user.identities[0].identity_data?.access_token);
           }
           
-          if (googleAccessToken) {
+          if (googleAccessToken && isGoogleLogin) {
             // First store in localStorage for immediate availability
             localStorage.setItem("google_access_token", googleAccessToken);
             console.log('[Google OAuth] Token saved to localStorage');
             
             // Only store Google tokens in the database
-            if (session.user && session.user.identities && session.user.identities.some((id) => id.provider === 'google')) {
-              try {
-                const { error: tokenError } = await supabase
-                  .from('user_oauth_tokens')
-                  .upsert({
-                    user_id: session.user.id,
-                    provider: 'google',
-                    access_token: googleAccessToken,
-                    refresh_token: session.provider_refresh_token || null,
-                    updated_at: new Date().toISOString()
-                  }, {
-                    onConflict: 'user_id,provider'
-                  });
+            try {
+              const { error: tokenError } = await supabase
+                .from('user_oauth_tokens')
+                .upsert({
+                  user_id: session.user.id,
+                  provider: 'google',
+                  access_token: googleAccessToken,
+                  refresh_token: session.provider_refresh_token || null,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'user_id,provider'
+                });
 
-                if (tokenError) {
-                  console.error('[Google OAuth] Error storing token in database:', tokenError);
-                  toast({
-                    title: "Warning",
-                    description: "Failed to store Google token. Some features may not work correctly.",
-                    variant: "destructive",
-                  });
-                } else {
-                  console.log('[Google OAuth] Token successfully stored in database');
-                }
-              } catch (dbError) {
-                console.error('[Google OAuth] Database error:', dbError);
+              if (tokenError) {
+                console.error('[Google OAuth] Error storing token in database:', tokenError);
+                toast({
+                  title: "Warning",
+                  description: "Failed to store Google token. Some features may not work correctly.",
+                  variant: "destructive",
+                });
+              } else {
+                console.log('[Google OAuth] Token successfully stored in database');
               }
-            } else {
-              console.log('[Google OAuth] Not a Google login; token not stored in database.');
+            } catch (dbError) {
+              console.error('[Google OAuth] Database error:', dbError);
             }
+          } else if (!isGoogleLogin && googleAccessToken) {
+            console.log('[Google OAuth] Not a Google login; token not stored in database.');
           } else {
             console.warn('[Google OAuth] No Google access token found in session');
           }
@@ -254,11 +258,17 @@ const Login: React.FC = () => {
         description: "You will be redirected to continue login...",
       });
       
+      const scopes = provider === 'google' ? 'https://www.googleapis.com/auth/calendar' : undefined;
+      
+      const redirectUrl = provider === 'google' 
+        ? `${window.location.origin}/profile?tab=requests`
+        : `${window.location.origin}/profile`;
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/profile`,
-          scopes: provider === 'google' ? 'https://www.googleapis.com/auth/calendar' : undefined,
+          redirectTo: redirectUrl,
+          scopes: scopes,
         }
       });
 

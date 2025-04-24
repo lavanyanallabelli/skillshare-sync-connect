@@ -155,15 +155,19 @@ const App = () => {
           setTimeout(async () => {
             try {
               if (session.user) {
+                // Check if the provider is Google by examining identities or provider_token
+                const isGoogleLogin = session.provider_refresh_token || 
+                  (session.user?.identities?.some(id => id.provider === 'google'));
+
                 const { error } = await supabase
                   .from('user_oauth_tokens')
                   .upsert({
                     user_id: session.user.id,
-                    provider: session.provider_refresh_token ? 'google' : 'github',
+                    provider: isGoogleLogin ? 'google' : 'github',
                     access_token: session.provider_token,
                     refresh_token: session.provider_refresh_token || null,
                     updated_at: new Date().toISOString(),
-                    expires_at: null // Add expires_at field if available
+                    expires_at: null
                   }, {
                     onConflict: 'user_id,provider'
                   });
