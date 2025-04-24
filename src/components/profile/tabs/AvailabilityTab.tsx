@@ -66,7 +66,7 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
 
       toast({
         title: "Availability Deleted",
-        description: `The time slot ${time} has been deleted.`,
+        description: `The time slot ${formatTimeDisplay(time)} has been deleted.`,
       });
     } catch (error) {
       console.error('Error deleting availability:', error);
@@ -87,7 +87,7 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
       }
       return timeString;
     } catch (error) {
-      console.error("Error formatting time:", error);
+      console.error("Error formatting time:", error, timeString);
       return timeString;
     }
   };
@@ -102,7 +102,20 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
           {Object.keys(selectedTimes).length > 0 ? (
             <div className="space-y-4">
               {Object.entries(selectedTimes).map(([date, times]) => {
-                const parsedDate = parse(date, 'yyyy-MM-dd', new Date());
+                // Ensure date is properly formatted for parsing
+                let parsedDate;
+                try {
+                  parsedDate = parse(date, 'yyyy-MM-dd', new Date());
+                } catch (error) {
+                  console.error("Error parsing date:", error, date);
+                  // Fallback to using the original date string
+                  return (
+                    <div key={date} className="border p-4 rounded-lg">
+                      <h3 className="font-medium mb-2">{date} (format error)</h3>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={date} className="border p-4 rounded-lg">
                     <h3 className="font-medium mb-2">{format(parsedDate, "MMMM d, yyyy")}</h3>

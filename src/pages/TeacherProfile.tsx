@@ -315,6 +315,10 @@ const TeacherProfile = () => {
         formattedDate,
         selectedTimeSlot
       });
+      
+      // Fix: Log available time slots for debugging
+      console.log("Available time slots:", availabilityTimes);
+      
       const { data: availabilityCheck, error: availabilityError } = await supabase
         .from('user_availability')
         .select('id')
@@ -331,9 +335,10 @@ const TeacherProfile = () => {
       console.log("Availability check result:", availabilityCheck);
 
       if (!availabilityCheck || availabilityCheck.length === 0) {
+        // Enhanced error message with more details
         toast({
           title: "Time Slot Unavailable",
-          description: "This time slot is no longer available. Please select another time.",
+          description: `The selected time slot (${selectedTimeSlot}) is not available for this date (${formattedDate}). Please select another time.`,
           variant: "destructive",
         });
         return;
@@ -358,7 +363,7 @@ const TeacherProfile = () => {
       if (existingSession && existingSession.length > 0) {
         toast({
           title: "Session Unavailable",
-          description: "This time slot has already been booked. Please select another time.",
+          description: "This time slot has already been booked by someone else. Please select another time.",
           variant: "destructive",
         });
         return;
@@ -590,15 +595,16 @@ const TeacherProfile = () => {
                                 Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
                               </Label>
                               <div className="grid grid-cols-2 gap-2 mt-2">
-                                {availabilityTimes.length > 0 ? (
-                                  availabilityTimes.map((time) => (
+                                {selectedDate && selectedTimes[format(selectedDate, 'yyyy-MM-dd')] ? (
+                                  // Updated: Use the time slots for the selected date
+                                  selectedTimes[format(selectedDate, 'yyyy-MM-dd')].map((time) => (
                                     <Badge
                                       key={time}
                                       variant={selectedTimeSlot === time ? "default" : "outline"}
                                       className="py-2 px-3 cursor-pointer text-center"
                                       onClick={() => setSelectedTimeSlot(time)}
                                     >
-                                      {time}
+                                      {format(parse(time, 'HH:mm', new Date()), 'h:mm a')}
                                     </Badge>
                                   ))
                                 ) : (
