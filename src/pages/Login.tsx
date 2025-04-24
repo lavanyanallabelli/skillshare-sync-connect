@@ -12,6 +12,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login: React.FC = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [authInProgress, setAuthInProgress] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   useEffect(() => {
     const getGoogleAccessToken = async () => {
       try {
@@ -19,9 +31,8 @@ const Login: React.FC = () => {
         console.log('[Google OAuth] Supabase session:', session);
         
         if (session) {
-          let googleAccessToken = session.provider_token || session.provider_access_token;
+          let googleAccessToken = session.provider_token;
           console.log('[Google OAuth] provider_token:', session.provider_token);
-          console.log('[Google OAuth] provider_access_token:', session.provider_access_token);
           
           // Fallback: check identities
           if (!googleAccessToken && session.user && session.user.identities && session.user.identities.length > 0) {
@@ -70,18 +81,6 @@ const Login: React.FC = () => {
     
     getGoogleAccessToken();
   }, [toast]);
-
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [authInProgress, setAuthInProgress] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const error = searchParams.get('error');
