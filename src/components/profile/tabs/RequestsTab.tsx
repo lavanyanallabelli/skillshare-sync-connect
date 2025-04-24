@@ -1,3 +1,4 @@
+
 import React, { memo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,38 +88,52 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         }
 
         // Always fetch the latest token from database
-        const { data, error } = await supabase
-          .from('user_oauth_tokens')
-          .select('access_token, updated_at')
-          .eq('user_id', userId)
-          .eq('provider', 'google')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single();
+        try {
+          const { data, error } = await supabase
+            .from('user_oauth_tokens')
+            .select('access_token, updated_at')
+            .eq('user_id', userId)
+            .eq('provider', 'google')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
 
-        if (error) {
-          if (error.code === 'PGRST116') {
-            console.log("No Google token found in database");
-            setIsGoogleConnected(false);
-          } else {
-            console.error("Error fetching Google access token:", error);
-            toast({
-              title: "Error",
-              description: "Failed to verify Google connection. Please try reconnecting.",
-              variant: "destructive",
-            });
+          if (error) {
+            if (error.code === 'PGRST116') {
+              console.log("No Google token found in database");
+              // If a local token exists but no database token, we'll still consider connected
+              // but not update any state since we're already using the local token
+              if (!localToken) {
+                setIsGoogleConnected(false);
+              }
+            } else {
+              console.error("Error fetching Google access token:", error);
+              toast({
+                title: "Error",
+                description: "Failed to verify Google connection. Please try reconnecting.",
+                variant: "destructive",
+              });
+            }
+            return;
           }
-          return;
-        }
 
-        if (data?.access_token) {
-          console.log("Found token in database, updated at:", data.updated_at);
-          setGoogleAccessToken(data.access_token);
-          localStorage.setItem("google_access_token", data.access_token);
-          setIsGoogleConnected(true);
-        } else {
-          console.log("No Google access token found in database");
-          setIsGoogleConnected(false);
+          if (data?.access_token) {
+            console.log("Found token in database, updated at:", data.updated_at);
+            setGoogleAccessToken(data.access_token);
+            localStorage.setItem("google_access_token", data.access_token);
+            setIsGoogleConnected(true);
+          } else {
+            console.log("No Google access token found in database");
+            if (!localToken) {
+              setIsGoogleConnected(false);
+            }
+          }
+        } catch (dbError) {
+          console.error("Database error when fetching token:", dbError);
+          // If we have a local token, still consider connected
+          if (!localToken) {
+            setIsGoogleConnected(false);
+          }
         }
       } catch (error) {
         console.error("Unexpected error fetching Google token:", error);
@@ -153,25 +168,31 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
             setGoogleAccessToken(newSession.session.provider_token);
             
             // Update the token in the database
-            await supabase
-              .from('user_oauth_tokens')
-              .upsert({
-                user_id: userId,
-                provider: 'google',
-                access_token: newSession.session.provider_token,
-                refresh_token: newSession.session.provider_refresh_token || null,
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'user_id,provider'
+            try {
+              await supabase
+                .from('user_oauth_tokens')
+                .upsert({
+                  user_id: userId,
+                  provider: 'google',
+                  access_token: newSession.session.provider_token,
+                  refresh_token: newSession.session.provider_refresh_token || null,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'user_id,provider'
+                });
+                
+              setIsGoogleConnected(true);
+              toast({
+                title: "Google reconnected",
+                description: "Your Google account has been successfully reconnected.",
               });
               
-            setIsGoogleConnected(true);
-            toast({
-              title: "Google reconnected",
-              description: "Your Google account has been successfully reconnected.",
-            });
-            
-            return;
+              return;
+            } catch (dbError) {
+              console.error("Error updating token in database:", dbError);
+              // Still connected if we have a local token
+              setIsGoogleConnected(true);
+            }
           }
         }
       }
@@ -247,31 +268,41 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
         // If no token in state or local storage, fetch from database
         if (!accessToken) {
           console.log("No token in state or localStorage, fetching from database...");
-          const { data, error } = await supabase
-            .from('user_oauth_tokens')
-            .select('access_token')
-            .eq('user_id', userId)
-            .eq('provider', 'google')
-            .single();
+          try {
+            const { data, error } = await supabase
+              .from('user_oauth_tokens')
+              .select('access_token')
+              .eq('user_id', userId)
+              .eq('provider', 'google')
+              .single();
 
-          if (error || !data?.access_token) {
-            console.error("Failed to get Google token:", error);
+            if (error || !data?.access_token) {
+              console.error("Failed to get Google token:", error);
+              toast({
+                title: "Google access required",
+                description: "Please connect your Google account to generate a Meet link",
+                variant: "destructive",
+              });
+              // Offer to connect with Google
+              if (window.confirm("Connect with Google to generate meeting links?")) {
+                await connectWithGoogle();
+              }
+              return;
+            }
+
+            accessToken = data.access_token;
+            setGoogleAccessToken(accessToken);
+            localStorage.setItem("google_access_token", accessToken);
+            console.log("Retrieved token from database");
+          } catch (dbError) {
+            console.error("Database error when fetching token:", dbError);
             toast({
-              title: "Google access required",
-              description: "Please connect your Google account to generate a Meet link",
+              title: "Error",
+              description: "Could not retrieve your Google token. Please reconnect your account.",
               variant: "destructive",
             });
-            // Offer to connect with Google
-            if (window.confirm("Connect with Google to generate meeting links?")) {
-              await connectWithGoogle();
-            }
             return;
           }
-
-          accessToken = data.access_token;
-          setGoogleAccessToken(accessToken);
-          localStorage.setItem("google_access_token", accessToken);
-          console.log("Retrieved token from database");
         }
 
         const session = sessionRequests.find(req => req.id === id);
@@ -374,46 +405,66 @@ const RequestsTab: React.FC<RequestsTabProps> = ({ sessionRequests, setSessionRe
 
         const meetingLink = edgeData.meetLink;
 
-        const { data, error } = await supabase
-          .from('sessions')
-          .update({ 
-            status: 'accepted',
-            meeting_link: meetingLink
-          })
-          .eq('id', id)
-          .select();
+        try {
+          const { data, error } = await supabase
+            .from('sessions')
+            .update({ 
+              status: 'accepted',
+              meeting_link: meetingLink
+            })
+            .eq('id', id)
+            .select();
 
-        if (error) {
-          console.error("Database error:", error);
-          throw error;
+          if (error) {
+            console.error("Database error:", error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            const acceptedSession = { ...data[0] };
+            console.log("Session accepted:", acceptedSession);
+            window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
+          }
+
+          toast({
+            title: "Request accepted",
+            description: "The session has been added to your schedule.",
+          });
+        } catch (dbError) {
+          console.error("Database error when updating session:", dbError);
+          toast({
+            title: "Database Error",
+            description: "Could not update session status. Please try again.",
+            variant: "destructive",
+          });
+          return;
         }
-
-        if (data && data.length > 0) {
-          const acceptedSession = { ...data[0] };
-          console.log("Session accepted:", acceptedSession);
-          window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
-        }
-
-        toast({
-          title: "Request accepted",
-          description: "The session has been added to your schedule.",
-        });
       } else {
         console.log("Declining request with ID:", id);
-        const { error } = await supabase
-          .from('sessions')
-          .update({ status: 'declined' })
-          .eq('id', id);
+        try {
+          const { error } = await supabase
+            .from('sessions')
+            .update({ status: 'declined' })
+            .eq('id', id);
 
-        if (error) {
-          console.error("Database error when declining:", error);
-          throw error;
+          if (error) {
+            console.error("Database error when declining:", error);
+            throw error;
+          }
+
+          toast({
+            title: "Request declined",
+            description: "The request has been declined",
+          });
+        } catch (dbError) {
+          console.error("Database error when declining session:", dbError);
+          toast({
+            title: "Error",
+            description: "Could not decline session. Please try again.",
+            variant: "destructive",
+          });
+          return;
         }
-
-        toast({
-          title: "Request declined",
-          description: "The request has been declined",
-        });
       }
 
       setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
