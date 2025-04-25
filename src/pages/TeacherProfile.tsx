@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -27,6 +26,7 @@ import {
 } from "lucide-react";
 import MessageDialog from "@/components/messages/MessageDialog";
 import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
+import ReportDialog from "@/components/profile/ReportDialog";
 
 const TeacherProfile = () => {
   const { id } = useParams();
@@ -73,7 +73,6 @@ const TeacherProfile = () => {
 
         if (learningError) throw learningError;
 
-        // Fetch review data with proper join
         const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select(`
@@ -87,19 +86,14 @@ const TeacherProfile = () => {
 
         if (reviewsError) throw reviewsError;
 
-        // Separately fetch reviewer profiles
         let formattedReviews: any[] = [];
         if (reviewsData && reviewsData.length > 0) {
-          // Get unique reviewer IDs
           const reviewerIds = [...new Set(reviewsData.map(review => review.reviewer_id))];
-
-          // Fetch all reviewer profiles in one query
           const { data: reviewerProfiles } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url')
             .in('id', reviewerIds);
 
-          // Create a map of profiles for faster lookup
           const profileMap = new Map();
           if (reviewerProfiles) {
             reviewerProfiles.forEach(profile => {
@@ -107,7 +101,6 @@ const TeacherProfile = () => {
             });
           }
 
-          // Format reviews with profile data
           formattedReviews = reviewsData.map(review => {
             const profile = profileMap.get(review.reviewer_id);
             return {
@@ -200,7 +193,6 @@ const TeacherProfile = () => {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          console.log("Fetched availability data:", data);
           const timesByDate: { [key: string]: string[] } = {};
           const availabilities: { id: string, time: string, date: string }[] = [];
           const times: string[] = [];
@@ -221,12 +213,6 @@ const TeacherProfile = () => {
             });
 
             times.push(time);
-          });
-
-          console.log("Processed availability data:", {
-            timesByDate,
-            availabilities,
-            times
           });
 
           setSelectedTimes(timesByDate);
@@ -323,12 +309,10 @@ const TeacherProfile = () => {
         selectedTimeSlot
       });
       
-      // Log available time slots for this specific date
       const timeSlots = selectedTimes[formattedDate] || [];
       console.log("Available time slots for this date:", timeSlots);
       console.log("All selected times:", selectedTimes);
       
-      // Check if the selected time exists in the available slots for this date
       if (!timeSlots.includes(selectedTimeSlot)) {
         toast({
           title: "Time Slot Error",
@@ -354,7 +338,6 @@ const TeacherProfile = () => {
       console.log("Availability check result:", availabilityCheck);
 
       if (!availabilityCheck || availabilityCheck.length === 0) {
-        // Enhanced error message with more details
         toast({
           title: "Time Slot Unavailable",
           description: `The selected time slot (${selectedTimeSlot}) is not available for this date (${formattedDate}). Please select another time.`,
@@ -363,7 +346,6 @@ const TeacherProfile = () => {
         return;
       }
 
-      // Next, check if this time slot is already booked
       const { data: existingSession, error: sessionCheckError } = await supabase
         .from('sessions')
         .select('id')
@@ -388,7 +370,6 @@ const TeacherProfile = () => {
         return;
       }
 
-      // If we reached here, the slot is available, so book it
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
         .insert({
@@ -454,7 +435,6 @@ const TeacherProfile = () => {
     }
 
     try {
-      // Format the date in YYYY-MM-DD format without timezone conversion
       const formattedDate = format(new Date(date), 'yyyy-MM-dd');
 
       const { error } = await supabase
@@ -466,7 +446,6 @@ const TeacherProfile = () => {
 
       if (error) throw error;
 
-      // Update all relevant states immediately
       setSelectedTimes(prev => {
         const updated = { ...prev };
         if (updated[date]) {
@@ -533,7 +512,13 @@ const TeacherProfile = () => {
           isOwnProfile={false}
           onMessageClick={handleMessageClick}
           onBookSessionClick={() => setDialogOpen(true)}
-          actionButton={null}
+          actionButton={
+            <ReportDialog
+              reportedUserId={id || ""}
+              reportedUserName={teacher?.name || ""}
+              isTeacher={true}
+            />
+          }
         />
 
         <MessageDialog
