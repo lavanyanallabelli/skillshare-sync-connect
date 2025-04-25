@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -171,9 +170,22 @@ export const useRequestActions = (
           .eq('id', session.data.student_id)
           .single();
 
-        // Fetch user emails from auth.users table
-        const { data: teacherEmail } = await supabase.rpc('get_user_email', { user_id: session.data.teacher_id });
-        const { data: studentEmail } = await supabase.rpc('get_user_email', { user_id: session.data.student_id });
+        // Fetch participant emails using the new get_user_email function
+        const { data: teacherEmailData, error: teacherEmailError } = await supabase.rpc('get_user_email', { user_id: session.data.teacher_id });
+        const { data: studentEmailData, error: studentEmailError } = await supabase.rpc('get_user_email', { user_id: session.data.student_id });
+
+        if (teacherEmailError || studentEmailError) {
+          console.error("Error fetching emails:", { teacherEmailError, studentEmailError });
+          toast({
+            title: "Email Retrieval Error",
+            description: "Could not retrieve participant emails.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const teacherEmail = teacherEmailData;
+        const studentEmail = studentEmailData;
 
         const teacherName = teacherData ? `${teacherData.first_name} ${teacherData.last_name}` : "Teacher";
         const studentName = studentData ? `${studentData.first_name} ${studentData.last_name}` : "Student";
