@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,10 +6,10 @@ import TabLoadingPlaceholder from "./TabLoadingPlaceholder";
 // Lazy tab components
 const ProfileTab = lazy(() => import("./tabs/ProfileTab"));
 const ScheduleTab = lazy(() => import("./tabs/ScheduleTab"));
-
 const AvailabilityTab = lazy(() => import("./tabs/AvailabilityTab"));
 const ReviewsTab = lazy(() => import("./tabs/ReviewsTab"));
 const RequestsTab = lazy(() => import("./tabs/RequestsTab"));
+const QuizTab = lazy(() => import("./tabs/QuizTab"));
 
 interface ProfileTabsProps {
   tabProps: any;
@@ -19,10 +18,8 @@ interface ProfileTabsProps {
 }
 
 const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiveTab }) => {
-  // Ensure URL and active tab stay in sync
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Update URL with tab parameter
     const url = new URL(window.location.href);
     url.searchParams.set('tab', value);
     window.history.replaceState({}, '', url.toString());
@@ -34,10 +31,10 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
         <TabsList className="mb-6 w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -64,6 +61,11 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
         <TabsContent value="requests">
           <Suspense fallback={<TabLoadingPlaceholder />}>
             <RequestsTab {...tabProps.requestsTabProps} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="quizzes">
+          <Suspense fallback={<TabLoadingPlaceholder />}>
+            <QuizTab />
           </Suspense>
         </TabsContent>
       </Tabs>

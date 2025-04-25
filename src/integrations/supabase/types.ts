@@ -161,6 +161,41 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_questions: {
+        Row: {
+          correct_answer: string
+          created_at: string
+          id: string
+          options: Json
+          question_text: string
+          quiz_id: string | null
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string
+          id?: string
+          options: Json
+          question_text: string
+          quiz_id?: string | null
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          options?: Json
+          question_text?: string
+          quiz_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "skill_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           comment: string | null
@@ -266,6 +301,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skill_quizzes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          skill_name: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          skill_name: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          skill_name?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       skills_catalog: {
         Row: {
@@ -474,6 +536,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_quiz_attempts: {
+        Row: {
+          completed_at: string
+          id: string
+          proficiency_level: string
+          quiz_id: string | null
+          score: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          proficiency_level: string
+          quiz_id?: string | null
+          score: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          proficiency_level?: string
+          quiz_id?: string | null
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "skill_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_reports: {
         Row: {
