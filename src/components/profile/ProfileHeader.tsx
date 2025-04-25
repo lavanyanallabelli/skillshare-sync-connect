@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { lazy } from "react";
 
-// Lazy loaded components
 const ProfileHeaderSkills = lazy(() => import("./partials/ProfileHeaderSkills"));
 const ProfileHeaderAchievements = lazy(() => import("./partials/ProfileHeaderAchievements"));
 
@@ -46,6 +45,7 @@ interface ProfileHeaderProps {
   teachingSkills?: string[];
   learningSkills?: string[];
   actionButton?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -66,7 +66,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   setActiveTab,
   teachingSkills = [],
   learningSkills = [],
-  actionButton
+  actionButton,
+  children
 }) => {
   const { pathname } = useLocation();
   const { toast } = useToast();
@@ -257,7 +258,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             )}
           </div>
 
-          {/* Lazy loaded components */}
           <React.Suspense fallback={<div className="h-16 bg-gray-100 animate-pulse rounded mt-4"></div>}>
             <ProfileHeaderSkills teachingSkills={teachingSkills} learningSkills={learningSkills} />
           </React.Suspense>
@@ -267,6 +267,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </React.Suspense>
         </div>
       </div>
+
+      {children}
     </div>
   );
 };

@@ -512,14 +512,13 @@ const TeacherProfile = () => {
           isOwnProfile={false}
           onMessageClick={handleMessageClick}
           onBookSessionClick={() => setDialogOpen(true)}
-          actionButton={
-            <ReportDialog
-              reportedUserId={id || ""}
-              reportedUserName={teacher?.name || ""}
-              isTeacher={true}
-            />
-          }
-        />
+        >
+          <ReportDialog
+            reportedUserId={id || ""}
+            reportedUserName={teacher?.name || ""}
+            isTeacher={true}
+          />
+        </ProfileHeader>
 
         <MessageDialog
           isOpen={messageDialogOpen}
