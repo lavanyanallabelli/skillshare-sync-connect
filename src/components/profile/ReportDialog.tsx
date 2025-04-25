@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Flag } from "lucide-react";
+import { useAuth } from "@/App";
 
 interface ReportDialogProps {
   reportedUserId: string;
@@ -29,6 +30,7 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { userId } = useAuth();
 
   // Only show the report button for learners reporting teachers
   if (!isTeacher) return null;
@@ -43,11 +45,21 @@ const ReportDialog: React.FC<ReportDialogProps> = ({
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to report a user",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase
         .from('user_reports')
         .insert({
+          reporter_id: userId,
           reported_user_id: reportedUserId,
           reason: reason.trim()
         });
