@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge"; // Add Badge import
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { Book, Award } from "lucide-react";
 
@@ -136,7 +137,7 @@ const QuizTab: React.FC = () => {
                 onValueChange={handleAnswerSelect} 
                 value={selectedAnswer || undefined}
               >
-                {JSON.parse(questions[currentQuestionIndex].options).map((option: string, index: number) => (
+                {questions[currentQuestionIndex].options.map((option: string, index: number) => (
                   <div key={index} className="flex items-center space-x-2">
                     <RadioGroupItem value={option} id={`option-${index}`} />
                     <Label htmlFor={`option-${index}`}>{option}</Label>

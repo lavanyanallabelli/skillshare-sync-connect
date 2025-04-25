@@ -56,7 +56,16 @@ export function useQuizzes() {
       });
       return;
     }
-    setQuestions(data || []);
+    
+    // Transform the data to ensure options is a string array
+    const formattedData = data?.map(item => ({
+      id: item.id,
+      question_text: item.question_text,
+      options: Array.isArray(item.options) ? item.options : JSON.parse(item.options as string),
+      correct_answer: item.correct_answer
+    })) || [];
+    
+    setQuestions(formattedData);
   };
 
   const submitQuizAttempt = async (quizId: string, score: number) => {
