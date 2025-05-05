@@ -1,8 +1,7 @@
+
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { SUPABASE_URL } from "@/integrations/supabase/client";
-import { createNotification } from "@/integrations/supabase/client";
+import { supabase, createNotification } from "@/integrations/supabase/client";
 
 // Helper function to convert time slot to a 24-hour format
 const getTimeFromSlot = (timeSlot: string) => {
@@ -56,13 +55,25 @@ export const useRequestActions = (
           return;
         }
 
-        // Find the session request
-        const requestToUpdate = sessionRequests.find((r) => r.id === requestId);
-        if (!requestToUpdate) {
+        // Find the session request using fetch instead of local state
+        const { data: requestsData } = await supabase
+          .from("sessions")
+          .select("*, student:student_id(id, first_name, last_name, email), teacher:teacher_id(id, first_name, last_name)")
+          .eq("id", requestId)
+          .single();
+          
+        if (!requestsData) {
           console.error(`[RequestActions] Request not found: ${requestId}`);
+          toast({
+            title: "Error",
+            description: "Session request not found. It may have been deleted.",
+            variant: "destructive",
+          });
+          setProcessingRequestId(null);
           return;
         }
-
+        
+        const requestToUpdate = requestsData;
         console.log(`[RequestActions] Handling ${action} for session request:`, requestToUpdate);
         
         if (action === "accept") {
@@ -72,7 +83,7 @@ export const useRequestActions = (
           try {
             // Create meeting link through Google Calendar API
             const meetResponse = await fetch(
-              `${SUPABASE_URL}/functions/v1/create-google-meet-link`,
+              `https://rojydqsndhoielitdquu.supabase.co/functions/v1/create-google-meet-link`,
               {
                 method: "POST",
                 headers: {
@@ -81,11 +92,11 @@ export const useRequestActions = (
                 },
                 body: JSON.stringify({
                   summary: `SkillSync Session: ${requestToUpdate.skill}`,
-                  description: `Session between ${requestToUpdate.student_first_name} and ${requestToUpdate.teacher_first_name} for ${requestToUpdate.skill}`,
+                  description: `Session between ${requestToUpdate.student?.first_name} and ${requestToUpdate.teacher?.first_name} for ${requestToUpdate.skill}`,
                   start: {
                     dateTime: `${requestToUpdate.day}T${getTimeFromSlot(requestToUpdate.time_slot)}`,
                   },
-                  attendee_email: requestToUpdate.student_email,
+                  attendee_email: requestToUpdate.student?.email,
                 }),
               }
             );
@@ -104,7 +115,7 @@ export const useRequestActions = (
               description: "Failed to create meeting link. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId("");
+            setProcessingRequestId(null);
             return;
           }
 
@@ -124,7 +135,7 @@ export const useRequestActions = (
               description: "Failed to accept session request. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId("");
+            setProcessingRequestId(null);
             return;
           }
 
@@ -155,7 +166,7 @@ export const useRequestActions = (
               description: "Failed to decline session request. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId("");
+            setProcessingRequestId(null);
             return;
           }
 
@@ -191,7 +202,6 @@ export const useRequestActions = (
     },
     [
       userId,
-      sessionRequests,
       googleAccessToken,
       isGoogleConnected,
       onConnectGoogle,
