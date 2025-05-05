@@ -38,15 +38,12 @@ export const useTeacherProfile = (teacherId: string) => {
         if (skillsError) throw skillsError;
         
         // Get reviews for this teacher
+        // Use specific column references to avoid ambiguity in the relationship
         const { data: reviewsData, error: reviewsError } = await supabase
           .from("reviews")
           .select(`
             *,
-            reviewer:reviewer_id (
-              first_name,
-              last_name,
-              avatar_url
-            )
+            reviewer:profiles!reviewer_id(first_name, last_name, avatar_url)
           `)
           .eq("recipient_id", teacherId);
 

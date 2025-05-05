@@ -58,7 +58,11 @@ export const useRequestActions = (
         // Find the session request using fetch instead of local state
         const { data: requestsData } = await supabase
           .from("sessions")
-          .select("*, student:student_id(id, first_name, last_name, email), teacher:teacher_id(id, first_name, last_name)")
+          .select(`
+            *, 
+            student:profiles!student_id(id, first_name, last_name, email),
+            teacher:profiles!teacher_id(id, first_name, last_name)
+          `)
           .eq("id", requestId)
           .single();
           
