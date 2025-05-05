@@ -278,3 +278,4 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
     </div>
   );
 };
+
