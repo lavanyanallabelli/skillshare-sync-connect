@@ -16,6 +16,7 @@ const Settings: React.FC = () => {
   const { userId, refreshUserData } = useAuth();
   const [activeTab, setActiveTab] = useState("general");
   const [isLoading, setIsLoading] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   
   // Form states
   const [email, setEmail] = useState("");
@@ -30,24 +31,70 @@ const Settings: React.FC = () => {
   const [connectionNotifications, setConnectionNotifications] = useState(true);
   const [sessionRequestNotifications, setSessionRequestNotifications] = useState(true);
   
-  // Fetch user data
+  // Theme settings
+  const [theme, setTheme] = useState("system");
+  const [language, setLanguage] = useState("en");
+  
+  // Fetch user data and settings
   useEffect(() => {
     if (!userId) return;
     
     const fetchUserData = async () => {
-      // Fetch user email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setEmail(user.email);
+      try {
+        setSettingsLoading(true);
+        
+        // Fetch user email
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          setEmail(user.email);
+        }
+        
+        // Fetch user notification preferences from the new settings table
+        const { data: userSettings, error: settingsError } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        
+        if (settingsError) {
+          if (settingsError.code !== 'PGRST116') { // PGRST116 is "row not found" error
+            console.error("Error fetching user settings:", settingsError);
+          } else {
+            // Create default settings if not found
+            const { error: createError } = await supabase
+              .from('user_settings')
+              .insert([{ user_id: userId }]);
+              
+            if (createError) {
+              console.error("Error creating default settings:", createError);
+            }
+          }
+        } else if (userSettings) {
+          // Set form values from fetched settings
+          setEmailNotifications(userSettings.email_notifications ?? true);
+          setTheme(userSettings.theme || "system");
+          setLanguage(userSettings.language || "en");
+          
+          // These fields are from our app logic, not stored in DB yet
+          setSessionReminders(true);
+          setMessageNotifications(true);
+          setConnectionNotifications(true);
+          setSessionRequestNotifications(true);
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+        toast({
+          title: "Error loading settings",
+          description: "Could not load your user settings. Please try again later.",
+          variant: "destructive"
+        });
+      } finally {
+        setSettingsLoading(false);
       }
-      
-      // Fetch user notification preferences
-      // In a real application, you would store these in a database table
-      // For now, we'll use default values
     };
     
     fetchUserData();
-  }, [userId]);
+  }, [userId, toast]);
   
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,12 +136,85 @@ const Settings: React.FC = () => {
     setConfirmPassword("");
   };
   
-  const handleUpdateNotifications = () => {
-    // In a real application, you would save these settings to a database
-    toast({
-      title: "Notification settings saved",
-      description: "Your notification preferences have been updated"
-    });
+  const handleUpdateNotifications = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoading(true);
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ 
+          email_notifications: emailNotifications,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+        
+      if (error) {
+        console.error("Error updating notification settings:", error);
+        toast({
+          title: "Error",
+          description: "Could not update notification settings. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Settings saved",
+        description: "Your notification preferences have been updated"
+      });
+    } catch (error) {
+      console.error("Error saving notification settings:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleUpdateGeneralSettings = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoading(true);
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ 
+          theme,
+          language,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+        
+      if (error) {
+        console.error("Error updating general settings:", error);
+        toast({
+          title: "Error",
+          description: "Could not update general settings. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Settings saved",
+        description: "Your general preferences have been updated"
+      });
+    } catch (error) {
+      console.error("Error saving general settings:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleDeleteAccount = async () => {
@@ -105,6 +225,17 @@ const Settings: React.FC = () => {
       variant: "destructive"
     });
   };
+  
+  if (settingsLoading) {
+    return (
+      <ProfileLayout>
+        <div className="container max-w-4xl py-8">
+          <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
+          <div className="text-center py-12">Loading your settings...</div>
+        </div>
+      </ProfileLayout>
+    );
+  }
   
   return (
     <ProfileLayout>
@@ -142,6 +273,43 @@ const Settings: React.FC = () => {
                       To change your email, please contact support
                     </p>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="theme">Theme</Label>
+                    <select 
+                      id="theme" 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={theme}
+                      onChange={(e) => setTheme(e.target.value)}
+                    >
+                      <option value="system">System default</option>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language</Label>
+                    <select 
+                      id="language" 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                    >
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                    </select>
+                  </div>
+                  
+                  <Button 
+                    type="button" 
+                    onClick={handleUpdateGeneralSettings}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Saving..." : "Save Settings"}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -295,10 +463,11 @@ const Settings: React.FC = () => {
                 </div>
                 
                 <Button 
-                  onClick={handleUpdateNotifications} 
+                  onClick={handleUpdateNotifications}
                   className="w-full mt-4"
+                  disabled={isLoading}
                 >
-                  Save Notification Settings
+                  {isLoading ? "Saving..." : "Save Notification Settings"}
                 </Button>
               </CardContent>
             </Card>
