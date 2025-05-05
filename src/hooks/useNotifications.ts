@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase, createNotification } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Notification {
@@ -19,7 +19,7 @@ export const useNotifications = (userId: string | null) => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
@@ -53,7 +53,7 @@ export const useNotifications = (userId: string | null) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -117,41 +117,16 @@ export const useNotifications = (userId: string | null) => {
     }
   };
 
-  const createNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
-    try {
-      if (!userId) return null;
-      
-      console.log('[useNotifications] Creating new notification:', notification);
-      
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert([{
-          user_id: userId,
-          type: notification.type,
-          title: notification.title,
-          description: notification.description || '',
-          action_url: notification.actionUrl,
-          read: false,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('[useNotifications] Error creating notification:', error);
-        return null;
-      }
-
-      console.log('[useNotifications] Notification created successfully:', data);
-      // Fetch notifications to ensure local state is updated
-      fetchNotifications();
-      
-      return data;
-    } catch (error) {
-      console.error('[useNotifications] Error in createNotification:', error);
-      return null;
-    }
-  };
+  // No longer needed - we'll use the centralized createNotification function
+  // from supabase/client.ts instead
+  const createNewNotification = useCallback(async (
+    type: string, 
+    title: string, 
+    description?: string, 
+    actionUrl?: string
+  ) => {
+    return await createNotification(userId, type, title, description, actionUrl);
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -173,6 +148,15 @@ export const useNotifications = (userId: string | null) => {
         (payload) => {
           console.log('[useNotifications] New notification received:', payload);
           fetchNotifications();
+          
+          // Show toast for new notification
+          if (payload.new && typeof payload.new === 'object') {
+            const newNotification = payload.new as Notification;
+            toast({
+              title: newNotification.title,
+              description: newNotification.description || "You have a new notification"
+            });
+          }
         }
       )
       .on('postgres_changes', 
@@ -195,7 +179,7 @@ export const useNotifications = (userId: string | null) => {
       console.log('[useNotifications] Cleaning up notifications subscription');
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchNotifications, toast]);
 
   return {
     notifications,
@@ -204,6 +188,6 @@ export const useNotifications = (userId: string | null) => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    createNotification
+    createNotification: createNewNotification
   };
 };
