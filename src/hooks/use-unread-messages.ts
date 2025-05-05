@@ -14,6 +14,8 @@ export const useUnreadMessages = (userId: string | undefined) => {
       
       if (!error && data !== null) {
         setUnreadCount(data);
+      } else if (error) {
+        console.error('Error fetching unread message count:', error);
       }
     };
 

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,61 +18,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from "@/components/ui/popover";
-import { UserMenu, Notification } from "./UserMenu";
-
-// Global state for notifications (in a real app, this would be in context or redux)
-let globalNotifications: Notification[] = [];
-
-export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(globalNotifications);
-  
-  const addNotification = (notification: Omit<Notification, "id" | "read" | "time">) => {
-    const newNotification = {
-      ...notification,
-      id: Math.random().toString(36).substring(2, 9),
-      read: false,
-      time: "Just now"
-    };
-    
-    globalNotifications = [newNotification, ...globalNotifications];
-    setNotifications(globalNotifications);
-    return newNotification;
-  };
-  
-  const markAsRead = (id: string) => {
-    globalNotifications = globalNotifications.map(notif => 
-      notif.id === id ? { ...notif, read: true } : notif
-    );
-    setNotifications(globalNotifications);
-  };
-  
-  const markAllAsRead = () => {
-    globalNotifications = globalNotifications.map(notif => ({ ...notif, read: true }));
-    setNotifications(globalNotifications);
-  };
-  
-  return { 
-    notifications, 
-    addNotification, 
-    markAsRead, 
-    markAllAsRead,
-    unreadCount: notifications.filter(n => !n.read).length
-  };
-};
+import { UserMenu } from "./UserMenu";
+import { useUnreadMessages } from "@/hooks/use-unread-messages";
 
 const ProfileNavbar: React.FC = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, userId } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { unreadCount } = useNotifications();
+  const unreadMessageCount = useUnreadMessages(userId || undefined);
   
   const handleLogout = () => {
     logout();
@@ -151,7 +108,7 @@ const ProfileNavbar: React.FC = () => {
         
         <div className="flex items-center gap-4">
           {!isMobile ? (
-            <UserMenu unreadCount={2} handleLogout={handleLogout} />
+            <UserMenu handleLogout={handleLogout} />
           ) : (
             <Button
               variant="ghost"
@@ -217,9 +174,11 @@ const ProfileNavbar: React.FC = () => {
             >
               <MessageSquare size={16} />
               Messages
-              <span className="ml-auto bg-skill-purple text-white text-xs h-5 w-5 rounded-full flex items-center justify-center">
-                2
-              </span>
+              {unreadMessageCount > 0 && (
+                <span className="ml-auto bg-skill-purple text-white text-xs h-5 w-5 rounded-full flex items-center justify-center">
+                  {unreadMessageCount}
+                </span>
+              )}
             </Link>
             <Link 
               to="/settings"
