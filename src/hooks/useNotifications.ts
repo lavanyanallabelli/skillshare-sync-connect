@@ -141,16 +141,37 @@ export const useNotifications = (userId: string | null) => {
     
     fetchNotifications();
     
-    // Set up realtime subscription
+    // Set up realtime subscription with more comprehensive filters
     const channel = supabase
       .channel('notifications-changes')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        fetchNotifications
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${userId}`
+        },
+        () => {
+          console.log('New notification received, refreshing...');
+          fetchNotifications();
+        }
+      )
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${userId}` 
+        },
+        () => {
+          console.log('Notification updated, refreshing...');
+          fetchNotifications();
+        }
       )
       .subscribe();
 
     return () => {
+      console.log('Cleaning up notifications subscription');
       supabase.removeChannel(channel);
     };
   }, [userId]);
