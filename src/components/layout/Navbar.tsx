@@ -9,7 +9,6 @@ import { useAuth } from "@/App";
 import { SearchForm } from "./SearchForm";
 import { UserMenu } from "./UserMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
-import { useUnreadMessages } from "@/hooks/use-unread-messages";
 
 const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
@@ -17,7 +16,6 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isLoggedIn, logout, userId } = useAuth();
-  const unreadCount = useUnreadMessages(userId);
   
   const handleLogout = () => {
     logout();
@@ -62,7 +60,7 @@ const Navbar: React.FC = () => {
               <SearchForm />
               
               {isLoggedIn ? (
-                <UserMenu unreadCount={unreadCount} handleLogout={handleLogout} />
+                <UserMenu handleLogout={handleLogout} />
               ) : (
                 <div className="flex items-center gap-2">
                   <Link to="/login">
@@ -93,7 +91,7 @@ const Navbar: React.FC = () => {
       {isMobile && isMenuOpen && (
         <MobileNavMenu
           isLoggedIn={isLoggedIn}
-          unreadCount={unreadCount}
+          unreadCount={0}
           handleLogout={handleLogout}
           onClose={() => setIsMenuOpen(false)}
         />
