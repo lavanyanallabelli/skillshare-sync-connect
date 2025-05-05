@@ -50,7 +50,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
           id, 
           requester_id, 
           created_at,
-          profiles:requester_id(first_name, last_name)
+          profiles!connections_requester_id_fkey(first_name, last_name)
         `)
         .eq('recipient_id', userId)
         .eq('status', 'pending')
@@ -278,4 +278,3 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
     </div>
   );
 };
-
