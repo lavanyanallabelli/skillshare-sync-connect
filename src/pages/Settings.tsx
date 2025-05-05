@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +27,27 @@ const Settings: React.FC = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [sessionReminders, setSessionReminders] = useState(true);
   const [messageNotifications, setMessageNotifications] = useState(true);
+  const [connectionNotifications, setConnectionNotifications] = useState(true);
+  const [sessionRequestNotifications, setSessionRequestNotifications] = useState(true);
+  
+  // Fetch user data
+  useEffect(() => {
+    if (!userId) return;
+    
+    const fetchUserData = async () => {
+      // Fetch user email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setEmail(user.email);
+      }
+      
+      // Fetch user notification preferences
+      // In a real application, you would store these in a database table
+      // For now, we'll use default values
+    };
+    
+    fetchUserData();
+  }, [userId]);
   
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +90,7 @@ const Settings: React.FC = () => {
   };
   
   const handleUpdateNotifications = () => {
+    // In a real application, you would save these settings to a database
     toast({
       title: "Notification settings saved",
       description: "Your notification preferences have been updated"
@@ -213,6 +235,34 @@ const Settings: React.FC = () => {
                     id="email-notifications" 
                     checked={emailNotifications}
                     onCheckedChange={setEmailNotifications}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="connection-notifications" className="flex flex-col space-y-1">
+                    <span>Connection Requests</span>
+                    <span className="font-normal text-sm text-muted-foreground">
+                      Get notified about new connection requests
+                    </span>
+                  </Label>
+                  <Switch 
+                    id="connection-notifications" 
+                    checked={connectionNotifications}
+                    onCheckedChange={setConnectionNotifications}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="session-request-notifications" className="flex flex-col space-y-1">
+                    <span>Session Requests</span>
+                    <span className="font-normal text-sm text-muted-foreground">
+                      Get notified about new learning session requests
+                    </span>
+                  </Label>
+                  <Switch 
+                    id="session-request-notifications" 
+                    checked={sessionRequestNotifications}
+                    onCheckedChange={setSessionRequestNotifications}
                   />
                 </div>
                 
