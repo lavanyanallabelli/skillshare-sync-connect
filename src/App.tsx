@@ -18,6 +18,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Skills from "./pages/Skills";
 import TeacherProfile from "./pages/TeacherProfile";
+import Settings from "./pages/Settings";
 import React, { Suspense, lazy } from "react";
 
 const Sessions = lazy(() => import("./pages/Sessions"));
@@ -279,6 +280,7 @@ const App = () => {
               <Route path="/messages" element={isLoggedIn ? <Messages /> : <Navigate to="/login" />} />
               <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/profile" element={isLoggedIn ? <Profile /> : <Navigate to="/login" />} />
+              <Route path="/settings" element={isLoggedIn ? <Settings /> : <Navigate to="/login" />} />
               <Route path="/skills" element={isLoggedIn ? <Skills /> : <Navigate to="/login" />} />
               <Route path="/sessions" element={isLoggedIn ? (
                 <Suspense fallback={<div>Loading...</div>}>

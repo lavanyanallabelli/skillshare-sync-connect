@@ -54,7 +54,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
             <Link to="/profile">Profile</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/settings">Settings</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/skills">My Skills</Link>
