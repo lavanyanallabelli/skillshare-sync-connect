@@ -91,7 +91,6 @@ const Navbar: React.FC = () => {
       {isMobile && isMenuOpen && (
         <MobileNavMenu
           isLoggedIn={isLoggedIn}
-          unreadCount={0}
           handleLogout={handleLogout}
           onClose={() => setIsMenuOpen(false)}
         />
