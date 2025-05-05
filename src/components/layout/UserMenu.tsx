@@ -46,7 +46,12 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
       // Fetch connection requests
       const { data: connectionRequests, error: connectionError } = await supabase
         .from('connections')
-        .select('id, requester_id, created_at, profiles(first_name, last_name)')
+        .select(`
+          id, 
+          requester_id, 
+          created_at,
+          profiles:requester_id(first_name, last_name)
+        `)
         .eq('recipient_id', userId)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
@@ -54,7 +59,15 @@ export const UserMenu: React.FC<UserMenuProps> = ({ unreadCount, handleLogout })
       // Fetch session requests
       const { data: sessionRequests, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, student_id, skill, day, time_slot, created_at, profiles!sessions_student_id_fkey(first_name, last_name)')
+        .select(`
+          id, 
+          student_id, 
+          skill, 
+          day, 
+          time_slot, 
+          created_at, 
+          profiles!sessions_student_id_fkey(first_name, last_name)
+        `)
         .eq('teacher_id', userId)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
