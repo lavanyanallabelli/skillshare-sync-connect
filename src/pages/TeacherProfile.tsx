@@ -387,6 +387,36 @@ const TeacherProfile = () => {
         throw sessionError;
       }
 
+      // Get user details to include in notification
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+      }
+
+      const studentName = userData ? `${userData.first_name} ${userData.last_name}` : "A student";
+      
+      // Create notification for the teacher
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: id,
+          type: 'session',
+          title: 'New Session Request',
+          description: `${studentName} has requested a session on ${formattedDate} at ${selectedTimeSlot} for ${selectedSkill}`,
+          action_url: '/profile?tab=requests',
+          read: false,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error("Error creating notification:", notificationError);
+      }
+
       console.log("Session created successfully:", sessionData);
 
       toast({

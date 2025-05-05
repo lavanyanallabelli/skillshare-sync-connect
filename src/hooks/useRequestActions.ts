@@ -16,6 +16,18 @@ export const useRequestActions = (
     try {
       setProcessingRequestId(id);
       
+      // Get session details first to create appropriate notification
+      const { data: sessionDetails } = await supabase
+        .from('sessions')
+        .select('*, student_id, teacher_id, skill, day, time_slot')
+        .eq('id', id)
+        .single();
+      
+      if (!sessionDetails) {
+        console.error("Could not find session with id:", id);
+        return;
+      }
+
       if (action === "accept") {
         console.log('[RequestActions] Accepting request, checking Google connection...');
         console.log('[RequestActions] isGoogleConnected:', isGoogleConnected);
@@ -295,6 +307,25 @@ export const useRequestActions = (
             console.log("Session accepted:", acceptedSession);
             window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
             
+            // Create notification for the student about accepted session
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: acceptedSession.student_id,
+                type: 'session',
+                title: 'Session Request Accepted',
+                description: `Your session request for ${acceptedSession.skill} on ${acceptedSession.day} at ${acceptedSession.time_slot} has been accepted`,
+                action_url: '/sessions',
+                read: false,
+                created_at: new Date().toISOString()
+              });
+
+            if (notificationError) {
+              console.error("Error creating notification for session acceptance:", notificationError);
+            } else {
+              console.log("Notification created for session acceptance");
+            }
+            
             toast({
               title: "Request accepted",
               description: "The session has been added to your schedule with a Google Meet link.",
@@ -322,6 +353,27 @@ export const useRequestActions = (
           if (error) {
             console.error("Database error when declining:", error);
             throw error;
+          }
+          
+          // Create notification for the student about declined session
+          if (sessionDetails) {
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: sessionDetails.student_id,
+                type: 'session',
+                title: 'Session Request Declined',
+                description: `Your session request for ${sessionDetails.skill} on ${sessionDetails.day} at ${sessionDetails.time_slot} has been declined`,
+                action_url: '/sessions',
+                read: false,
+                created_at: new Date().toISOString()
+              });
+
+            if (notificationError) {
+              console.error("Error creating notification for session decline:", notificationError);
+            } else {
+              console.log("Notification created for session decline");
+            }
           }
 
           toast({
