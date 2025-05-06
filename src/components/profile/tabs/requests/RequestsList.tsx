@@ -1,8 +1,7 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { EmptyState } from "../../common/ProfileUIComponents";
 import RequestCard from "./RequestCard";
-import { supabase } from '@/integrations/supabase/client';
 
 interface RequestsListProps {
   requests: any[];
@@ -19,10 +18,6 @@ const RequestsList: React.FC<RequestsListProps> = ({
   onDecline, 
   processingRequestId 
 }) => {
-  useEffect(() => {
-    console.log("[RequestsList] Current requests:", requests.length);
-  }, [requests]);
-
   if (requests.length === 0) {
     return (
       <EmptyState 

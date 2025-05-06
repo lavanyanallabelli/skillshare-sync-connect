@@ -112,11 +112,10 @@ const ConnectionList: React.FC = () => {
         const pending = allConnections.filter(conn => conn.status === 'pending');
         const accepted = allConnections.filter(conn => conn.status === 'accepted');
         
-        console.log("[ConnectionList] Fetched connections:", { accepted: accepted.length, pending: pending.length });
         setConnections(accepted);
         setPendingRequests(pending);
       } catch (error) {
-        console.error("[ConnectionList] Error fetching connections:", error);
+        console.error("Error fetching connections:", error);
         toast({
           title: "Error",
           description: "Failed to load connections",
@@ -128,24 +127,6 @@ const ConnectionList: React.FC = () => {
     };
     
     fetchConnections();
-    
-    // Subscribe to changes in the connections table
-    const connectionsChannel = supabase
-      .channel('connections-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'connections',
-        filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
-      }, (payload) => {
-        console.log("[ConnectionList] Connection change detected:", payload);
-        fetchConnections(); // Refetch connections when changes occur
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(connectionsChannel);
-    };
   }, [userId, toast]);
 
   const handleAcceptRequest = async (connectionId: string) => {
@@ -153,16 +134,12 @@ const ConnectionList: React.FC = () => {
       const requestToAccept = pendingRequests.find(req => req.id === connectionId);
       if (!requestToAccept) return;
 
-      console.log("[ConnectionList] Accepting connection:", connectionId);
       const { error } = await supabase
         .from('connections')
         .update({ status: 'accepted' })
         .eq('id', connectionId);
         
-      if (error) {
-        console.error("[ConnectionList] Error accepting connection:", error);
-        throw error;
-      }
+      if (error) throw error;
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
@@ -182,7 +159,7 @@ const ConnectionList: React.FC = () => {
         description: "You are now connected with this user",
       });
     } catch (error) {
-      console.error("[ConnectionList] Error accepting connection:", error);
+      console.error("Error accepting connection:", error);
       toast({
         title: "Error",
         description: "Failed to accept connection",
@@ -196,16 +173,12 @@ const ConnectionList: React.FC = () => {
       const requestToReject = pendingRequests.find(req => req.id === connectionId);
       if (!requestToReject) return;
 
-      console.log("[ConnectionList] Rejecting connection:", connectionId);
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
-      if (error) {
-        console.error("[ConnectionList] Error rejecting connection:", error);
-        throw error;
-      }
+      if (error) throw error;
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
@@ -224,7 +197,7 @@ const ConnectionList: React.FC = () => {
         description: "Connection request has been rejected",
       });
     } catch (error) {
-      console.error("[ConnectionList] Error rejecting connection:", error);
+      console.error("Error rejecting connection:", error);
       toast({
         title: "Error",
         description: "Failed to reject connection request",
@@ -236,27 +209,17 @@ const ConnectionList: React.FC = () => {
   const handleCancelRequest = async (connectionId: string) => {
     try {
       const requestToCancel = pendingRequests.find(req => req.id === connectionId);
-      if (!requestToCancel) {
-        console.error("[ConnectionList] Request to cancel not found:", connectionId);
-        return;
-      }
+      if (!requestToCancel) return;
 
-      console.log("[ConnectionList] Cancelling connection request:", connectionId);
-      
-      // Delete the connection from the database - IMPORTANT: This must complete successfully
+      // Delete the connection from the database
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
-      if (error) {
-        console.error("[ConnectionList] Error cancelling connection request:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log("[ConnectionList] Successfully deleted connection from database");
-      
-      // Update UI only after successful database update
+      // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
       
       // Create notification for the recipient about the cancellation
@@ -273,7 +236,7 @@ const ConnectionList: React.FC = () => {
         description: "Your connection request has been cancelled",
       });
     } catch (error) {
-      console.error("[ConnectionList] Error cancelling connection:", error);
+      console.error("Error cancelling connection:", error);
       toast({
         title: "Error",
         description: "Failed to cancel connection request",
@@ -286,22 +249,15 @@ const ConnectionList: React.FC = () => {
     if (!connectionToRemove) return;
     
     try {
-      console.log("[ConnectionList] Removing connection:", connectionToRemove.id);
-      
       // Delete the connection from the database
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionToRemove.id);
         
-      if (error) {
-        console.error("[ConnectionList] Error removing connection:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log("[ConnectionList] Successfully deleted connection from database");
-      
-      // Update UI only after successful database update
+      // Update UI
       setConnections(connections.filter(conn => conn.id !== connectionToRemove.id));
       
       // Create notification for the other user
@@ -325,7 +281,7 @@ const ConnectionList: React.FC = () => {
       setConnectionToRemove(null);
       setIsRemoveDialogOpen(false);
     } catch (error) {
-      console.error("[ConnectionList] Error removing connection:", error);
+      console.error("Error removing connection:", error);
       toast({
         title: "Error",
         description: "Failed to remove connection",
