@@ -23,42 +23,6 @@ const RequestsList: React.FC<RequestsListProps> = ({
     console.log("[RequestsList] Current requests:", requests.length);
   }, [requests]);
 
-  // Verify that requests data is valid whenever it changes
-  useEffect(() => {
-    if (requests.length > 0) {
-      const verifyDatabaseState = async () => {
-        try {
-          // Get the request IDs
-          const requestIds = requests.map(req => req.id);
-          
-          // Verify these requests still exist in the database
-          const { data, error } = await supabase
-            .from('sessions')
-            .select('id')
-            .in('id', requestIds)
-            .eq('status', 'pending');
-            
-          if (error) {
-            console.error("[RequestsList] Error verifying request state:", error);
-            return;
-          }
-          
-          // Log if there's a mismatch between local state and database
-          if (data.length !== requests.length) {
-            console.warn(
-              "[RequestsList] Mismatch between local state and database state. " +
-              `Local: ${requests.length}, Database: ${data.length}`
-            );
-          }
-        } catch (err) {
-          console.error("[RequestsList] Error in database verification:", err);
-        }
-      };
-      
-      verifyDatabaseState();
-    }
-  }, [requests]);
-
   if (requests.length === 0) {
     return (
       <EmptyState 

@@ -70,10 +70,7 @@ const ConnectionList: React.FC = () => {
           `)
           .eq('requester_id', userId);
           
-        if (outgoingError) {
-          console.error("[ConnectionList] Error fetching outgoing connections:", outgoingError);
-          throw outgoingError;
-        }
+        if (outgoingError) throw outgoingError;
         
         // Add an isOutgoing flag to indicate these are connections the user initiated
         const formattedOutgoing = outgoingConnections.map(conn => ({
@@ -100,10 +97,7 @@ const ConnectionList: React.FC = () => {
           `)
           .eq('recipient_id', userId);
           
-        if (incomingError) {
-          console.error("[ConnectionList] Error fetching incoming connections:", incomingError);
-          throw incomingError;
-        }
+        if (incomingError) throw incomingError;
         
         // Add an isOutgoing flag to indicate these are connections others initiated
         const formattedIncoming = incomingConnections.map(conn => ({
@@ -118,31 +112,7 @@ const ConnectionList: React.FC = () => {
         const pending = allConnections.filter(conn => conn.status === 'pending');
         const accepted = allConnections.filter(conn => conn.status === 'accepted');
         
-        console.log("[ConnectionList] Fetched connections:", { 
-          accepted: accepted.length, 
-          pending: pending.length,
-          outgoing: formattedOutgoing.length,
-          incoming: formattedIncoming.length
-        });
-        
-        // Double check that connections actually exist in the database
-        if (accepted.length > 0) {
-          const acceptedIds = accepted.map(conn => conn.id);
-          const { data: verificationData, error: verificationError } = await supabase
-            .from('connections')
-            .select('id')
-            .in('id', acceptedIds);
-            
-          if (verificationError) {
-            console.error("[ConnectionList] Error verifying connections:", verificationError);
-          } else if (verificationData.length !== accepted.length) {
-            console.warn(
-              "[ConnectionList] Mismatch between local accepted connections and database. " +
-              `Local: ${accepted.length}, Database: ${verificationData.length}`
-            );
-          }
-        }
-        
+        console.log("[ConnectionList] Fetched connections:", { accepted: accepted.length, pending: pending.length });
         setConnections(accepted);
         setPendingRequests(pending);
       } catch (error) {
@@ -169,7 +139,6 @@ const ConnectionList: React.FC = () => {
         filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
       }, (payload) => {
         console.log("[ConnectionList] Connection change detected:", payload);
-        console.log("[ConnectionList] Connection event type:", payload.eventType);
         fetchConnections(); // Refetch connections when changes occur
       })
       .subscribe();
@@ -285,22 +254,6 @@ const ConnectionList: React.FC = () => {
         throw error;
       }
       
-      // Verify deletion was successful by checking the database
-      const { data: verifyData } = await supabase
-        .from('connections')
-        .select('id')
-        .eq('id', connectionId);
-        
-      if (verifyData && verifyData.length > 0) {
-        console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionId);
-        toast({
-          title: "Error",
-          description: "Failed to cancel connection request. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
       console.log("[ConnectionList] Successfully deleted connection from database");
       
       // Update UI only after successful database update
@@ -344,22 +297,6 @@ const ConnectionList: React.FC = () => {
       if (error) {
         console.error("[ConnectionList] Error removing connection:", error);
         throw error;
-      }
-      
-      // Verify deletion was successful
-      const { data: verifyData } = await supabase
-        .from('connections')
-        .select('id')
-        .eq('id', connectionToRemove.id);
-        
-      if (verifyData && verifyData.length > 0) {
-        console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionToRemove.id);
-        toast({
-          title: "Error",
-          description: "Failed to remove connection. Please try again.",
-          variant: "destructive",
-        });
-        return;
       }
       
       console.log("[ConnectionList] Successfully deleted connection from database");
