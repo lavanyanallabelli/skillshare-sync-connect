@@ -37,25 +37,40 @@ export const useUnreadMessages = (userId: string | undefined) => {
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to all events for messages
+          event: 'INSERT', // Listen to INSERT events for new messages
           schema: 'public',
           table: 'messages',
           filter: `receiver_id=eq.${userId}`
         },
         (payload) => {
-          console.log('[useUnreadMessages] Message event:', payload.eventType, payload);
+          console.log('[useUnreadMessages] New message received:', payload.new);
           
-          // Immediately update count for specific events
-          if (payload.eventType === 'INSERT') {
-            // For new message, increment count
-            setUnreadCount(prev => prev + 1);
-          } else if (payload.eventType === 'UPDATE' && payload.new.read_at && !payload.old.read_at) {
-            // For message marked as read, decrement count
-            setUnreadCount(prev => Math.max(0, prev - 1));
-          }
+          // For new message, increment count
+          setUnreadCount(prev => prev + 1);
           
           // Also refresh the count from the database to ensure accuracy
           fetchUnreadCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE', // Listen to UPDATE events for read status changes
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[useUnreadMessages] Message updated:', payload.new, payload.old);
+          
+          // If a message was marked as read (read_at changed from null to a value)
+          if (payload.new.read_at && !payload.old.read_at) {
+            console.log('[useUnreadMessages] Message marked as read, decrementing count');
+            setUnreadCount(prev => Math.max(0, prev - 1));
+            
+            // Also refresh from database to ensure accuracy
+            fetchUnreadCount();
+          }
         }
       )
       .subscribe();
