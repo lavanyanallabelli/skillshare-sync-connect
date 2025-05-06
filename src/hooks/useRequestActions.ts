@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, createNotification } from "@/integrations/supabase/client";
@@ -210,6 +211,17 @@ export const useRequestActions = (
         setSessionRequests((prev) =>
           prev.filter((request) => request.id !== requestId)
         );
+        
+        // Create a custom event to notify other components about the session status change
+        const sessionEvent = new CustomEvent('sessionStatusChanged', {
+          detail: {
+            sessionId: requestId,
+            action: action,
+            sessionData: requestToUpdate
+          }
+        });
+        window.dispatchEvent(sessionEvent);
+        
       } catch (error) {
         console.error("[RequestActions] Error handling request action:", error);
         toast({
@@ -218,7 +230,7 @@ export const useRequestActions = (
           variant: "destructive",
         });
       } finally {
-        setProcessingRequestId("");
+        setProcessingRequestId(null);
       }
     },
     [
@@ -231,5 +243,68 @@ export const useRequestActions = (
     ]
   );
 
-  return { handleRequestAction, processingRequestId };
+  // Add a new function to create a session request with notification
+  const createSessionRequest = useCallback(async (
+    teacherId: string,
+    skill: string,
+    day: string,
+    timeSlot: string
+  ) => {
+    if (!userId) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to book sessions",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      // Create the session request
+      const { data: sessionRequest, error } = await supabase
+        .from("sessions")
+        .insert({
+          teacher_id: teacherId,
+          student_id: userId,
+          skill: skill,
+          day: day,
+          time_slot: timeSlot,
+          status: "pending"
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Create notification for the teacher
+      await createNotification(
+        teacherId,
+        'session',
+        'New Session Request',
+        `You have received a new session request for ${skill}.`,
+        `/profile?tab=requests`
+      );
+      
+      toast({
+        title: "Success",
+        description: "Session request has been sent."
+      });
+      
+      return sessionRequest;
+    } catch (error) {
+      console.error("[RequestActions] Error creating session request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send session request. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [userId, toast]);
+
+  return { 
+    handleRequestAction, 
+    processingRequestId,
+    createSessionRequest 
+  };
 };

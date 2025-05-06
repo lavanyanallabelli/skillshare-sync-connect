@@ -279,6 +279,70 @@ const ConnectionList: React.FC = () => {
     }
   };
 
+  // New function to send a connection request with notification
+  const sendConnectionRequest = async (recipientId: string) => {
+    try {
+      // First check if a connection already exists
+      const { data: existingConnection, error: checkError } = await supabase
+        .from('connections')
+        .select('id')
+        .or(`and(requester_id.eq.${userId},recipient_id.eq.${recipientId}),and(requester_id.eq.${recipientId},recipient_id.eq.${userId})`)
+        .single();
+      
+      if (checkError && !checkError.message.includes('No rows found')) throw checkError;
+      
+      if (existingConnection) {
+        toast({
+          title: "Connection Exists",
+          description: "You already have a connection with this user",
+        });
+        return;
+      }
+      
+      // Create the new connection
+      const { data: newConnection, error } = await supabase
+        .from('connections')
+        .insert({
+          requester_id: userId,
+          recipient_id: recipientId,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Create notification for the recipient
+      await createNotification(
+        recipientId,
+        'connection',
+        'New Connection Request',
+        `You have received a new connection request.`,
+        '/profile?tab=requests'
+      );
+      
+      toast({
+        title: "Request Sent",
+        description: "Connection request has been sent"
+      });
+      
+      // Update UI if needed
+      setPendingRequests([...pendingRequests, { 
+        ...newConnection, 
+        isOutgoing: true,
+        profile: { id: recipientId, first_name: '', last_name: '', avatar_url: null, occupation: null } 
+      }]);
+      
+    } catch (error) {
+      console.error("Error sending connection request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send connection request",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <Card>
