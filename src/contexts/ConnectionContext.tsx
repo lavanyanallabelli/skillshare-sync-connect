@@ -54,8 +54,6 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     setIsLoading(true);
     try {
-      console.log("[ConnectionContext] Fetching connections for user:", userId);
-      
       // Fetch connections where the user is the requester
       const { data: outgoingConnections, error: outgoingError } = await supabase
         .from('connections')
@@ -147,7 +145,6 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!userId) return;
     
-    console.log("[ConnectionContext] Setting up real-time subscription for user:", userId);
     fetchConnections();
     
     // Subscribe to changes in the connections table
@@ -161,32 +158,15 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }, (payload) => {
         console.log("[ConnectionContext] Connection change detected:", payload);
         console.log("[ConnectionContext] Connection event type:", payload.eventType);
-        
-        // For any change in connections, refresh the data
-        fetchConnections();
-        
-        // Create notification for new connection requests
-        if (payload.eventType === 'INSERT' && payload.new && payload.new.recipient_id === userId) {
-          console.log("[ConnectionContext] New connection request received");
-          
-          // Show toast for new connection request
-          toast({
-            title: "New Connection Request",
-            description: "You have received a new connection request",
-          });
-        }
-        
+        fetchConnections(); // Refetch connections when changes occur
         setForceUpdate(prev => prev + 1);
       })
-      .subscribe((status) => {
-        console.log("[ConnectionContext] Subscription status:", status);
-      });
+      .subscribe();
       
     return () => {
-      console.log("[ConnectionContext] Cleaning up connection subscriptions");
       supabase.removeChannel(connectionsChannel);
     };
-  }, [userId, fetchConnections, toast]);
+  }, [userId, fetchConnections]);
 
   const handleAcceptRequest = async (connectionId: string) => {
     try {

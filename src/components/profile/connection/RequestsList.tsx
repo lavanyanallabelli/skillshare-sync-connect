@@ -51,29 +51,6 @@ const RequestsList: React.FC = () => {
       verifyRequests();
     }
   }, [pendingRequests, forceUpdate]);
-  
-  // Subscribe to realtime connection changes specifically for this component
-  useEffect(() => {
-    console.log("[RequestsList] Setting up real-time connection listener");
-    
-    const channel = supabase
-      .channel('requests-list-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'connections'
-      }, (payload) => {
-        console.log("[RequestsList] Connection change detected:", payload);
-      })
-      .subscribe((status) => {
-        console.log("[RequestsList] Connection change subscription status:", status);
-      });
-      
-    return () => {
-      console.log("[RequestsList] Cleaning up connections subscription");
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   if (isLoading) {
     return (
