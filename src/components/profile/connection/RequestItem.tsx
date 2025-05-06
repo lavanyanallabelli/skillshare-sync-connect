@@ -29,18 +29,11 @@ interface RequestItemProps {
 const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
   const { handleAcceptRequest, handleRejectRequest, handleCancelRequest, isProcessing } = useConnections();
   const [localProcessing, setLocalProcessing] = React.useState(false);
-  const [isDeleted, setIsDeleted] = React.useState(false);
-  
-  // Don't render if this item has been deleted locally
-  if (isDeleted) {
-    return null;
-  }
   
   const onAccept = async () => {
     setLocalProcessing(true);
     try {
       await handleAcceptRequest(request.id);
-      setIsDeleted(true);
     } finally {
       setLocalProcessing(false);
     }
@@ -50,7 +43,6 @@ const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
     setLocalProcessing(true);
     try {
       await handleRejectRequest(request.id);
-      setIsDeleted(true);
     } finally {
       setLocalProcessing(false);
     }
@@ -60,7 +52,6 @@ const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
     setLocalProcessing(true);
     try {
       await handleCancelRequest(request.id);
-      setIsDeleted(true);
     } finally {
       setLocalProcessing(false);
     }
