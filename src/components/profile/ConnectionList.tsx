@@ -2,21 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, createNotification } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { UserCheck, UserX, UserPlus, Clock, Link as LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -42,8 +32,6 @@ const ConnectionList: React.FC = () => {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Connection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [connectionToRemove, setConnectionToRemove] = useState<Connection | null>(null);
-  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -131,9 +119,6 @@ const ConnectionList: React.FC = () => {
 
   const handleAcceptRequest = async (connectionId: string) => {
     try {
-      const requestToAccept = pendingRequests.find(req => req.id === connectionId);
-      if (!requestToAccept) return;
-
       const { error } = await supabase
         .from('connections')
         .update({ status: 'accepted' })
@@ -142,17 +127,11 @@ const ConnectionList: React.FC = () => {
       if (error) throw error;
       
       // Update UI
-      setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
-      setConnections([...connections, { ...requestToAccept, status: 'accepted' }]);
-      
-      // Create notification for the connection requester
-      await createNotification(
-        requestToAccept.requester_id,
-        'connection',
-        'Connection Request Accepted',
-        `${requestToAccept.profile?.first_name} has accepted your connection request.`,
-        `/teacher/${userId}`
-      );
+      const updatedRequest = pendingRequests.find(req => req.id === connectionId);
+      if (updatedRequest) {
+        setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
+        setConnections([...connections, { ...updatedRequest, status: 'accepted' }]);
+      }
       
       toast({
         title: "Connection Accepted",
@@ -170,9 +149,6 @@ const ConnectionList: React.FC = () => {
 
   const handleRejectRequest = async (connectionId: string) => {
     try {
-      const requestToReject = pendingRequests.find(req => req.id === connectionId);
-      if (!requestToReject) return;
-
       const { error } = await supabase
         .from('connections')
         .delete()
@@ -182,15 +158,6 @@ const ConnectionList: React.FC = () => {
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
-      
-      // Create notification for the connection requester
-      await createNotification(
-        requestToReject.requester_id,
-        'connection',
-        'Connection Request Rejected',
-        `Your connection request was not accepted at this time.`,
-        `/teacher/${userId}`
-      );
       
       toast({
         title: "Request Rejected",
@@ -208,9 +175,6 @@ const ConnectionList: React.FC = () => {
 
   const handleCancelRequest = async (connectionId: string) => {
     try {
-      const requestToCancel = pendingRequests.find(req => req.id === connectionId);
-      if (!requestToCancel) return;
-
       const { error } = await supabase
         .from('connections')
         .delete()
@@ -235,217 +199,143 @@ const ConnectionList: React.FC = () => {
     }
   };
 
-  const handleRemoveConnection = async () => {
-    if (!connectionToRemove) return;
-    
-    try {
-      const { error } = await supabase
-        .from('connections')
-        .delete()
-        .eq('id', connectionToRemove.id);
-        
-      if (error) throw error;
-      
-      // Update UI
-      setConnections(connections.filter(conn => conn.id !== connectionToRemove.id));
-      
-      // Create notification for the other user
-      const otherUserId = connectionToRemove.isOutgoing 
-        ? connectionToRemove.recipient_id 
-        : connectionToRemove.requester_id;
-        
-      await createNotification(
-        otherUserId,
-        'connection',
-        'Connection Removed',
-        `A connection has been removed from your network.`,
-        '/profile'
-      );
-      
-      toast({
-        title: "Connection Removed",
-        description: "The connection has been removed from your network",
-      });
-      
-      setConnectionToRemove(null);
-      setIsRemoveDialogOpen(false);
-    } catch (error) {
-      console.error("Error removing connection:", error);
-      toast({
-        title: "Error",
-        description: "Failed to remove connection",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Connections</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="connections">
-            <TabsList className="mb-4">
-              <TabsTrigger value="connections">
-                Connections ({connections.length})
-              </TabsTrigger>
-              <TabsTrigger value="requests">
-                Requests ({pendingRequests.length})
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="connections">
-              {isLoading ? (
-                <div className="text-center py-4">Loading connections...</div>
-              ) : connections.length > 0 ? (
-                <div className="space-y-4">
-                  {connections.map(connection => (
-                    <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage 
-                            src={connection.profile?.avatar_url || "/placeholder.svg"} 
-                            alt={`${connection.profile?.first_name} ${connection.profile?.last_name}`}
-                          />
-                          <AvatarFallback>
-                            {connection.profile?.first_name?.[0]}{connection.profile?.last_name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <Link 
-                            to={`/teacher/${connection.profile?.id}`}
-                            className="font-medium hover:underline flex items-center gap-1"
-                          >
-                            {connection.profile?.first_name} {connection.profile?.last_name}
-                            <LinkIcon size={12} />
-                          </Link>
-                          {connection.profile?.occupation && (
-                            <p className="text-sm text-muted-foreground">{connection.profile.occupation}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="secondary" className="flex items-center gap-1">
-                          <UserCheck size={14} /> Connected
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-red-500 border-red-200 hover:bg-red-50"
-                          onClick={() => {
-                            setConnectionToRemove(connection);
-                            setIsRemoveDialogOpen(true);
-                          }}
+    <Card>
+      <CardHeader>
+        <CardTitle>Connections</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="connections">
+          <TabsList className="mb-4">
+            <TabsTrigger value="connections">
+              Connections ({connections.length})
+            </TabsTrigger>
+            <TabsTrigger value="requests">
+              Requests ({pendingRequests.length})
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="connections">
+            {isLoading ? (
+              <div className="text-center py-4">Loading connections...</div>
+            ) : connections.length > 0 ? (
+              <div className="space-y-4">
+                {connections.map(connection => (
+                  <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage 
+                          src={connection.profile?.avatar_url || "/placeholder.svg"} 
+                          alt={`${connection.profile?.first_name} ${connection.profile?.last_name}`}
+                        />
+                        <AvatarFallback>
+                          {connection.profile?.first_name?.[0]}{connection.profile?.last_name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <Link 
+                          to={`/teacher/${connection.profile?.id}`}
+                          className="font-medium hover:underline flex items-center gap-1"
                         >
-                          <UserX size={14} className="mr-1" /> Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No connections yet</p>
-                  <p className="text-sm mt-2">Connect with other users to grow your network</p>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="requests">
-              {isLoading ? (
-                <div className="text-center py-4">Loading requests...</div>
-              ) : pendingRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {pendingRequests.map(request => (
-                    <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage 
-                            src={request.profile?.avatar_url || "/placeholder.svg"} 
-                            alt={`${request.profile?.first_name} ${request.profile?.last_name}`}
-                          />
-                          <AvatarFallback>
-                            {request.profile?.first_name?.[0]}{request.profile?.last_name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <Link 
-                            to={`/teacher/${request.profile?.id}`}
-                            className="font-medium hover:underline flex items-center gap-1"
-                          >
-                            {request.profile?.first_name} {request.profile?.last_name}
-                            <LinkIcon size={12} />
-                          </Link>
-                          {request.profile?.occupation && (
-                            <p className="text-sm text-muted-foreground">{request.profile.occupation}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock size={12} />
-                            {request.isOutgoing ? 'Request sent' : 'Wants to connect with you'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {request.isOutgoing ? (
-                          <Button 
-                            size="sm" 
-                            variant="destructive" 
-                            onClick={() => handleCancelRequest(request.id)}
-                          >
-                            <UserX size={14} className="mr-1" /> Cancel
-                          </Button>
-                        ) : (
-                          <>
-                            <Button 
-                              size="sm" 
-                              className="bg-skill-purple" 
-                              onClick={() => handleAcceptRequest(request.id)}
-                            >
-                              <UserCheck size={14} className="mr-1" /> Accept
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => handleRejectRequest(request.id)}
-                            >
-                              <UserX size={14} className="mr-1" /> Decline
-                            </Button>
-                          </>
+                          {connection.profile?.first_name} {connection.profile?.last_name}
+                          <LinkIcon size={12} />
+                        </Link>
+                        {connection.profile?.occupation && (
+                          <p className="text-sm text-muted-foreground">{connection.profile.occupation}</p>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No pending requests</p>
-                  <p className="text-sm mt-2">When someone wants to connect with you, it will appear here</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-      
-      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Connection</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove this connection? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveConnection} className="bg-red-500 text-white hover:bg-red-600">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="secondary" className="flex items-center gap-1">
+                        <UserCheck size={14} /> Connected
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No connections yet</p>
+                <p className="text-sm mt-2">Connect with other users to grow your network</p>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="requests">
+            {isLoading ? (
+              <div className="text-center py-4">Loading requests...</div>
+            ) : pendingRequests.length > 0 ? (
+              <div className="space-y-4">
+                {pendingRequests.map(request => (
+                  <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage 
+                          src={request.profile?.avatar_url || "/placeholder.svg"} 
+                          alt={`${request.profile?.first_name} ${request.profile?.last_name}`}
+                        />
+                        <AvatarFallback>
+                          {request.profile?.first_name?.[0]}{request.profile?.last_name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <Link 
+                          to={`/teacher/${request.profile?.id}`}
+                          className="font-medium hover:underline flex items-center gap-1"
+                        >
+                          {request.profile?.first_name} {request.profile?.last_name}
+                          <LinkIcon size={12} />
+                        </Link>
+                        {request.profile?.occupation && (
+                          <p className="text-sm text-muted-foreground">{request.profile.occupation}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock size={12} />
+                          {request.isOutgoing ? 'Request sent' : 'Wants to connect with you'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {request.isOutgoing ? (
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          onClick={() => handleCancelRequest(request.id)}
+                        >
+                          <UserX size={14} className="mr-1" /> Cancel
+                        </Button>
+                      ) : (
+                        <>
+                          <Button 
+                            size="sm" 
+                            className="bg-skill-purple" 
+                            onClick={() => handleAcceptRequest(request.id)}
+                          >
+                            <UserCheck size={14} className="mr-1" /> Accept
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleRejectRequest(request.id)}
+                          >
+                            <UserX size={14} className="mr-1" /> Decline
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No pending requests</p>
+                <p className="text-sm mt-2">When someone wants to connect with you, it will appear here</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 
