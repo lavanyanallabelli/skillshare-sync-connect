@@ -9,15 +9,15 @@ export const useUnreadMessages = (userId: string | undefined) => {
     if (!userId) return;
 
     const fetchUnreadCount = async () => {
-      console.log('Fetching unread message count for user:', userId);
+      console.log('[useUnreadMessages] Fetching unread message count for user:', userId);
       const { data, error } = await supabase
         .rpc('get_unread_message_count', { user_id: userId });
       
       if (!error && data !== null) {
-        console.log('Unread message count:', data);
+        console.log('[useUnreadMessages] Unread message count:', data);
         setUnreadCount(data);
       } else if (error) {
-        console.error('Error fetching unread message count:', error);
+        console.error('[useUnreadMessages] Error fetching unread message count:', error);
       }
     };
 
@@ -35,7 +35,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
           filter: `receiver_id=eq.${userId}`
         },
         (payload) => {
-          console.log('New message received:', payload);
+          console.log('[useUnreadMessages] New message received:', payload);
           fetchUnreadCount();
         }
       )
@@ -48,7 +48,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
           filter: `receiver_id=eq.${userId}`
         },
         (payload) => {
-          console.log('Message updated:', payload);
+          console.log('[useUnreadMessages] Message updated:', payload);
           fetchUnreadCount();
         }
       )
@@ -66,7 +66,20 @@ export const useUnreadMessages = (userId: string | undefined) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('[useUnreadMessages] New notification received:', payload);
+          fetchUnreadCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[useUnreadMessages] Notification updated:', payload);
           fetchUnreadCount();
         }
       )
@@ -84,16 +97,17 @@ export const useUnreadMessages = (userId: string | undefined) => {
           filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
         },
         (payload) => {
-          console.log('Connection update:', payload);
+          console.log('[useUnreadMessages] Connection update:', payload);
+          console.log('[useUnreadMessages] Connection event type:', payload.eventType);
           fetchUnreadCount();
         }
       )
       .subscribe();
 
-    console.log('Subscribed to message and notification changes for user:', userId);
+    console.log('[useUnreadMessages] Subscribed to message and notification changes for user:', userId);
 
     return () => {
-      console.log('Cleaning up message and notification subscriptions');
+      console.log('[useUnreadMessages] Cleaning up message and notification subscriptions');
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(notificationChannel);
       supabase.removeChannel(connectionChannel);
