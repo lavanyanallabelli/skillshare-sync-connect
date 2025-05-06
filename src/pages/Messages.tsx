@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -246,32 +247,16 @@ const Messages: React.FC = () => {
     if (!newMessage.trim() || !userId || !activeConversation) return;
     
     try {
-      // Send the message
-      const { error: messageError, data: messageData } = await supabase
+      const { error } = await supabase
         .from('messages')
         .insert({
           sender_id: userId,
           receiver_id: activeConversation.user.id,
           content: newMessage.trim(),
           created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (messageError) throw messageError;
-      
-      // Create a notification for the recipient
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: activeConversation.user.id,
-          type: 'message',
-          title: 'New message',
-          description: `You have a new message from ${activeConversation.user.name}`,
-          action_url: '/messages',
-          read: false,
-          created_at: new Date().toISOString(),
         });
+
+      if (error) throw error;
       
       setNewMessage("");
     } catch (error) {
