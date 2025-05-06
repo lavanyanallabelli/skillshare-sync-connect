@@ -56,7 +56,7 @@ export const useRequestActions = (
         }
 
         // Find the session request using fetch instead of local state
-        const { data: requestsData } = await supabase
+        const { data: requestsData, error: fetchError } = await supabase
           .from("sessions")
           .select(`
             *, 
@@ -66,6 +66,17 @@ export const useRequestActions = (
           .eq("id", requestId)
           .single();
           
+        if (fetchError) {
+          console.error(`[RequestActions] Error fetching request: ${requestId}`, fetchError);
+          toast({
+            title: "Error",
+            description: "Session request not found. It may have been deleted.",
+            variant: "destructive",
+          });
+          setProcessingRequestId(null);
+          return;
+        }
+        
         if (!requestsData) {
           console.error(`[RequestActions] Request not found: ${requestId}`);
           toast({
