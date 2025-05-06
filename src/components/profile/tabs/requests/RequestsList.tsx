@@ -34,26 +34,21 @@ const RequestsList: React.FC<RequestsListProps> = ({
           // Verify these requests still exist in the database
           const { data, error } = await supabase
             .from('sessions')
-            .select('id, status')
-            .in('id', requestIds);
+            .select('id')
+            .in('id', requestIds)
+            .eq('status', 'pending');
             
           if (error) {
             console.error("[RequestsList] Error verifying request state:", error);
             return;
           }
           
-          // Check if any requests are no longer pending
-          const validRequests = data.filter(req => req.status === 'pending');
-          
           // Log if there's a mismatch between local state and database
-          if (validRequests.length !== requests.length) {
+          if (data.length !== requests.length) {
             console.warn(
               "[RequestsList] Mismatch between local state and database state. " +
-              `Local: ${requests.length}, Database valid pending: ${validRequests.length}`
+              `Local: ${requests.length}, Database: ${data.length}`
             );
-            
-            // You could trigger a refresh here if needed
-            // This could help sync the UI with the database state
           }
         } catch (err) {
           console.error("[RequestsList] Error in database verification:", err);

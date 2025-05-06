@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UserCheck, UserX, UserPlus, Clock, Link as LinkIcon, Loader2 } from "lucide-react";
+import { UserCheck, UserX, UserPlus, Clock, Link as LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
 type Connection = {
@@ -43,7 +44,6 @@ const ConnectionList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [connectionToRemove, setConnectionToRemove] = useState<Connection | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -124,6 +124,24 @@ const ConnectionList: React.FC = () => {
           outgoing: formattedOutgoing.length,
           incoming: formattedIncoming.length
         });
+        
+        // Double check that connections actually exist in the database
+        if (accepted.length > 0) {
+          const acceptedIds = accepted.map(conn => conn.id);
+          const { data: verificationData, error: verificationError } = await supabase
+            .from('connections')
+            .select('id')
+            .in('id', acceptedIds);
+            
+          if (verificationError) {
+            console.error("[ConnectionList] Error verifying connections:", verificationError);
+          } else if (verificationData.length !== accepted.length) {
+            console.warn(
+              "[ConnectionList] Mismatch between local accepted connections and database. " +
+              `Local: ${accepted.length}, Database: ${verificationData.length}`
+            );
+          }
+        }
         
         setConnections(accepted);
         setPendingRequests(pending);
@@ -220,40 +238,7 @@ const ConnectionList: React.FC = () => {
         throw error;
       }
       
-      // Verify that the deletion was successful
-      const { data: verifyData } = await supabase
-        .from('connections')
-        .select('id')
-        .eq('id', connectionId);
-        
-      if (verifyData && verifyData.length > 0) {
-        console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionId);
-        // Try a second deletion attempt
-        await supabase.from('connections').delete().eq('id', connectionId);
-        
-        // Verify again
-        const { data: secondVerifyData } = await supabase
-          .from('connections')
-          .select('id')
-          .eq('id', connectionId);
-          
-        if (secondVerifyData && secondVerifyData.length > 0) {
-          // Use a direct SQL query as a last resort
-          // We use the .execute() method for custom SQL which doesn't require type checking
-          try {
-            await supabase
-              .from('connections')
-              .delete()
-              .eq('id', connectionId);
-            console.log("[ConnectionList] Final deletion attempt completed");
-          } catch (e) {
-            console.error("[ConnectionList] Error in final delete attempt:", e);
-            throw new Error("Failed to delete connection after multiple attempts");
-          }
-        }
-      }
-      
-      // Update UI only after confirmed deletion
+      // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
       
       // Create notification for the connection requester
@@ -308,31 +293,12 @@ const ConnectionList: React.FC = () => {
         
       if (verifyData && verifyData.length > 0) {
         console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionId);
-        
-        // Try a second deletion with a more direct approach
-        try {
-          // Use raw SQL execution as a fallback
-          const { error: sqlError } = await supabase
-            .from('connections')
-            .delete()
-            .eq('id', connectionId);
-          
-          if (sqlError) {
-            console.error("[ConnectionList] Error in force delete:", sqlError);
-          }
-        } catch (e) {
-          console.error("[ConnectionList] Error in force delete execution:", e);
-        }
-        
-        // Final verification
-        const { data: finalVerifyData } = await supabase
-          .from('connections')
-          .select('id')
-          .eq('id', connectionId);
-          
-        if (finalVerifyData && finalVerifyData.length > 0) {
-          throw new Error("Failed to delete connection after multiple attempts");
-        }
+        toast({
+          title: "Error",
+          description: "Failed to cancel connection request. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
       
       console.log("[ConnectionList] Successfully deleted connection from database");
@@ -366,8 +332,6 @@ const ConnectionList: React.FC = () => {
   const handleRemoveConnection = async () => {
     if (!connectionToRemove) return;
     
-    setIsProcessing(true);
-    
     try {
       console.log("[ConnectionList] Removing connection:", connectionToRemove.id);
       
@@ -382,9 +346,6 @@ const ConnectionList: React.FC = () => {
         throw error;
       }
       
-      // Wait a moment for deletion to process
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
       // Verify deletion was successful
       const { data: verifyData } = await supabase
         .from('connections')
@@ -393,45 +354,12 @@ const ConnectionList: React.FC = () => {
         
       if (verifyData && verifyData.length > 0) {
         console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionToRemove.id);
-        
-        // Try a second deletion with a different approach
-        const { error: secondError } = await supabase
-          .from('connections')
-          .delete()
-          .eq('id', connectionToRemove.id);
-          
-        if (secondError) {
-          console.error("[ConnectionList] Error in second deletion attempt:", secondError);
-        }
-        
-        // Try a direct SQL execution method as final attempt
-        try {
-          // Execute a final deletion attempt using SQL
-          await supabase
-            .from('connections')
-            .delete()
-            .eq('id', connectionToRemove.id);
-          
-          console.log("[ConnectionList] Executed final deletion attempt");
-        } catch (e) {
-          console.error("[ConnectionList] Error in force delete:", e);
-        }
-        
-        // Final verification
-        const { data: finalCheckData } = await supabase
-          .from('connections')
-          .select('id')
-          .eq('id', connectionToRemove.id);
-          
-        if (finalCheckData && finalCheckData.length > 0) {
-          toast({
-            title: "Error",
-            description: "Failed to remove connection. Please try again.",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          return;
-        }
+        toast({
+          title: "Error",
+          description: "Failed to remove connection. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
       
       console.log("[ConnectionList] Successfully deleted connection from database");
@@ -463,11 +391,9 @@ const ConnectionList: React.FC = () => {
       console.error("[ConnectionList] Error removing connection:", error);
       toast({
         title: "Error",
-        description: "Failed to remove connection. Please try again later.",
+        description: "Failed to remove connection",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -694,20 +620,9 @@ const ConnectionList: React.FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleRemoveConnection} 
-              className="bg-red-500 text-white hover:bg-red-600"
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                'Remove'
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveConnection} className="bg-red-500 text-white hover:bg-red-600">
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
