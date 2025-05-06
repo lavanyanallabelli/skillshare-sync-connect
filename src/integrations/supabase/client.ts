@@ -84,31 +84,28 @@ export const createNotification = async (
   }
 };
 
-// Helper function to mark messages as read - Fixed to ensure read_at is properly set
+// Helper function to mark messages as read
 export const markMessagesAsRead = async (
   receiverId: string,
   senderId: string
 ): Promise<boolean> => {
   try {
-    // Create a properly formatted ISO timestamp string
     const now = new Date().toISOString();
     console.log(`[markMessagesAsRead] Marking messages as read from ${senderId} to ${receiverId} at ${now}`);
     
-    // Make sure to include the timestamp in the update
-    const { error, data } = await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ read_at: now })
       .eq('receiver_id', receiverId)
       .eq('sender_id', senderId)
-      .is('read_at', null)
-      .select();
+      .is('read_at', null);
       
     if (error) {
       console.error('[markMessagesAsRead] Failed to mark messages as read:', error);
       return false;
     }
     
-    console.log(`[markMessagesAsRead] Successfully marked ${data?.length || 0} messages as read at ${now}`);
+    console.log(`[markMessagesAsRead] Successfully marked messages as read at ${now}`);
     return true;
   } catch (err) {
     console.error('[markMessagesAsRead] Exception:', err);
@@ -116,29 +113,25 @@ export const markMessagesAsRead = async (
   }
 };
 
-// Helper function to mark a single message as read - Fixed to ensure read_at is properly set
+// Helper function to mark a single message as read
 export const markMessageAsRead = async (messageId: string): Promise<boolean> => {
   try {
-    // Create a properly formatted ISO timestamp string
     const now = new Date().toISOString();
     console.log(`[markMessageAsRead] Marking message ${messageId} as read at ${now}`);
     
-    // Make sure to include the timestamp in the update and return the updated record
-    const { error, data } = await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ read_at: now })
       .eq('id', messageId)
-      .is('read_at', null)
-      .select();
+      .is('read_at', null);
       
     if (error) {
       console.error('[markMessageAsRead] Failed to mark message as read:', error);
       return false;
     }
     
-    const wasUpdated = data && data.length > 0;
-    console.log(`[markMessageAsRead] ${wasUpdated ? 'Successfully marked' : 'No need to mark'} message ${messageId} as read at ${now}`);
-    return wasUpdated;
+    console.log(`[markMessageAsRead] Successfully marked message ${messageId} as read at ${now}`);
+    return true;
   } catch (err) {
     console.error('[markMessageAsRead] Exception:', err);
     return false;
