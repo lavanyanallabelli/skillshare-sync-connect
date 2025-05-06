@@ -53,13 +53,22 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Mark messages as read
-            await supabase
+            console.log('[MessageDialog] Marking messages as read from', receiverId);
+            
+            // Mark messages as read with explicit timestamp
+            const now = new Date().toISOString();
+            const { error: markReadError } = await supabase
                 .from('messages')
-                .update({ read_at: new Date().toISOString() })
+                .update({ read_at: now })
                 .eq('receiver_id', user.id)
                 .eq('sender_id', receiverId)
                 .is('read_at', null);
+                
+            if (markReadError) {
+                console.error('[MessageDialog] Error marking messages as read:', markReadError);
+            } else {
+                console.log('[MessageDialog] Successfully marked messages as read at', now);
+            }
 
             // Get messages
             const { data, error } = await supabase
@@ -71,7 +80,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             if (error) throw error;
             setMessages(data || []);
         } catch (error) {
-            console.error('Error fetching messages:', error);
+            console.error('[MessageDialog] Error fetching messages:', error);
             toast({
                 title: "Error",
                 description: "Failed to load messages",
@@ -99,14 +108,20 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                     (payload) => {
                         setMessages(prev => [...prev, payload.new as Message]);
                         
-                        // If we receive a message, mark it as read
+                        // If we receive a message, mark it as read immediately
                         if (payload.new.receiver_id === user.id) {
+                            const now = new Date().toISOString();
+                            console.log('[MessageDialog] New message received, marking as read:', payload.new.id);
                             supabase
                                 .from('messages')
-                                .update({ read_at: new Date().toISOString() })
+                                .update({ read_at: now })
                                 .eq('id', payload.new.id)
-                                .then(() => {
-                                    // No need to handle this response
+                                .then(({ error }) => {
+                                    if (error) {
+                                        console.error('[MessageDialog] Error marking new message as read:', error);
+                                    } else {
+                                        console.log('[MessageDialog] New message marked as read at', now);
+                                    }
                                 });
                         }
                     }
@@ -147,7 +162,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
 
             setNewMessage('');
         } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('[MessageDialog] Error sending message:', error);
             toast({
                 title: "Error",
                 description: "Failed to send message",

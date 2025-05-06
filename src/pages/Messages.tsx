@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -159,17 +160,21 @@ const Messages: React.FC = () => {
 
     // Set up real-time subscription for new messages
     const channel = supabase
-      .channel('messages')
+      .channel('messages-page')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen for all events including INSERT, UPDATE, DELETE
           schema: 'public',
           table: 'messages',
-          filter: `receiver_id=eq.${userId}`
+          filter: `or(receiver_id.eq.${userId},sender_id.eq.${userId})`
         },
         () => {
+          console.log('[Messages] Real-time message update detected');
           fetchConversations();
+          if (activeConversation) {
+            fetchMessages(activeConversation.user.id);
+          }
         }
       )
       .subscribe();
@@ -184,13 +189,31 @@ const Messages: React.FC = () => {
     if (!userId || !otherUserId) return;
 
     try {
-      // Mark messages as read
-      await supabase
+      // Mark messages as read with explicit timestamp
+      const now = new Date().toISOString();
+      console.log('[Messages] Marking messages as read from user:', otherUserId);
+      
+      const { error: markReadError } = await supabase
         .from('messages')
-        .update({ read_at: new Date().toISOString() })
+        .update({ read_at: now })
         .eq('receiver_id', userId)
         .eq('sender_id', otherUserId)
         .is('read_at', null);
+
+      if (markReadError) {
+        console.error('[Messages] Error marking messages as read:', markReadError);
+      } else {
+        console.log('[Messages] Successfully marked messages as read at', now);
+        
+        // Update the unread status in the conversations list
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === otherUserId 
+              ? { ...conv, unread: false }
+              : conv
+          )
+        );
+      }
 
       // Get messages
       const { data, error } = await supabase
