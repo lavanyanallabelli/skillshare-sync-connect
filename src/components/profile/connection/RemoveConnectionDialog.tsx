@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useConnections } from "@/contexts/ConnectionContext";
@@ -23,14 +24,17 @@ const RemoveConnectionDialog: React.FC = () => {
   } = useConnections();
   
   const [retryCount, setRetryCount] = useState(0);
+  const [removingInProgress, setRemovingInProgress] = useState(false);
 
   const connectionName = connectionToRemove ? 
     `${connectionToRemove.profile?.first_name} ${connectionToRemove.profile?.last_name}` : 
     "this connection";
     
   const handleRemoveWithRetry = async () => {
+    setRemovingInProgress(true);
     try {
       await handleRemoveConnection();
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error("Error during connection removal:", error);
       
@@ -49,10 +53,26 @@ const RemoveConnectionDialog: React.FC = () => {
           title: "Retry",
           description: "First attempt failed, retrying...",
         });
-        setTimeout(() => handleRemoveConnection(), 1000);
+        setTimeout(() => {
+          handleRemoveConnection().catch(err => {
+            console.error("Error during retry:", err);
+            toast({
+              title: "Connection Error",
+              description: "Failed to remove connection after retry. Please try again later.",
+              variant: "destructive",
+            });
+            setIsRemoveDialogOpen(false);
+          }).finally(() => {
+            setRemovingInProgress(false);
+          });
+        }, 1000);
+        return;
       }
     }
+    setRemovingInProgress(false);
   };
+
+  const isButtonDisabled = isProcessing || removingInProgress;
 
   return (
     <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
@@ -64,16 +84,16 @@ const RemoveConnectionDialog: React.FC = () => {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isButtonDisabled}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleRemoveWithRetry} 
             className="bg-red-500 text-white hover:bg-red-600"
-            disabled={isProcessing}
+            disabled={isButtonDisabled}
           >
-            {isProcessing ? (
+            {(isProcessing || removingInProgress) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                {retryCount > 0 ? "Retrying..." : "Processing..."}
               </>
             ) : (
               'Remove'
