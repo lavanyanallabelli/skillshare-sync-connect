@@ -211,7 +211,6 @@ const ConnectionList: React.FC = () => {
       const requestToCancel = pendingRequests.find(req => req.id === connectionId);
       if (!requestToCancel) return;
 
-      // Delete the connection from the database
       const { error } = await supabase
         .from('connections')
         .delete()
@@ -221,15 +220,6 @@ const ConnectionList: React.FC = () => {
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
-      
-      // Create notification for the recipient about the cancellation
-      await createNotification(
-        requestToCancel.recipient_id,
-        'connection',
-        'Connection Request Cancelled',
-        'A connection request to you has been cancelled.',
-        '/profile?tab=requests'
-      );
       
       toast({
         title: "Request Cancelled",
@@ -249,7 +239,6 @@ const ConnectionList: React.FC = () => {
     if (!connectionToRemove) return;
     
     try {
-      // Delete the connection from the database
       const { error } = await supabase
         .from('connections')
         .delete()

@@ -23,8 +23,8 @@ export const useUnreadMessages = (userId: string | undefined) => {
 
     fetchUnreadCount();
 
-    // Subscribe to notifications, messages, and connections to update unread count
-    const messageChannel = supabase
+    // Subscribe to new messages and message status changes
+    const channel = supabase
       .channel('message-changes')
       .on(
         'postgres_changes',
@@ -53,50 +53,12 @@ export const useUnreadMessages = (userId: string | undefined) => {
         }
       )
       .subscribe();
-      
-    // Also subscribe to notifications table to update count when notifications are created
-    const notificationChannel = supabase
-      .channel('notification-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          console.log('New notification received:', payload);
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
-      
-    // Also subscribe to connections table for connection-related updates
-    const connectionChannel = supabase
-      .channel('connection-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'connections',
-          filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
-        },
-        (payload) => {
-          console.log('Connection update:', payload);
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
 
-    console.log('Subscribed to message and notification changes for user:', userId);
+    console.log('Subscribed to message changes for user:', userId);
 
     return () => {
-      console.log('Cleaning up message and notification subscriptions');
-      supabase.removeChannel(messageChannel);
-      supabase.removeChannel(notificationChannel);
-      supabase.removeChannel(connectionChannel);
+      console.log('Cleaning up message subscription');
+      supabase.removeChannel(channel);
     };
   }, [userId]);
 
