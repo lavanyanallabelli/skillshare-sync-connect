@@ -29,8 +29,6 @@ export const useNotifications = (userId: string | null) => {
 
     try {
       setLoading(true);
-      console.log(`[useNotifications] Fetching notifications for user: ${userId}`);
-      
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -38,18 +36,14 @@ export const useNotifications = (userId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('[useNotifications] Error fetching notifications:', error);
+        console.error('Error fetching notifications:', error);
         return;
       }
 
-      console.log(`[useNotifications] Fetched ${data?.length || 0} notifications`);
-      
       setNotifications(data || []);
-      const unreadNotifications = data?.filter(n => !n.read).length || 0;
-      setUnreadCount(unreadNotifications);
-      console.log(`[useNotifications] Unread count: ${unreadNotifications}`);
+      setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
-      console.error('[useNotifications] Error in fetchNotifications:', error);
+      console.error('Error in fetchNotifications:', error);
     } finally {
       setLoading(false);
     }
@@ -57,15 +51,13 @@ export const useNotifications = (userId: string | null) => {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      console.log(`[useNotifications] Marking notification as read: ${notificationId}`);
-      
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('id', notificationId);
 
       if (error) {
-        console.error('[useNotifications] Error marking notification as read:', error);
+        console.error('Error marking notification as read:', error);
         return;
       }
 
@@ -76,9 +68,8 @@ export const useNotifications = (userId: string | null) => {
       );
       
       setUnreadCount(prevCount => Math.max(0, prevCount - 1));
-      console.log(`[useNotifications] Notification marked as read, new unread count: ${unreadCount - 1}`);
     } catch (error) {
-      console.error('[useNotifications] Error in markAsRead:', error);
+      console.error('Error in markAsRead:', error);
     }
   };
 
@@ -90,15 +81,13 @@ export const useNotifications = (userId: string | null) => {
         
       if (unreadIds.length === 0) return;
 
-      console.log(`[useNotifications] Marking all ${unreadIds.length} notifications as read`);
-      
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
         .in('id', unreadIds);
 
       if (error) {
-        console.error('[useNotifications] Error marking all notifications as read:', error);
+        console.error('Error marking all notifications as read:', error);
         return;
       }
 
@@ -113,15 +102,13 @@ export const useNotifications = (userId: string | null) => {
         description: "All notifications marked as read"
       });
     } catch (error) {
-      console.error('[useNotifications] Error in markAllAsRead:', error);
+      console.error('Error in markAllAsRead:', error);
     }
   };
 
   const createNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
     try {
       if (!userId) return null;
-      
-      console.log('[useNotifications] Creating new notification:', notification);
       
       const { data, error } = await supabase
         .from('notifications')
@@ -131,24 +118,20 @@ export const useNotifications = (userId: string | null) => {
           title: notification.title,
           description: notification.description || '',
           action_url: notification.actionUrl,
-          read: false,
-          created_at: new Date().toISOString()
+          read: false
         }])
         .select()
         .single();
 
       if (error) {
-        console.error('[useNotifications] Error creating notification:', error);
+        console.error('Error creating notification:', error);
         return null;
       }
 
-      console.log('[useNotifications] Notification created successfully:', data);
-      // Fetch notifications to ensure local state is updated
-      fetchNotifications();
-      
+      // No need to update local state as the subscription will handle it
       return data;
     } catch (error) {
-      console.error('[useNotifications] Error in createNotification:', error);
+      console.error('Error in createNotification:', error);
       return null;
     }
   };
@@ -156,13 +139,11 @@ export const useNotifications = (userId: string | null) => {
   useEffect(() => {
     if (!userId) return;
     
-    console.log(`[useNotifications] Setting up notifications for user: ${userId}`);
-    
     fetchNotifications();
     
     // Set up realtime subscription with more comprehensive filters
     const channel = supabase
-      .channel(`notifications-${userId}`)
+      .channel('notifications-changes')
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
@@ -170,8 +151,8 @@ export const useNotifications = (userId: string | null) => {
           table: 'notifications', 
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
-          console.log('[useNotifications] New notification received:', payload);
+        () => {
+          console.log('New notification received, refreshing...');
           fetchNotifications();
         }
       )
@@ -182,17 +163,15 @@ export const useNotifications = (userId: string | null) => {
           table: 'notifications', 
           filter: `user_id=eq.${userId}` 
         },
-        (payload) => {
-          console.log('[useNotifications] Notification updated:', payload);
+        () => {
+          console.log('Notification updated, refreshing...');
           fetchNotifications();
         }
       )
-      .subscribe((status) => {
-        console.log(`[useNotifications] Subscription status:`, status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('[useNotifications] Cleaning up notifications subscription');
+      console.log('Cleaning up notifications subscription');
       supabase.removeChannel(channel);
     };
   }, [userId]);

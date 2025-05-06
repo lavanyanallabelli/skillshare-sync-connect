@@ -17,28 +17,6 @@ export const supabase = createClient<Database>(
       persistSession: true,
       autoRefreshToken: true,
       storageKey: 'supabase.auth.token',
-    },
-    // Add improved configuration for realtime subscriptions
-    realtime: {
-      params: {
-        eventsPerSecond: 10
-      }
     }
   }
 );
-
-// Add a helper function to check Supabase connection
-export const checkSupabaseConnection = async () => {
-  try {
-    const { data, error } = await supabase.from('notifications').select('count').limit(1);
-    if (error) {
-      console.error("Supabase connection error:", error);
-      return false;
-    }
-    console.log("Supabase connection successful");
-    return true;
-  } catch (err) {
-    console.error("Failed to check Supabase connection:", err);
-    return false;
-  }
-};

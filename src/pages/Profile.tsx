@@ -1,13 +1,11 @@
-import React, { lazy, Suspense, useEffect } from "react";
+
+import React, { lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProfilePage } from "@/hooks/useProfilePage";
 import ProfileTabs from "@/components/profile/ProfileTabs";
-import { useNotifications } from "@/hooks/useNotifications";
-import { Button } from "@/components/ui/button";
-import { supabase, checkSupabaseConnection } from "@/integrations/supabase/client";
 
 const ProfileHeader = lazy(() => import("@/components/profile/ProfileHeader"));
 const ConnectionList = lazy(() => import("@/components/profile/ConnectionList"));
@@ -55,17 +53,6 @@ const Profile: React.FC = () => {
     availabilityTimes,
   } = useProfilePage();
 
-  const { createNotification } = useNotifications(userId);
-
-  // Verify Supabase connection when profile loads
-  useEffect(() => {
-    if (userId) {
-      checkSupabaseConnection().then(isConnected => {
-        console.log(`[Profile] Supabase connection status: ${isConnected ? 'Connected' : 'Disconnected'}`);
-      });
-    }
-  }, [userId]);
-
   // Keep tab state and URL in sync
   React.useEffect(() => {
     if (tabFromUrl && tabFromUrl !== activeTab) {
@@ -77,36 +64,6 @@ const Profile: React.FC = () => {
       setSearchParams({ tab: activeTab });
     }
   }, [activeTab]);
-
-  // Test function to create a notification
-  const testCreateNotification = async () => {
-    if (!userId) return;
-    
-    try {
-      console.log("[Profile] Testing notification creation");
-      
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          type: 'test',
-          title: 'Test Notification',
-          description: 'This is a test notification created at ' + new Date().toLocaleTimeString(),
-          action_url: '/profile',
-          read: false,
-          created_at: new Date().toISOString()
-        })
-        .select();
-      
-      if (error) {
-        console.error("[Profile] Error creating test notification:", error);
-      } else {
-        console.log("[Profile] Test notification created:", data);
-      }
-    } catch (err) {
-      console.error("[Profile] Exception when creating test notification:", err);
-    }
-  };
 
   // Map props for each tab
   const tabProps = {
@@ -213,23 +170,6 @@ const Profile: React.FC = () => {
         <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
           <ConnectionList />
         </Suspense>
-
-        {/* Debug section - only visible in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 mb-4 p-4 border border-dashed border-red-300 rounded-md">
-            <h4 className="text-sm font-semibold text-red-500">Debug Tools</h4>
-            <div className="mt-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testCreateNotification}
-                className="text-xs"
-              >
-                Test Create Notification
-              </Button>
-            </div>
-          </div>
-        )}
 
         <ProfileTabs
           tabProps={tabProps}

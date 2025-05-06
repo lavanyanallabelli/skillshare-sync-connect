@@ -33,24 +33,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout }) => {
     notifications, 
     unreadCount: notificationUnreadCount, 
     markAsRead, 
-    markAllAsRead,
-    fetchNotifications 
+    markAllAsRead 
   } = useNotifications(userId);
-  
-  // Force refresh notifications when mounted
-  useEffect(() => {
-    if (userId) {
-      console.log("[UserMenu] Component mounted, refreshing notifications");
-      fetchNotifications();
-    }
-  }, [userId]);
   
   const handleNotificationClick = async (notification: any) => {
     try {
-      console.log("[UserMenu] Notification clicked:", notification.id);
       await markAsRead(notification.id);
     } catch (error) {
-      console.error("[UserMenu] Error handling notification click:", error);
+      console.error("Error handling notification click:", error);
     }
   };
 
