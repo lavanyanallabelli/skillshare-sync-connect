@@ -1,87 +1,13 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { useConnections } from "@/contexts/ConnectionContext";
 import RequestItem from "./RequestItem";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 
 const RequestsList: React.FC = () => {
-  const { pendingRequests, isLoading, forceUpdate } = useConnections();
-
-  // Add verification mechanism to ensure we're showing the correct state
-  useEffect(() => {
-    if (pendingRequests.length > 0) {
-      const verifyRequests = async () => {
-        try {
-          // Get all pending request IDs
-          const requestIds = pendingRequests.map(request => request.id);
-
-          // Verify these connections still exist in the database
-          const { data, error } = await supabase
-            .from('connections')
-            .select('id, status')
-            .in('id', requestIds);
-
-          if (error) {
-            console.error("[RequestsList] Error verifying connection state:", error);
-            return;
-          }
-
-          // Check for any inconsistencies between local state and database
-          if (data && data.length !== requestIds.length) {
-            console.warn(
-              "[RequestsList] Mismatch between local state and database. " +
-              `Local: ${requestIds.length}, Database: ${data.length}`
-            );
-            
-            // Log details of the mismatch for debugging
-            const missingIds = requestIds.filter(id => 
-              !data.some(conn => conn.id === id)
-            );
-            
-            if (missingIds.length > 0) {
-              console.warn("[RequestsList] IDs in local state but not in DB:", missingIds);
-            }
-          }
-        } catch (err) {
-          console.error("[RequestsList] Verification error:", err);
-        }
-      };
-
-      verifyRequests();
-    }
-  }, [pendingRequests, forceUpdate]);
-  
-  // Subscribe to realtime connection changes specifically for this component
-  useEffect(() => {
-    console.log("[RequestsList] Setting up real-time connection listener");
-    
-    const channel = supabase
-      .channel('requests-list-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'connections'
-      }, (payload) => {
-        console.log("[RequestsList] Connection change detected:", payload);
-      })
-      .subscribe((status) => {
-        console.log("[RequestsList] Connection change subscription status:", status);
-      });
-      
-    return () => {
-      console.log("[RequestsList] Cleaning up connections subscription");
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const { pendingRequests, isLoading } = useConnections();
 
   if (isLoading) {
-    return (
-      <div className="text-center py-8 flex justify-center items-center">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        <span>Loading requests...</span>
-      </div>
-    );
+    return <div className="text-center py-4">Loading requests...</div>;
   }
 
   if (pendingRequests.length === 0) {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, markMessagesAsRead, markMessageAsRead } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -53,10 +53,13 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            console.log('[MessageDialog] Fetching and marking messages as read from', receiverId);
-            
-            // Mark messages as read using helper function
-            await markMessagesAsRead(user.id, receiverId);
+            // Mark messages as read
+            await supabase
+                .from('messages')
+                .update({ read_at: new Date().toISOString() })
+                .eq('receiver_id', user.id)
+                .eq('sender_id', receiverId)
+                .is('read_at', null);
 
             // Get messages
             const { data, error } = await supabase
@@ -68,7 +71,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             if (error) throw error;
             setMessages(data || []);
         } catch (error) {
-            console.error('[MessageDialog] Error fetching messages:', error);
+            console.error('Error fetching messages:', error);
             toast({
                 title: "Error",
                 description: "Failed to load messages",
@@ -84,7 +87,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             if (!user) return;
 
             const channel = supabase
-                .channel('messages-dialog')
+                .channel('messages')
                 .on(
                     'postgres_changes',
                     {
@@ -94,28 +97,18 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                         filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
                     },
                     (payload) => {
-                        console.log('[MessageDialog] New message received:', payload.new);
                         setMessages(prev => [...prev, payload.new as Message]);
                         
-                        // If we receive a message, mark it as read immediately
+                        // If we receive a message, mark it as read
                         if (payload.new.receiver_id === user.id) {
-                            markMessageAsRead(payload.new.id);
+                            supabase
+                                .from('messages')
+                                .update({ read_at: new Date().toISOString() })
+                                .eq('id', payload.new.id)
+                                .then(() => {
+                                    // No need to handle this response
+                                });
                         }
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'messages',
-                        filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
-                    },
-                    (payload) => {
-                        console.log('[MessageDialog] Message updated:', payload.new);
-                        setMessages(prev => 
-                            prev.map(msg => msg.id === payload.new.id ? { ...msg, ...payload.new as Message } : msg)
-                        );
                     }
                 )
                 .subscribe();
@@ -154,7 +147,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
 
             setNewMessage('');
         } catch (error) {
-            console.error('[MessageDialog] Error sending message:', error);
+            console.error('Error sending message:', error);
             toast({
                 title: "Error",
                 description: "Failed to send message",
