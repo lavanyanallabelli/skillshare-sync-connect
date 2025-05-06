@@ -214,147 +214,149 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const handleRejectRequest = async (connectionId: string) => {
     try {
+      setIsProcessing(true);
       const requestToReject = pendingRequests.find(req => req.id === connectionId);
-      if (!requestToReject) return;
+      if (!requestToReject) {
+        setIsProcessing(false);
+        return;
+      }
 
       console.log("[ConnectionContext] Rejecting connection:", connectionId);
+      
+      // First deletion attempt
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
       if (error) {
-        console.error("[ConnectionContext] Error rejecting connection:", error);
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
         throw error;
       }
       
-      // Verify that the deletion was successful
-      const { data: verifyData } = await supabase
+      // Update UI optimistically
+      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
+      
+      // Double-check deletion success
+      const { data: checkData } = await supabase
         .from('connections')
         .select('id')
         .eq('id', connectionId);
-        
-      if (verifyData && verifyData.length > 0) {
+      
+      if (checkData && checkData.length > 0) {
         console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionId);
-        // Try a second deletion attempt
-        await supabase.from('connections').delete().eq('id', connectionId);
         
-        // Verify again
-        const { data: secondVerifyData } = await supabase
+        // Second deletion attempt
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', connectionId);
+          
+        // Final verification
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionId);
           
-        if (secondVerifyData && secondVerifyData.length > 0) {
-          // Use a direct SQL query as a last resort
-          try {
-            await supabase
-              .from('connections')
-              .delete()
-              .eq('id', connectionId);
-            console.log("[ConnectionContext] Final deletion attempt completed");
-          } catch (e) {
-            console.error("[ConnectionContext] Error in final delete attempt:", e);
-            throw new Error("Failed to delete connection after multiple attempts");
-          }
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
+          throw new Error("Failed to delete connection after multiple attempts");
         }
       }
       
-      // Update UI only after confirmed deletion
-      setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
-      
       // Create notification for the connection requester
-      await createNotification(
-        requestToReject.requester_id,
-        'connection',
-        'Connection Request Rejected',
-        `Your connection request was not accepted at this time.`,
-        `/teacher/${userId}`
-      );
+      if (requestToReject.requester_id) {
+        await createNotification(
+          requestToReject.requester_id,
+          'connection',
+          'Connection Request Rejected',
+          `Your connection request was not accepted.`,
+          `/teacher/${userId}`
+        );
+      }
       
       toast({
         title: "Request Rejected",
         description: "Connection request has been rejected",
       });
+      
     } catch (error) {
       console.error("[ConnectionContext] Error rejecting connection:", error);
       toast({
         title: "Error",
-        description: "Failed to reject connection request",
+        description: "Failed to reject connection request. Please try again.",
         variant: "destructive",
       });
+      // Refresh connections to ensure UI is in sync with database
+      fetchConnections();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleCancelRequest = async (connectionId: string) => {
     try {
+      setIsProcessing(true);
       const requestToCancel = pendingRequests.find(req => req.id === connectionId);
       if (!requestToCancel) {
         console.error("[ConnectionContext] Request to cancel not found:", connectionId);
+        setIsProcessing(false);
         return;
       }
 
       console.log("[ConnectionContext] Cancelling connection request:", connectionId);
       
-      // Delete the connection from the database - IMPORTANT: This must complete successfully
+      // First deletion attempt
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
       if (error) {
-        console.error("[ConnectionContext] Error cancelling connection request:", error);
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
         throw error;
       }
       
-      // Verify deletion was successful by checking the database
-      const { data: verifyData } = await supabase
+      // Update UI optimistically
+      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
+      
+      // Double-check deletion success
+      const { data: checkData } = await supabase
         .from('connections')
         .select('id')
         .eq('id', connectionId);
-        
-      if (verifyData && verifyData.length > 0) {
+      
+      if (checkData && checkData.length > 0) {
         console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionId);
         
-        // Try a second deletion with a more direct approach
-        try {
-          // Use raw SQL execution as a fallback
-          const { error: sqlError } = await supabase
-            .from('connections')
-            .delete()
-            .eq('id', connectionId);
+        // Second deletion attempt
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', connectionId);
           
-          if (sqlError) {
-            console.error("[ConnectionContext] Error in force delete:", sqlError);
-          }
-        } catch (e) {
-          console.error("[ConnectionContext] Error in force delete execution:", e);
-        }
-        
         // Final verification
-        const { data: finalVerifyData } = await supabase
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionId);
           
-        if (finalVerifyData && finalVerifyData.length > 0) {
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
           throw new Error("Failed to delete connection after multiple attempts");
         }
       }
       
-      console.log("[ConnectionContext] Successfully deleted connection from database");
-      
-      // Update UI only after successful database update
-      setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
-      
-      // Create notification for the recipient about the cancellation
-      await createNotification(
-        requestToCancel.recipient_id,
-        'connection',
-        'Connection Request Cancelled',
-        'A connection request to you has been cancelled.',
-        '/profile?tab=requests'
-      );
+      // Create notification
+      if (requestToCancel.recipient_id) {
+        await createNotification(
+          requestToCancel.recipient_id,
+          'connection',
+          'Connection Request Cancelled',
+          'A connection request to you has been cancelled.',
+          '/profile?tab=requests'
+        );
+      }
       
       toast({
         title: "Request Cancelled",
@@ -364,9 +366,13 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error("[ConnectionContext] Error cancelling connection:", error);
       toast({
         title: "Error",
-        description: "Failed to cancel connection request",
+        description: "Failed to cancel connection request. Please try again.",
         variant: "destructive",
       });
+      // Refresh connections to ensure UI is in sync with database
+      fetchConnections();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -378,86 +384,61 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       console.log("[ConnectionContext] Removing connection:", connectionToRemove.id);
       
-      // Delete the connection from the database
+      // First deletion attempt
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionToRemove.id);
         
       if (error) {
-        console.error("[ConnectionContext] Error removing connection:", error);
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
         throw error;
       }
       
-      // Wait a moment for deletion to process
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Update UI optimistically
+      setConnections(prev => prev.filter(conn => conn.id !== connectionToRemove.id));
       
-      // Verify deletion was successful
-      const { data: verifyData } = await supabase
+      // Double-check deletion success
+      const { data: checkData } = await supabase
         .from('connections')
         .select('id')
         .eq('id', connectionToRemove.id);
-        
-      if (verifyData && verifyData.length > 0) {
+      
+      if (checkData && checkData.length > 0) {
         console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionToRemove.id);
         
-        // Try a second deletion with a different approach
-        const { error: secondError } = await supabase
+        // Second deletion attempt
+        await supabase
           .from('connections')
           .delete()
           .eq('id', connectionToRemove.id);
           
-        if (secondError) {
-          console.error("[ConnectionContext] Error in second deletion attempt:", secondError);
-        }
-        
-        // Try a direct SQL execution method as final attempt
-        try {
-          // Execute a final deletion attempt using SQL
-          await supabase
-            .from('connections')
-            .delete()
-            .eq('id', connectionToRemove.id);
-          
-          console.log("[ConnectionContext] Executed final deletion attempt");
-        } catch (e) {
-          console.error("[ConnectionContext] Error in force delete:", e);
-        }
-        
         // Final verification
-        const { data: finalCheckData } = await supabase
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionToRemove.id);
           
-        if (finalCheckData && finalCheckData.length > 0) {
-          toast({
-            title: "Error",
-            description: "Failed to remove connection. Please try again.",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          return;
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
+          throw new Error("Failed to delete connection after multiple attempts");
         }
       }
-      
-      console.log("[ConnectionContext] Successfully deleted connection from database");
-      
-      // Update UI only after successful database update
-      setConnections(connections.filter(conn => conn.id !== connectionToRemove.id));
       
       // Create notification for the other user
       const otherUserId = connectionToRemove.isOutgoing 
         ? connectionToRemove.recipient_id 
         : connectionToRemove.requester_id;
         
-      await createNotification(
-        otherUserId,
-        'connection',
-        'Connection Removed',
-        `A connection has been removed from your network.`,
-        '/profile'
-      );
+      if (otherUserId) {
+        await createNotification(
+          otherUserId,
+          'connection',
+          'Connection Removed',
+          `A connection has been removed from your network.`,
+          '/profile'
+        );
+      }
       
       toast({
         title: "Connection Removed",
@@ -470,9 +451,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error("[ConnectionContext] Error removing connection:", error);
       toast({
         title: "Error",
-        description: "Failed to remove connection. Please try again later.",
+        description: "Failed to remove connection. Please try again.",
         variant: "destructive",
       });
+      // Refresh connections to ensure UI is in sync with database
+      fetchConnections();
     } finally {
       setIsProcessing(false);
     }
@@ -484,16 +467,19 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // First check if a connection already exists
       const { data: existingConnection, error: checkError } = await supabase
         .from('connections')
-        .select('id')
+        .select('id, status')
         .or(`and(requester_id.eq.${userId},recipient_id.eq.${recipientId}),and(requester_id.eq.${recipientId},recipient_id.eq.${userId})`)
-        .single();
+        .maybeSingle();
       
-      if (checkError && !checkError.message.includes('No rows found')) throw checkError;
+      if (checkError && !checkError.message.includes('No rows found')) {
+        throw checkError;
+      }
       
       if (existingConnection) {
+        const status = existingConnection.status === 'pending' ? 'pending' : 'already connected';
         toast({
           title: "Connection Exists",
-          description: "You already have a connection with this user",
+          description: `You ${status === 'pending' ? 'already have a pending request' : 'are already connected'} with this user`,
         });
         return;
       }

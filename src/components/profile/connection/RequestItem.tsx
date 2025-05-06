@@ -2,7 +2,7 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { UserCheck, UserX, Clock, LinkIcon } from "lucide-react";
+import { UserCheck, UserX, Clock, LinkIcon, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useConnections } from "@/contexts/ConnectionContext";
 
@@ -27,7 +27,28 @@ interface RequestItemProps {
 }
 
 const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
-  const { handleAcceptRequest, handleRejectRequest, handleCancelRequest } = useConnections();
+  const { handleAcceptRequest, handleRejectRequest, handleCancelRequest, isProcessing } = useConnections();
+  const [localProcessing, setLocalProcessing] = React.useState(false);
+  
+  const onAccept = async () => {
+    setLocalProcessing(true);
+    await handleAcceptRequest(request.id);
+    setLocalProcessing(false);
+  };
+  
+  const onReject = async () => {
+    setLocalProcessing(true);
+    await handleRejectRequest(request.id);
+    setLocalProcessing(false);
+  };
+  
+  const onCancel = async () => {
+    setLocalProcessing(true);
+    await handleCancelRequest(request.id);
+    setLocalProcessing(false);
+  };
+  
+  const isButtonDisabled = isProcessing || localProcessing;
 
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -63,25 +84,31 @@ const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
           <Button 
             size="sm" 
             variant="destructive" 
-            onClick={() => handleCancelRequest(request.id)}
+            onClick={onCancel}
+            disabled={isButtonDisabled}
           >
-            <UserX size={14} className="mr-1" /> Cancel
+            {localProcessing ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserX size={14} className="mr-1" />}
+            Cancel
           </Button>
         ) : (
           <>
             <Button 
               size="sm" 
               className="bg-skill-purple" 
-              onClick={() => handleAcceptRequest(request.id)}
+              onClick={onAccept}
+              disabled={isButtonDisabled}
             >
-              <UserCheck size={14} className="mr-1" /> Accept
+              {localProcessing ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
+              Accept
             </Button>
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={() => handleRejectRequest(request.id)}
+              onClick={onReject}
+              disabled={isButtonDisabled}
             >
-              <UserX size={14} className="mr-1" /> Decline
+              {localProcessing ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserX size={14} className="mr-1" />}
+              Decline
             </Button>
           </>
         )}
