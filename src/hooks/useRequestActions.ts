@@ -60,7 +60,7 @@ export const useRequestActions = (
           .from("sessions")
           .select(`
             *, 
-            student:profiles!student_id(id, first_name, last_name, email),
+            student:profiles!student_id(id, first_name, last_name),
             teacher:profiles!teacher_id(id, first_name, last_name)
           `)
           .eq("id", requestId)
@@ -81,6 +81,24 @@ export const useRequestActions = (
         console.log(`[RequestActions] Handling ${action} for session request:`, requestToUpdate);
         
         if (action === "accept") {
+          // We need the student's email for the calendar invite
+          // Since the email is not in the profiles table, we need to fetch it separately
+          const { data: studentData, error: studentError } = await supabase
+            .rpc('get_user_email', { user_id: requestToUpdate.student_id });
+            
+          if (studentError) {
+            console.error("[RequestActions] Error fetching student email:", studentError);
+            toast({
+              title: "Error",
+              description: "Failed to retrieve student email for calendar invite.",
+              variant: "destructive",
+            });
+            setProcessingRequestId(null);
+            return;
+          }
+          
+          const studentEmail = studentData;
+          
           // Create Google Meet link if accepting
           let meetingLink = "";
 
@@ -100,7 +118,7 @@ export const useRequestActions = (
                   start: {
                     dateTime: `${requestToUpdate.day}T${getTimeFromSlot(requestToUpdate.time_slot)}`,
                   },
-                  attendee_email: requestToUpdate.student?.email,
+                  attendee_email: studentEmail,
                 }),
               }
             );
