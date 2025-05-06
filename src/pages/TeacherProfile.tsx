@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -186,7 +185,7 @@ const TeacherProfile = () => {
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   <span className="font-medium">
-                    {reviews && reviews.length > 0
+                    {reviews.length > 0
                       ? (
                           reviews.reduce(
                             (acc, review) => acc + review.rating,
@@ -196,13 +195,13 @@ const TeacherProfile = () => {
                       : "New"}
                   </span>
                   <span className="text-muted-foreground">
-                    ({reviews ? reviews.length : 0})
+                    ({reviews.length})
                   </span>
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {teachingSkills && teachingSkills.map((skill) => (
+                {teachingSkills.map((skill) => (
                   <Badge key={skill.id} variant="secondary">
                     {skill.skill}
                   </Badge>
@@ -266,7 +265,7 @@ const TeacherProfile = () => {
                           <SelectValue placeholder="Choose a skill" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teachingSkills && teachingSkills.map((skill) => (
+                          {teachingSkills.map((skill) => (
                             <SelectItem key={skill.id} value={skill.skill}>
                               {skill.skill}
                             </SelectItem>
@@ -390,7 +389,7 @@ const TeacherProfile = () => {
                 <CardTitle>Reviews</CardTitle>
               </CardHeader>
               <CardContent>
-                {reviews && reviews.length > 0 ? (
+                {reviews.length > 0 ? (
                   <div className="space-y-4">
                     {reviews.slice(0, 3).map((review) => (
                       <ReviewCard key={review.id} review={review} />
@@ -445,7 +444,7 @@ const TeacherProfile = () => {
                     <div>
                       <h3 className="mb-2 text-lg font-medium">Skills</h3>
                       <div className="flex flex-wrap gap-2">
-                        {teachingSkills && teachingSkills.map((skill) => (
+                        {teachingSkills.map((skill) => (
                           <Badge key={skill.id} variant="secondary">
                             {skill.skill}
                           </Badge>
@@ -464,7 +463,7 @@ const TeacherProfile = () => {
                       Available Time Slots
                     </h3>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {availabilityByDate && Object.entries(availabilityByDate).map(
+                      {Object.entries(availabilityByDate).map(
                         ([date, timeSlots]) => (
                           <Card key={date}>
                             <CardHeader className="pb-2">
@@ -494,9 +493,9 @@ const TeacherProfile = () => {
                 <CardContent className="pt-6">
                   <div className="space-y-6">
                     <h3 className="text-lg font-medium">
-                      Student Reviews ({reviews ? reviews.length : 0})
+                      Student Reviews ({reviews.length})
                     </h3>
-                    {reviews && reviews.length > 0 ? (
+                    {reviews.length > 0 ? (
                       <div className="space-y-4">
                         {reviews.map((review) => (
                           <ReviewCard key={review.id} review={review} />

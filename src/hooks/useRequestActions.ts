@@ -1,7 +1,8 @@
-
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, createNotification } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_URL } from "@/integrations/supabase/client";
+import { createNotification } from "@/integrations/supabase/client";
 
 // Helper function to convert time slot to a 24-hour format
 const getTimeFromSlot = (timeSlot: string) => {
@@ -55,57 +56,23 @@ export const useRequestActions = (
           return;
         }
 
-        // Find the session request using fetch instead of local state
-        const { data: requestsData } = await supabase
-          .from("sessions")
-          .select(`
-            *, 
-            student:profiles!student_id(id, first_name, last_name),
-            teacher:profiles!teacher_id(id, first_name, last_name)
-          `)
-          .eq("id", requestId)
-          .single();
-          
-        if (!requestsData) {
+        // Find the session request
+        const requestToUpdate = sessionRequests.find((r) => r.id === requestId);
+        if (!requestToUpdate) {
           console.error(`[RequestActions] Request not found: ${requestId}`);
-          toast({
-            title: "Error",
-            description: "Session request not found. It may have been deleted.",
-            variant: "destructive",
-          });
-          setProcessingRequestId(null);
           return;
         }
-        
-        const requestToUpdate = requestsData;
+
         console.log(`[RequestActions] Handling ${action} for session request:`, requestToUpdate);
         
         if (action === "accept") {
-          // We need the student's email for the calendar invite
-          // Since the email is not in the profiles table, we need to fetch it separately
-          const { data: studentData, error: studentError } = await supabase
-            .rpc('get_user_email', { user_id: requestToUpdate.student_id });
-            
-          if (studentError) {
-            console.error("[RequestActions] Error fetching student email:", studentError);
-            toast({
-              title: "Error",
-              description: "Failed to retrieve student email for calendar invite.",
-              variant: "destructive",
-            });
-            setProcessingRequestId(null);
-            return;
-          }
-          
-          const studentEmail = studentData;
-          
           // Create Google Meet link if accepting
           let meetingLink = "";
 
           try {
             // Create meeting link through Google Calendar API
             const meetResponse = await fetch(
-              `https://rojydqsndhoielitdquu.supabase.co/functions/v1/create-google-meet-link`,
+              `${SUPABASE_URL}/functions/v1/create-google-meet-link`,
               {
                 method: "POST",
                 headers: {
@@ -114,11 +81,11 @@ export const useRequestActions = (
                 },
                 body: JSON.stringify({
                   summary: `SkillSync Session: ${requestToUpdate.skill}`,
-                  description: `Session between ${requestToUpdate.student?.first_name} and ${requestToUpdate.teacher?.first_name} for ${requestToUpdate.skill}`,
+                  description: `Session between ${requestToUpdate.student_first_name} and ${requestToUpdate.teacher_first_name} for ${requestToUpdate.skill}`,
                   start: {
                     dateTime: `${requestToUpdate.day}T${getTimeFromSlot(requestToUpdate.time_slot)}`,
                   },
-                  attendee_email: studentEmail,
+                  attendee_email: requestToUpdate.student_email,
                 }),
               }
             );
@@ -137,7 +104,7 @@ export const useRequestActions = (
               description: "Failed to create meeting link. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId(null);
+            setProcessingRequestId("");
             return;
           }
 
@@ -157,7 +124,7 @@ export const useRequestActions = (
               description: "Failed to accept session request. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId(null);
+            setProcessingRequestId("");
             return;
           }
 
@@ -188,7 +155,7 @@ export const useRequestActions = (
               description: "Failed to decline session request. Please try again.",
               variant: "destructive",
             });
-            setProcessingRequestId(null);
+            setProcessingRequestId("");
             return;
           }
 
@@ -224,6 +191,7 @@ export const useRequestActions = (
     },
     [
       userId,
+      sessionRequests,
       googleAccessToken,
       isGoogleConnected,
       onConnectGoogle,
