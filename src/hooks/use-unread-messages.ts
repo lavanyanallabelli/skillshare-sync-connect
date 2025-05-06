@@ -1,35 +1,39 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useUnreadMessages = (userId: string | undefined) => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
+  // Function to fetch unread message count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!userId) return;
+
+    console.log('[useUnreadMessages] Fetching unread message count for user:', userId);
+    try {
+      const { data, error } = await supabase
+        .rpc('get_unread_message_count', { user_id: userId });
+      
+      if (!error && data !== null) {
+        console.log('[useUnreadMessages] Unread message count:', data);
+        setUnreadCount(data);
+      } else if (error) {
+        console.error('[useUnreadMessages] Error fetching unread message count:', error);
+      }
+    } catch (err) {
+      console.error('[useUnreadMessages] Exception in fetching unread count:', err);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) return;
 
-    const fetchUnreadCount = async () => {
-      console.log('[useUnreadMessages] Fetching unread message count for user:', userId);
-      try {
-        const { data, error } = await supabase
-          .rpc('get_unread_message_count', { user_id: userId });
-        
-        if (!error && data !== null) {
-          console.log('[useUnreadMessages] Unread message count:', data);
-          setUnreadCount(data);
-        } else if (error) {
-          console.error('[useUnreadMessages] Error fetching unread message count:', error);
-        }
-      } catch (err) {
-        console.error('[useUnreadMessages] Exception in fetching unread count:', err);
-      }
-    };
-
+    // Initial fetch
     fetchUnreadCount();
 
     // Subscribe to multiple channels for comprehensive updates
     const messageChannel = supabase
-      .channel('message-changes')
+      .channel('message-changes-' + userId)
       .on(
         'postgres_changes',
         {
@@ -40,6 +44,17 @@ export const useUnreadMessages = (userId: string | undefined) => {
         },
         (payload) => {
           console.log('[useUnreadMessages] Message event:', payload.eventType, payload);
+          
+          // Immediately update count for specific events
+          if (payload.eventType === 'INSERT') {
+            // For new message, increment count
+            setUnreadCount(prev => prev + 1);
+          } else if (payload.eventType === 'UPDATE' && payload.new.read_at && !payload.old.read_at) {
+            // For message marked as read, decrement count
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
+          
+          // Also refresh the count from the database to ensure accuracy
           fetchUnreadCount();
         }
       )
@@ -47,7 +62,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
       
     // Also subscribe to notifications table to update count when notifications are created/updated
     const notificationChannel = supabase
-      .channel('notification-changes')
+      .channel('notification-changes-' + userId)
       .on(
         'postgres_changes',
         {
@@ -56,8 +71,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
           table: 'notifications',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
-          console.log('[useUnreadMessages] Notification event:', payload.eventType, payload);
+        () => {
           fetchUnreadCount();
         }
       )
@@ -65,7 +79,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
       
     // Also subscribe to connections table for connection-related updates
     const connectionChannel = supabase
-      .channel('connection-changes')
+      .channel('connection-changes-' + userId)
       .on(
         'postgres_changes',
         {
@@ -74,8 +88,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
           table: 'connections',
           filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
         },
-        (payload) => {
-          console.log('[useUnreadMessages] Connection event:', payload.eventType, payload);
+        () => {
           fetchUnreadCount();
         }
       )
@@ -83,7 +96,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
 
     // Also subscribe to sessions table for session-related updates
     const sessionChannel = supabase
-      .channel('session-changes')
+      .channel('session-changes-' + userId)
       .on(
         'postgres_changes',
         {
@@ -92,8 +105,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
           table: 'sessions',
           filter: `or(teacher_id.eq.${userId},student_id.eq.${userId})`
         },
-        (payload) => {
-          console.log('[useUnreadMessages] Session event:', payload.eventType, payload);
+        () => {
           fetchUnreadCount();
         }
       )
@@ -108,7 +120,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
       supabase.removeChannel(connectionChannel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [userId]);
+  }, [userId, fetchUnreadCount]);
 
   return unreadCount;
 };

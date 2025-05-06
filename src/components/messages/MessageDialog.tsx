@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, markMessagesAsRead, markMessageAsRead } from "@/integrations/supabase/client";
 import { format } from 'date-fns';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -53,22 +53,10 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            console.log('[MessageDialog] Marking messages as read from', receiverId);
+            console.log('[MessageDialog] Fetching and marking messages as read from', receiverId);
             
-            // Mark messages as read with explicit timestamp
-            const now = new Date().toISOString();
-            const { error: markReadError } = await supabase
-                .from('messages')
-                .update({ read_at: now })
-                .eq('receiver_id', user.id)
-                .eq('sender_id', receiverId)
-                .is('read_at', null);
-                
-            if (markReadError) {
-                console.error('[MessageDialog] Error marking messages as read:', markReadError);
-            } else {
-                console.log('[MessageDialog] Successfully marked messages as read at', now);
-            }
+            // Mark messages as read using helper function
+            await markMessagesAsRead(user.id, receiverId);
 
             // Get messages
             const { data, error } = await supabase
@@ -96,7 +84,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
             if (!user) return;
 
             const channel = supabase
-                .channel('messages')
+                .channel('messages-dialog')
                 .on(
                     'postgres_changes',
                     {
@@ -106,24 +94,28 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
                         filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
                     },
                     (payload) => {
+                        console.log('[MessageDialog] New message received:', payload.new);
                         setMessages(prev => [...prev, payload.new as Message]);
                         
                         // If we receive a message, mark it as read immediately
                         if (payload.new.receiver_id === user.id) {
-                            const now = new Date().toISOString();
-                            console.log('[MessageDialog] New message received, marking as read:', payload.new.id);
-                            supabase
-                                .from('messages')
-                                .update({ read_at: now })
-                                .eq('id', payload.new.id)
-                                .then(({ error }) => {
-                                    if (error) {
-                                        console.error('[MessageDialog] Error marking new message as read:', error);
-                                    } else {
-                                        console.log('[MessageDialog] New message marked as read at', now);
-                                    }
-                                });
+                            markMessageAsRead(payload.new.id);
                         }
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'messages',
+                        filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id}))`
+                    },
+                    (payload) => {
+                        console.log('[MessageDialog] Message updated:', payload.new);
+                        setMessages(prev => 
+                            prev.map(msg => msg.id === payload.new.id ? { ...msg, ...payload.new as Message } : msg)
+                        );
                     }
                 )
                 .subscribe();
