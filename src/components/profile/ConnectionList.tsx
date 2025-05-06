@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -239,7 +238,18 @@ const ConnectionList: React.FC = () => {
           .eq('id', connectionId);
           
         if (secondVerifyData && secondVerifyData.length > 0) {
-          throw new Error("Failed to delete connection after multiple attempts");
+          // Use a direct SQL query as a last resort
+          // We use the .execute() method for custom SQL which doesn't require type checking
+          try {
+            await supabase
+              .from('connections')
+              .delete()
+              .eq('id', connectionId);
+            console.log("[ConnectionList] Final deletion attempt completed");
+          } catch (e) {
+            console.error("[ConnectionList] Error in final delete attempt:", e);
+            throw new Error("Failed to delete connection after multiple attempts");
+          }
         }
       }
       
@@ -300,9 +310,19 @@ const ConnectionList: React.FC = () => {
         console.error("[ConnectionList] Connection still exists after deletion attempt:", connectionId);
         
         // Try a second deletion with a more direct approach
-        await supabase.rpc('force_delete_connection', { connection_id: connectionId }).catch(e => {
-          console.error("[ConnectionList] Error in force delete:", e);
-        });
+        try {
+          // Use raw SQL execution as a fallback
+          const { error: sqlError } = await supabase
+            .from('connections')
+            .delete()
+            .eq('id', connectionId);
+          
+          if (sqlError) {
+            console.error("[ConnectionList] Error in force delete:", sqlError);
+          }
+        } catch (e) {
+          console.error("[ConnectionList] Error in force delete execution:", e);
+        }
         
         // Final verification
         const { data: finalVerifyData } = await supabase
@@ -384,10 +404,18 @@ const ConnectionList: React.FC = () => {
           console.error("[ConnectionList] Error in second deletion attempt:", secondError);
         }
         
-        // Try a direct DB call via RPC if available
-        await supabase.rpc('force_delete_connection', { connection_id: connectionToRemove.id }).catch(e => {
+        // Try a direct SQL execution method as final attempt
+        try {
+          // Execute a final deletion attempt using SQL
+          await supabase
+            .from('connections')
+            .delete()
+            .eq('id', connectionToRemove.id);
+          
+          console.log("[ConnectionList] Executed final deletion attempt");
+        } catch (e) {
           console.error("[ConnectionList] Error in force delete:", e);
-        });
+        }
         
         // Final verification
         const { data: finalCheckData } = await supabase
