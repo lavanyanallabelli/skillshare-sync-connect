@@ -43,47 +43,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout }) => {
       console.log("[UserMenu] Component mounted, refreshing notifications");
       fetchNotifications();
     }
-  }, [userId, fetchNotifications]);
+  }, [userId]);
   
   const handleNotificationClick = async (notification: any) => {
     try {
       console.log("[UserMenu] Notification clicked:", notification.id);
       await markAsRead(notification.id);
-      
-      // Navigate to action URL if present
-      if (notification.action_url) {
-        window.location.href = notification.action_url;
-      }
     } catch (error) {
       console.error("[UserMenu] Error handling notification click:", error);
-    }
-  };
-
-  // Handle notification item icons based on type
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'connection':
-        return <MessageSquare size={14} />;
-      case 'message':
-        return <MessageSquare size={14} />;
-      case 'session':
-        return <Bell size={14} />;
-      default:
-        return <Bell size={14} />;
-    }
-  };
-  
-  // Handle notification background color based on type
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'connection':
-        return 'bg-blue-100 text-blue-600';
-      case 'message':
-        return 'bg-purple-100 text-purple-600';
-      case 'session':
-        return 'bg-green-100 text-green-600';
-      default:
-        return 'bg-gray-100 text-gray-600';
     }
   };
 
@@ -141,8 +108,18 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout }) => {
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`rounded-full p-2 ${getNotificationColor(notification.type)}`}>
-                      {getNotificationIcon(notification.type)}
+                    <div className={`rounded-full p-2 ${
+                      notification.type === 'connection' ? 'bg-blue-100 text-blue-600' :
+                      notification.type === 'session' ? 'bg-green-100 text-green-600' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {notification.type === 'connection' ? (
+                        <MessageSquare size={14} />
+                      ) : notification.type === 'session' ? (
+                        <Bell size={14} />
+                      ) : (
+                        <Bell size={14} />
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-sm">{notification.title}</p>

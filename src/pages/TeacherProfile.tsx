@@ -1,519 +1,756 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-import { supabase, createNotification } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
-import { useToast } from "@/hooks/use-toast";
+import { useParams, Link } from "react-router-dom";
+import MainLayout from "@/components/layout/MainLayout";
+import ProfileHeader from "@/components/profile/ProfileHeader";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
-import { Star, MapPin, Briefcase, GraduationCap, Clock } from "lucide-react";
-import ProfileLayout from "@/components/layout/ProfileLayout";
-import ReviewCard from "@/components/profile/ReviewCard";
-import { useTeacherProfile } from "@/hooks/useTeacherProfile";
+import { format, parse, addHours, subHours } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Clock,
+  Calendar as CalendarIcon,
+  Star,
+  MessageSquare,
+  UserPlus,
+  UserCheck,
+  Clock as PendingIcon,
+  Trash2
+} from "lucide-react";
+import MessageDialog from "@/components/messages/MessageDialog";
+import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
+import ReportDialog from "@/components/profile/ReportDialog";
 
 const TeacherProfile = () => {
-  const { id: teacherId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { userId, isLoggedIn } = useAuth();
+  const { id } = useParams();
   const { toast } = useToast();
-
-  const {
-    teacherData,
-    teachingSkills,
-    reviews,
-    availabilityByDate,
-    loading,
-    error,
-  } = useTeacherProfile(teacherId || "");
-
-  const [step, setStep] = useState(1);
-  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
-  const [isBooking, setIsBooking] = useState(false);
+  const { isLoggedIn, userId } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedSkill, setSelectedSkill] = useState("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [teacher, setTeacher] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [availabilityTimes, setAvailabilityTimes] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("skills");
+  const [savedAvailabilities, setSavedAvailabilities] = useState<{ id: string, time: string, date: string }[]>([]);
+  const [selectedTimes, setSelectedTimes] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
-    if (selectedDate && availabilityByDate) {
-      setAvailableTimeSlots(availabilityByDate[selectedDate] || []);
-      setSelectedTimeSlot(null);
-    }
-  }, [selectedDate, availabilityByDate]);
+    const fetchTeacherData = async () => {
+      if (!id) return;
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      const formattedDate = format(date, "yyyy-MM-dd");
-      setSelectedDate(formattedDate);
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        const { data: teachingSkills, error: skillsError } = await supabase
+          .from('teaching_skills')
+          .select('*')
+          .eq('user_id', id);
+
+        if (skillsError) throw skillsError;
+
+        const { data: learningSkills, error: learningError } = await supabase
+          .from('learning_skills')
+          .select('*')
+          .eq('user_id', id);
+
+        if (learningError) throw learningError;
+
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            created_at,
+            reviewer_id
+          `)
+          .eq('recipient_id', id);
+
+        if (reviewsError) throw reviewsError;
+
+        let formattedReviews: any[] = [];
+        if (reviewsData && reviewsData.length > 0) {
+          const reviewerIds = [...new Set(reviewsData.map(review => review.reviewer_id))];
+          const { data: reviewerProfiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', reviewerIds);
+
+          const profileMap = new Map();
+          if (reviewerProfiles) {
+            reviewerProfiles.forEach(profile => {
+              profileMap.set(profile.id, profile);
+            });
+          }
+
+          formattedReviews = reviewsData.map(review => {
+            const profile = profileMap.get(review.reviewer_id);
+            return {
+              id: review.id,
+              name: profile ? `${profile.first_name} ${profile.last_name}` : 'User',
+              avatar: profile?.avatar_url || '/placeholder.svg',
+              rating: review.rating,
+              date: format(new Date(review.created_at), 'MMMM d, yyyy'),
+              comment: review.comment
+            };
+          });
+        }
+
+        setReviews(formattedReviews);
+
+        const formattedTeacher = {
+          id: profileData.id,
+          name: `${profileData.first_name} ${profileData.last_name}`,
+          avatar: profileData.avatar_url || "/placeholder.svg",
+          rating: 4.8,
+          location: profileData.location || "",
+          company: profileData.occupation || "",
+          education: profileData.education || "",
+          achievements: ["New Member"],
+          bio: profileData.bio || "",
+          teachingSkills: teachingSkills?.map(skill => skill.skill) || [],
+          learningSkills: learningSkills?.map(skill => skill.skill) || []
+        };
+
+        setTeacher(formattedTeacher);
+      } catch (error) {
+        console.error("Error fetching teacher data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load teacher profile",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTeacherData();
+  }, [id, toast]);
+
+  useEffect(() => {
+    const checkConnectionStatus = async () => {
+      if (!isLoggedIn || !userId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('connections')
+          .select('*')
+          .or(`and(requester_id.eq.${userId},recipient_id.eq.${id}),and(requester_id.eq.${id},recipient_id.eq.${userId})`)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+
+        if (data) {
+          setConnectionStatus(data.status);
+        } else {
+          setConnectionStatus(null);
+        }
+      } catch (error) {
+        console.error("Error checking connection status:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkConnectionStatus();
+  }, [id, isLoggedIn, userId]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_availability')
+          .select('*')
+          .eq('user_id', id)
+          .eq('is_available', true);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const timesByDate: { [key: string]: string[] } = {};
+          const availabilities: { id: string, time: string, date: string }[] = [];
+          const times: string[] = [];
+
+          data.forEach(slot => {
+            const date = slot.day;
+            const time = slot.time_slot;
+
+            if (!timesByDate[date]) {
+              timesByDate[date] = [];
+            }
+            timesByDate[date].push(time);
+
+            availabilities.push({
+              id: slot.id,
+              time: time,
+              date: date
+            });
+
+            times.push(time);
+          });
+
+          setSelectedTimes(timesByDate);
+          setSavedAvailabilities(availabilities);
+          setAvailabilityTimes(times);
+        }
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+      }
+    };
+
+    fetchAvailability();
+  }, [id]);
+
+  const handleConnect = async () => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to connect with teachers",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('connections')
+        .insert({
+          requester_id: userId,
+          recipient_id: id,
+          status: 'pending'
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: "Already Connected",
+            description: "You have already sent a connection request to this teacher",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        setConnectionStatus('pending');
+
+        toast({
+          title: "Connection Request Sent!",
+          description: "Your connection request has been sent to the teacher.",
+        });
+      }
+    } catch (error) {
+      console.error("Error connecting:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send connection request. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const bookSession = async () => {
-    if (!teacherId || !userId || !selectedSkill) return;
+  const handleBookSession = async () => {
+    if (!selectedSkill) {
+      toast({
+        title: "Skill Required",
+        description: "Please select a skill you want to learn",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedTimeSlot || !selectedDate) {
+      toast({
+        title: "Time Slot Required",
+        description: "Please select a time slot for your session",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isLoggedIn || !userId) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to book a session",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      setIsBooking(true);
-
-      // Existing code to create a session
-      const { data: session, error } = await supabase
-        .from("sessions")
-        .insert({
-          teacher_id: teacherId,
-          student_id: userId,
-          skill: selectedSkill,
-          day: selectedDate,
-          time_slot: selectedTimeSlot,
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Error booking session:", error);
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      console.log('Booking DEBUG:', {
+        teacherId: id,
+        formattedDate,
+        selectedTimeSlot
+      });
+      
+      const timeSlots = selectedTimes[formattedDate] || [];
+      console.log("Available time slots for this date:", timeSlots);
+      console.log("All selected times:", selectedTimes);
+      
+      if (!timeSlots.includes(selectedTimeSlot)) {
         toast({
-          title: "Booking Failed",
-          description: error.message,
+          title: "Time Slot Error",
+          description: `The selected time slot (${selectedTimeSlot}) is not in the available slots for date ${formattedDate}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const { data: availabilityCheck, error: availabilityError } = await supabase
+        .from('user_availability')
+        .select('id')
+        .eq('user_id', id)
+        .eq('day', formattedDate)
+        .eq('time_slot', selectedTimeSlot)
+        .eq('is_available', true);
+
+      if (availabilityError) {
+        console.error("Availability check error:", availabilityError);
+        throw availabilityError;
+      }
+
+      console.log("Availability check result:", availabilityCheck);
+
+      if (!availabilityCheck || availabilityCheck.length === 0) {
+        toast({
+          title: "Time Slot Unavailable",
+          description: `The selected time slot (${selectedTimeSlot}) is not available for this date (${formattedDate}). Please select another time.`,
           variant: "destructive",
         });
         return;
       }
 
-      // Add notification for the teacher
-      await createNotification(
-        teacherId,
-        'session',
-        'New Session Request',
-        `You have a new session request for ${selectedSkill} on ${format(new Date(selectedDate), 'MMMM d')} at ${selectedTimeSlot}`,
-        '/profile?tab=requests'
-      );
+      const { data: existingSession, error: sessionCheckError } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('teacher_id', id)
+        .eq('day', formattedDate)
+        .eq('time_slot', selectedTimeSlot)
+        .in('status', ['pending', 'accepted']);
 
-      console.log("Session booked successfully:", session);
+      if (sessionCheckError) {
+        console.error("Session check error:", sessionCheckError);
+        throw sessionCheckError;
+      }
+
+      console.log("Existing session check result:", existingSession);
+
+      if (existingSession && existingSession.length > 0) {
+        toast({
+          title: "Session Unavailable",
+          description: "This time slot has already been booked by someone else. Please select another time.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .insert({
+          teacher_id: id,
+          student_id: userId,
+          skill: selectedSkill,
+          day: formattedDate,
+          time_slot: selectedTimeSlot,
+          status: 'pending'
+        })
+        .select();
+
+      if (sessionError) {
+        console.error("Session creation error:", sessionError);
+        throw sessionError;
+      }
+
+      // Get user details to include in notification
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+      }
+
+      const studentName = userData ? `${userData.first_name} ${userData.last_name}` : "A student";
+      
+      // Create notification for the teacher
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: id,
+          type: 'session',
+          title: 'New Session Request',
+          description: `${studentName} has requested a session on ${formattedDate} at ${selectedTimeSlot} for ${selectedSkill}`,
+          action_url: '/profile?tab=requests',
+          read: false,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error("Error creating notification:", notificationError);
+      }
+
+      console.log("Session created successfully:", sessionData);
+
       toast({
-        title: "Session Booked",
-        description: "Your session has been requested. You'll be notified when confirmed.",
+        title: "Session Requested",
+        description: `Your learning request has been sent to ${teacher?.name}`,
       });
 
-      // Rest of the existing code...
-      setStep(3);
+      setDialogOpen(false);
+      setSelectedSkill("");
+      setSelectedTimeSlot("");
     } catch (error) {
-      console.error("Error in bookSession:", error);
+      console.error('Error booking session:', error);
       toast({
-        title: "Booking Failed",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Error",
+        description: "Failed to book session. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsBooking(false);
     }
   };
 
-  if (loading) {
+  const handleMessageClick = () => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to send messages",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMessageDialogOpen(true);
+  };
+
+  const handleSaveSchedule = () => {
+    setActiveTab("availability");
+  };
+
+  const handleDeleteAvailability = async (date: string, time: string) => {
+    if (!isLoggedIn || !userId) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete availability",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const formattedDate = format(new Date(date), 'yyyy-MM-dd');
+
+      const { error } = await supabase
+        .from('user_availability')
+        .delete()
+        .eq('user_id', id)
+        .eq('day', formattedDate)
+        .eq('time_slot', time);
+
+      if (error) throw error;
+
+      setSelectedTimes(prev => {
+        const updated = { ...prev };
+        if (updated[date]) {
+          updated[date] = updated[date].filter(t => t !== time);
+          if (updated[date].length === 0) {
+            delete updated[date];
+          }
+        }
+        return updated;
+      });
+
+      setSavedAvailabilities(prev =>
+        prev.filter(slot => !(slot.time === time && slot.date === formattedDate))
+      );
+
+      setAvailabilityTimes(prev =>
+        prev.filter(t => t !== time)
+      );
+
+      toast({
+        title: "Availability Deleted",
+        description: `The time slot ${time} has been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete availability. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
     return (
-      <ProfileLayout>
+      <MainLayout>
         <div className="container max-w-6xl py-8">
-          <div className="space-y-4">
-            <Skeleton className="h-40 w-full rounded-lg" />
-            <Skeleton className="h-20 w-full rounded-lg" />
-            <Skeleton className="h-60 w-full rounded-lg" />
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-skill-purple"></div>
           </div>
         </div>
-      </ProfileLayout>
+      </MainLayout>
     );
   }
 
-  if (error || !teacherData) {
+  if (!teacher) {
     return (
-      <ProfileLayout>
+      <MainLayout>
         <div className="container max-w-6xl py-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold">Error</h2>
-            <p className="text-muted-foreground">
-              Failed to load teacher profile. Please try again later.
-            </p>
-            <Button
-              className="mt-4"
-              onClick={() => navigate("/search")}
-              variant="outline"
-            >
-              Back to Search
-            </Button>
+            <h2 className="text-2xl font-bold text-gray-900">Teacher not found</h2>
+            <p className="mt-2 text-gray-600">The teacher profile you're looking for doesn't exist.</p>
           </div>
         </div>
-      </ProfileLayout>
+      </MainLayout>
     );
   }
 
   return (
-    <ProfileLayout>
+    <MainLayout>
       <div className="container max-w-6xl py-8">
-        {/* Teacher Header */}
-        <div className="mb-8 rounded-lg border bg-card p-6 shadow-sm">
-          <div className="flex flex-col gap-6 md:flex-row">
-            <div className="flex-shrink-0">
-              <Avatar className="h-24 w-24">
-                <AvatarImage
-                  src={teacherData.avatar_url || "/placeholder.svg"}
-                  alt={`${teacherData.first_name} ${teacherData.last_name}`}
-                />
-                <AvatarFallback>
-                  {teacherData.first_name?.[0]}
-                  {teacherData.last_name?.[0]}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <div className="flex-1">
-              <div className="flex flex-col justify-between gap-2 md:flex-row">
-                <div>
-                  <h1 className="text-2xl font-bold">
-                    {teacherData.first_name} {teacherData.last_name}
-                  </h1>
-                  <p className="text-muted-foreground">
-                    {teacherData.headline || "SkillSync Teacher"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-medium">
-                    {reviews.length > 0
-                      ? (
-                          reviews.reduce(
-                            (acc, review) => acc + review.rating,
-                            0
-                          ) / reviews.length
-                        ).toFixed(1)
-                      : "New"}
-                  </span>
-                  <span className="text-muted-foreground">
-                    ({reviews.length})
-                  </span>
-                </div>
-              </div>
+        <ProfileHeader
+          {...teacher}
+          isOwnProfile={false}
+          onMessageClick={handleMessageClick}
+          onBookSessionClick={() => setDialogOpen(true)}
+        >
+          <ReportDialog
+            reportedUserId={id || ""}
+            reportedUserName={teacher?.name || ""}
+            isTeacher={true}
+          />
+        </ProfileHeader>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {teachingSkills.map((skill) => (
-                  <Badge key={skill.id} variant="secondary">
-                    {skill.skill}
-                  </Badge>
-                ))}
-              </div>
+        <MessageDialog
+          isOpen={messageDialogOpen}
+          onClose={() => setMessageDialogOpen(false)}
+          receiverId={teacher?.id}
+          receiverName={teacher?.name}
+          receiverAvatar={teacher?.avatar}
+        />
 
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {teacherData.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{teacherData.location}</span>
-                  </div>
-                )}
-                {teacherData.occupation && (
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{teacherData.occupation}</span>
-                  </div>
-                )}
-                {teacherData.education && (
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{teacherData.education}</span>
-                  </div>
-                )}
-              </div>
-
-              {teacherData.bio && (
-                <div className="mt-4">
-                  <p className="text-sm">{teacherData.bio}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {/* Left Column - Book Session */}
-          <div className="md:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Book a Session</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!isLoggedIn ? (
-                  <div className="text-center py-6">
-                    <p className="mb-4">
-                      Please log in to book a session with this teacher.
-                    </p>
-                    <Button onClick={() => navigate("/login")}>Log In</Button>
-                  </div>
-                ) : step === 1 ? (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="mb-2 font-medium">Select a Skill</h3>
-                      <Select
-                        value={selectedSkill || ""}
-                        onValueChange={(value) => setSelectedSkill(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a skill" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teachingSkills.map((skill) => (
-                            <SelectItem key={skill.id} value={skill.skill}>
-                              {skill.skill}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={() => setStep(2)}
-                        disabled={!selectedSkill}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                ) : step === 2 ? (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="mb-2 font-medium">Select Date & Time</h3>
-                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <div>
-                          <Calendar
-                            mode="single"
-                            selected={
-                              selectedDate
-                                ? new Date(selectedDate)
-                                : undefined
-                            }
-                            onSelect={handleDateSelect}
-                            disabled={(date) => {
-                              const formattedDate = format(date, "yyyy-MM-dd");
-                              return (
-                                !availabilityByDate[formattedDate] ||
-                                availabilityByDate[formattedDate].length === 0 ||
-                                date < new Date()
-                              );
-                            }}
-                            className="rounded-md border"
-                          />
-                        </div>
-                        <div>
-                          {selectedDate ? (
-                            availableTimeSlots.length > 0 ? (
-                              <div className="space-y-2">
-                                <p className="text-sm font-medium">
-                                  Available Times
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {availableTimeSlots.map((timeSlot) => (
-                                    <Button
-                                      key={timeSlot}
-                                      variant={
-                                        selectedTimeSlot === timeSlot
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      className="flex items-center gap-2"
-                                      onClick={() =>
-                                        setSelectedTimeSlot(timeSlot)
-                                      }
-                                    >
-                                      <Clock className="h-4 w-4" />
-                                      {timeSlot}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex h-full items-center justify-center">
-                                <p className="text-center text-muted-foreground">
-                                  No available times for this date
-                                </p>
-                              </div>
-                            )
-                          ) : (
-                            <div className="flex h-full items-center justify-center">
-                              <p className="text-center text-muted-foreground">
-                                Select a date to see available times
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between">
-                      <Button variant="outline" onClick={() => setStep(1)}>
-                        Back
-                      </Button>
-                      <Button
-                        onClick={bookSession}
-                        disabled={!selectedTimeSlot || isBooking}
-                      >
-                        {isBooking ? "Booking..." : "Book Session"}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-6 text-center">
-                    <h3 className="mb-4 text-xl font-medium text-green-600">
-                      Session Requested!
-                    </h3>
-                    <p className="mb-6">
-                      Your session request has been sent to{" "}
-                      {teacherData.first_name}. You'll receive a notification
-                      when they accept or decline.
-                    </p>
-                    <Button onClick={() => navigate("/sessions")}>
-                      View My Sessions
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Reviews */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Reviews</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {reviews.length > 0 ? (
-                  <div className="space-y-4">
-                    {reviews.slice(0, 3).map((review) => (
-                      <ReviewCard key={review.id} review={review} />
-                    ))}
-                    {reviews.length > 3 && (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          const reviewsTab = document.getElementById(
-                            "reviews-tab"
-                          );
-                          if (reviewsTab) {
-                            reviewsTab.click();
-                          }
-                        }}
-                      >
-                        View All Reviews
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <p className="py-4 text-center text-muted-foreground">
-                    No reviews yet
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Tabs Section */}
         <div className="mt-8">
-          <Tabs defaultValue="about">
-            <TabsList className="mb-4">
-              <TabsTrigger value="about">About</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-6">
+              <TabsTrigger value="skills">Skills & Expertise</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
               <TabsTrigger value="availability">Availability</TabsTrigger>
-              <TabsTrigger id="reviews-tab" value="reviews">
-                Reviews
-              </TabsTrigger>
             </TabsList>
-            <TabsContent value="about">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="mb-2 text-lg font-medium">Bio</h3>
-                      <p className="text-muted-foreground">
-                        {teacherData.bio || "No bio provided"}
-                      </p>
+
+            <TabsContent value="skills">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Skills I Teach</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {teacher?.teachingSkills?.map((skill) => (
+                        <Badge key={skill} className="py-2 px-3">
+                          {skill}
+                        </Badge>
+                      ))}
                     </div>
-                    <div>
-                      <h3 className="mb-2 text-lg font-medium">Skills</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {teachingSkills.map((skill) => (
-                          <Badge key={skill.id} variant="secondary">
-                            {skill.skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="availability">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-medium">
-                      Available Time Slots
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {Object.entries(availabilityByDate).map(
-                        ([date, timeSlots]) => (
-                          <Card key={date}>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-base">
-                                {format(new Date(date), "EEEE, MMMM d")}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="flex flex-wrap gap-2">
-                                {timeSlots.map((timeSlot) => (
-                                  <Badge key={timeSlot} variant="outline">
-                                    {timeSlot}
+
+                    <div className="mt-6">
+                      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
+                            Book a Learning Session
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Book a Learning Session</DialogTitle>
+                          </DialogHeader>
+                          <div className="py-4 space-y-4">
+                            <div>
+                              <Label>Select a skill you want to learn</Label>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {teacher?.teachingSkills?.map((skill) => (
+                                  <Badge
+                                    key={skill}
+                                    variant={selectedSkill === skill ? "default" : "outline"}
+                                    className="py-2 px-3 cursor-pointer transition-colors"
+                                    onClick={() => setSelectedSkill(skill)}
+                                  >
+                                    {skill}
                                   </Badge>
                                 ))}
                               </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      )}
+                            </div>
+
+                            <div>
+                              <Label>Select a date</Label>
+                              <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(date) => {
+                                  setSelectedDate(date);
+                                  setSelectedTimeSlot("");  // Clear time selection when date changes
+                                }}
+                                className="rounded-md border mt-2"
+                                disabled={(date) =>
+                                  date < new Date() ||
+                                  date > new Date(new Date().setDate(new Date().getDate() + 30))
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>
+                                Available times for {selectedDate && format(selectedDate, "MMMM d, yyyy")}
+                              </Label>
+                              <div className="grid grid-cols-2 gap-2 mt-2">
+                                {selectedDate && selectedTimes[format(selectedDate, 'yyyy-MM-dd')] ? (
+                                  selectedTimes[format(selectedDate, 'yyyy-MM-dd')].map((time) => (
+                                    <Badge
+                                      key={time}
+                                      variant={selectedTimeSlot === time ? "default" : "outline"}
+                                      className="py-2 px-3 cursor-pointer text-center"
+                                      onClick={() => setSelectedTimeSlot(time)}
+                                    >
+                                      {format(parse(time, 'HH:mm', new Date()), 'h:mm a')}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <p className="col-span-2 text-center text-muted-foreground py-4">
+                                    No time slots available for this date
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleBookSession} className="bg-skill-purple">
+                                Send Request
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Skills I'm Learning</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {teacher?.learningSkills?.map((skill) => (
+                        <Badge key={skill} variant="secondary" className="py-2 px-3">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <div className="mt-6">
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={handleMessageClick}
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Send Message
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
+
             <TabsContent value="reviews">
               <Card>
-                <CardContent className="pt-6">
+                <CardHeader>
+                  <CardTitle>Student Reviews</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-6">
-                    <h3 className="text-lg font-medium">
-                      Student Reviews ({reviews.length})
-                    </h3>
                     {reviews.length > 0 ? (
-                      <div className="space-y-4">
-                        {reviews.map((review) => (
-                          <ReviewCard key={review.id} review={review} />
-                        ))}
-                      </div>
+                      reviews.map((review) => (
+                        <div key={review.id} className="border-b pb-6 last:border-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={review.avatar} alt={review.name} />
+                                <AvatarFallback>
+                                  {review.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{review.name}</h4>
+                                <div className="flex items-center mt-1">
+                                  {Array(5).fill(0).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                        }`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{review.date}</span>
+                          </div>
+                          <p className="mt-3">{review.comment}</p>
+                        </div>
+                      ))
                     ) : (
-                      <p className="py-4 text-center text-muted-foreground">
-                        No reviews yet
-                      </p>
+                      <div className="text-center py-6 text-muted-foreground">
+                        <p>No reviews yet</p>
+                        <p className="text-sm mt-2">Be the first to review this teacher after your session</p>
+                      </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="availability">
+              <AvailabilityTab
+                selectedTimes={selectedTimes}
+                onDelete={handleDeleteAvailability}
+                profileUserId={id || ""}
+              />
             </TabsContent>
           </Tabs>
         </div>
       </div>
-    </ProfileLayout>
+    </MainLayout>
   );
 };
 

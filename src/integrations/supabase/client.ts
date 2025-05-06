@@ -18,7 +18,7 @@ export const supabase = createClient<Database>(
       autoRefreshToken: true,
       storageKey: 'supabase.auth.token',
     },
-    // Improved configuration for realtime subscriptions
+    // Add improved configuration for realtime subscriptions
     realtime: {
       params: {
         eventsPerSecond: 10
@@ -42,45 +42,3 @@ export const checkSupabaseConnection = async () => {
     return false;
   }
 };
-
-// Helper function to create notifications for different events
-export const createNotification = async (
-  userId: string | null,
-  type: string, 
-  title: string, 
-  description?: string, 
-  actionUrl?: string
-) => {
-  if (!userId) return null;
-  
-  try {
-    console.log(`[createNotification] Creating ${type} notification for user ${userId}`);
-    
-    const notification = {
-      user_id: userId,
-      type,
-      title,
-      description: description || '',
-      action_url: actionUrl || '',
-      read: false
-    };
-    
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(notification)
-      .select()
-      .single();
-      
-    if (error) {
-      console.error("[createNotification] Error:", error);
-      return null;
-    }
-    
-    console.log("[createNotification] Created successfully:", data);
-    return data;
-  } catch (err) {
-    console.error("[createNotification] Exception:", err);
-    return null;
-  }
-};
-
