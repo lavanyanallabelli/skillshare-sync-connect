@@ -78,7 +78,7 @@ export const useUnreadMessages = (userId: string | undefined) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: '*',  // Listen to all events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'connections',
           filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -55,6 +55,7 @@ const Profile: React.FC = () => {
   } = useProfilePage();
 
   const { createNotification } = useNotifications(userId);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Verify Supabase connection when profile loads
   useEffect(() => {
@@ -64,18 +65,42 @@ const Profile: React.FC = () => {
       });
     }
   }, [userId]);
-
+  
   // Keep tab state and URL in sync
   React.useEffect(() => {
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+  
   React.useEffect(() => {
     if (activeTab && tabFromUrl !== activeTab) {
       setSearchParams({ tab: activeTab });
     }
   }, [activeTab]);
+
+  // Subscribe to connection changes
+  useEffect(() => {
+    if (!userId) return;
+    
+    const connectionChannel = supabase
+      .channel('profile-connection-changes')
+      .on('postgres_changes', {
+        event: '*', // Listen to all events
+        schema: 'public',
+        table: 'connections',
+        filter: `or(requester_id.eq.${userId},recipient_id.eq.${userId})`
+      }, () => {
+        // Force component update when connections change
+        console.log("[Profile] Connection changes detected, triggering refresh");
+        setForceUpdate(prev => prev + 1);
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(connectionChannel);
+    };
+  }, [userId]);
 
   // Map props for each tab
   const tabProps = {
@@ -156,7 +181,7 @@ const Profile: React.FC = () => {
 
   return (
     <ProfileLayout>
-      <div className="container max-w-6xl py-8">
+      <div className="container max-w-6xl py-8" key={`profile-container-${forceUpdate}`}>
         <ErrorBoundary>
           <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
             <ProfileHeader
@@ -180,7 +205,7 @@ const Profile: React.FC = () => {
         </ErrorBoundary>
 
         <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
-          <ConnectionList />
+          <ConnectionList key={`connections-${forceUpdate}`} />
         </Suspense>
 
         <ProfileTabs
