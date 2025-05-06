@@ -18,13 +18,8 @@ const RemoveConnectionDialog: React.FC = () => {
     isRemoveDialogOpen, 
     setIsRemoveDialogOpen, 
     handleRemoveConnection, 
-    isProcessing,
-    connectionToRemove 
+    isProcessing 
   } = useConnections();
-
-  const connectionName = connectionToRemove ? 
-    `${connectionToRemove.profile?.first_name} ${connectionToRemove.profile?.last_name}` : 
-    "this connection";
 
   return (
     <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
@@ -32,7 +27,7 @@ const RemoveConnectionDialog: React.FC = () => {
         <AlertDialogHeader>
           <AlertDialogTitle>Remove Connection</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to remove your connection with {connectionName}? This action cannot be undone.
+            Are you sure you want to remove this connection? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

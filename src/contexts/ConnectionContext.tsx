@@ -223,70 +223,44 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       console.log("[ConnectionContext] Rejecting connection:", connectionId);
       
-      // Update UI optimistically
-      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
-      
-      // Enhanced deletion with multiple approaches
-      let deleteSuccess = false;
-      
-      // First attempt: standard delete
-      const { error: deleteError } = await supabase
+      // First deletion attempt
+      const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
+        
+      if (error) {
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
+        throw error;
+      }
       
-      if (deleteError) {
-        console.error("[ConnectionContext] First delete attempt failed:", deleteError);
-      } else {
-        // Verify deletion
-        const { data: checkData } = await supabase
+      // Update UI optimistically
+      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
+      
+      // Double-check deletion success
+      const { data: checkData } = await supabase
+        .from('connections')
+        .select('id')
+        .eq('id', connectionId);
+      
+      if (checkData && checkData.length > 0) {
+        console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionId);
+        
+        // Second deletion attempt
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', connectionId);
+          
+        // Final verification
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionId);
-        
-        if (!checkData || checkData.length === 0) {
-          deleteSuccess = true;
-          console.log("[ConnectionContext] Connection deleted successfully on first attempt");
-        }
-      }
-      
-      // Second attempt: if first failed
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying second delete method...");
-        
-        try {
-          const { data, error: secondError } = await supabase
-            .from('connections')
-            .delete()
-            .match({ id: connectionId })
-            .select();
           
-          if (secondError) {
-            console.error("[ConnectionContext] Second delete attempt failed:", secondError);
-          } else if (data) {
-            deleteSuccess = true;
-            console.log("[ConnectionContext] Connection deleted successfully on second attempt");
-          }
-        } catch (err) {
-          console.error("[ConnectionContext] Error in second deletion attempt:", err);
-        }
-      }
-      
-      // Final attempt: direct SQL (last resort)
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying direct SQL deletion...");
-        
-        const { error: sqlError } = await supabase
-          .from('connections')
-          .delete()
-          .filter('id', 'eq', connectionId);
-        
-        if (sqlError) {
-          console.error("[ConnectionContext] SQL deletion failed:", sqlError);
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
           throw new Error("Failed to delete connection after multiple attempts");
-        } else {
-          console.log("[ConnectionContext] Connection possibly deleted with SQL approach");
-          deleteSuccess = true;
         }
       }
       
@@ -332,70 +306,44 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       console.log("[ConnectionContext] Cancelling connection request:", connectionId);
       
-      // Update UI optimistically
-      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
-      
-      // Enhanced deletion with multiple approaches
-      let deleteSuccess = false;
-      
-      // First attempt: standard delete
-      const { error: deleteError } = await supabase
+      // First deletion attempt
+      const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
+        
+      if (error) {
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
+        throw error;
+      }
       
-      if (deleteError) {
-        console.error("[ConnectionContext] First delete attempt failed:", deleteError);
-      } else {
-        // Verify deletion
-        const { data: checkData } = await supabase
+      // Update UI optimistically
+      setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
+      
+      // Double-check deletion success
+      const { data: checkData } = await supabase
+        .from('connections')
+        .select('id')
+        .eq('id', connectionId);
+      
+      if (checkData && checkData.length > 0) {
+        console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionId);
+        
+        // Second deletion attempt
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', connectionId);
+          
+        // Final verification
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionId);
-        
-        if (!checkData || checkData.length === 0) {
-          deleteSuccess = true;
-          console.log("[ConnectionContext] Connection deleted successfully on first attempt");
-        }
-      }
-      
-      // Second attempt: if first failed
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying second delete method...");
-        
-        try {
-          const { data, error: secondError } = await supabase
-            .from('connections')
-            .delete()
-            .match({ id: connectionId })
-            .select();
           
-          if (secondError) {
-            console.error("[ConnectionContext] Second delete attempt failed:", secondError);
-          } else if (data) {
-            deleteSuccess = true;
-            console.log("[ConnectionContext] Connection deleted successfully on second attempt");
-          }
-        } catch (err) {
-          console.error("[ConnectionContext] Error in second deletion attempt:", err);
-        }
-      }
-      
-      // Final attempt: direct SQL (last resort)
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying direct SQL deletion...");
-        
-        const { error: sqlError } = await supabase
-          .from('connections')
-          .delete()
-          .filter('id', 'eq', connectionId);
-        
-        if (sqlError) {
-          console.error("[ConnectionContext] SQL deletion failed:", sqlError);
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
           throw new Error("Failed to delete connection after multiple attempts");
-        } else {
-          console.log("[ConnectionContext] Connection possibly deleted with SQL approach");
-          deleteSuccess = true;
         }
       }
       
@@ -436,70 +384,44 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       console.log("[ConnectionContext] Removing connection:", connectionToRemove.id);
       
-      // Update UI optimistically
-      setConnections(prev => prev.filter(conn => conn.id !== connectionToRemove.id));
-      
-      // Enhanced deletion with multiple approaches
-      let deleteSuccess = false;
-      
-      // First attempt: standard delete
-      const { error: deleteError } = await supabase
+      // First deletion attempt
+      const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionToRemove.id);
+        
+      if (error) {
+        console.error("[ConnectionContext] Error in first delete attempt:", error);
+        throw error;
+      }
       
-      if (deleteError) {
-        console.error("[ConnectionContext] First delete attempt failed:", deleteError);
-      } else {
-        // Verify deletion
-        const { data: checkData } = await supabase
+      // Update UI optimistically
+      setConnections(prev => prev.filter(conn => conn.id !== connectionToRemove.id));
+      
+      // Double-check deletion success
+      const { data: checkData } = await supabase
+        .from('connections')
+        .select('id')
+        .eq('id', connectionToRemove.id);
+      
+      if (checkData && checkData.length > 0) {
+        console.error("[ConnectionContext] Connection still exists after deletion attempt:", connectionToRemove.id);
+        
+        // Second deletion attempt
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', connectionToRemove.id);
+          
+        // Final verification
+        const { data: finalCheck } = await supabase
           .from('connections')
           .select('id')
           .eq('id', connectionToRemove.id);
-        
-        if (!checkData || checkData.length === 0) {
-          deleteSuccess = true;
-          console.log("[ConnectionContext] Connection deleted successfully on first attempt");
-        }
-      }
-      
-      // Second attempt: if first failed
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying second delete method...");
-        
-        try {
-          const { data, error: secondError } = await supabase
-            .from('connections')
-            .delete()
-            .match({ id: connectionToRemove.id })
-            .select();
           
-          if (secondError) {
-            console.error("[ConnectionContext] Second delete attempt failed:", secondError);
-          } else if (data) {
-            deleteSuccess = true;
-            console.log("[ConnectionContext] Connection deleted successfully on second attempt");
-          }
-        } catch (err) {
-          console.error("[ConnectionContext] Error in second deletion attempt:", err);
-        }
-      }
-      
-      // Final attempt: direct SQL (last resort)
-      if (!deleteSuccess) {
-        console.log("[ConnectionContext] Trying direct SQL deletion...");
-        
-        const { error: sqlError } = await supabase
-          .from('connections')
-          .delete()
-          .filter('id', 'eq', connectionToRemove.id);
-        
-        if (sqlError) {
-          console.error("[ConnectionContext] SQL deletion failed:", sqlError);
+        if (finalCheck && finalCheck.length > 0) {
+          console.error("[ConnectionContext] Connection still exists after second deletion attempt");
           throw new Error("Failed to delete connection after multiple attempts");
-        } else {
-          console.log("[ConnectionContext] Connection possibly deleted with SQL approach");
-          deleteSuccess = true;
         }
       }
       

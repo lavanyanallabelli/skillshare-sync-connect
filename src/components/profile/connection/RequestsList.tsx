@@ -3,10 +3,9 @@ import React, { useEffect } from "react";
 import { useConnections } from "@/contexts/ConnectionContext";
 import RequestItem from "./RequestItem";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 
 const RequestsList: React.FC = () => {
-  const { pendingRequests, isLoading, forceUpdate } = useConnections();
+  const { pendingRequests, isLoading } = useConnections();
 
   // Add verification mechanism to ensure we're showing the correct state
   useEffect(() => {
@@ -28,20 +27,14 @@ const RequestsList: React.FC = () => {
           }
 
           // Check for any inconsistencies between local state and database
-          if (data && data.length !== requestIds.length) {
+          if (data.length !== requestIds.length) {
             console.warn(
               "[RequestsList] Mismatch between local state and database. " +
               `Local: ${requestIds.length}, Database: ${data.length}`
             );
             
-            // Log details of the mismatch for debugging
-            const missingIds = requestIds.filter(id => 
-              !data.some(conn => conn.id === id)
-            );
-            
-            if (missingIds.length > 0) {
-              console.warn("[RequestsList] IDs in local state but not in DB:", missingIds);
-            }
+            // Note: Not forcing a refresh here, since this is just a verification,
+            // and the context's subscription should handle updates
           }
         } catch (err) {
           console.error("[RequestsList] Verification error:", err);
@@ -50,15 +43,10 @@ const RequestsList: React.FC = () => {
 
       verifyRequests();
     }
-  }, [pendingRequests, forceUpdate]);
+  }, [pendingRequests]);
 
   if (isLoading) {
-    return (
-      <div className="text-center py-8 flex justify-center items-center">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        <span>Loading requests...</span>
-      </div>
-    );
+    return <div className="text-center py-4">Loading requests...</div>;
   }
 
   if (pendingRequests.length === 0) {

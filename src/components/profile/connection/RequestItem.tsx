@@ -32,29 +32,20 @@ const RequestItem: React.FC<RequestItemProps> = ({ request }) => {
   
   const onAccept = async () => {
     setLocalProcessing(true);
-    try {
-      await handleAcceptRequest(request.id);
-    } finally {
-      setLocalProcessing(false);
-    }
+    await handleAcceptRequest(request.id);
+    setLocalProcessing(false);
   };
   
   const onReject = async () => {
     setLocalProcessing(true);
-    try {
-      await handleRejectRequest(request.id);
-    } finally {
-      setLocalProcessing(false);
-    }
+    await handleRejectRequest(request.id);
+    setLocalProcessing(false);
   };
   
   const onCancel = async () => {
     setLocalProcessing(true);
-    try {
-      await handleCancelRequest(request.id);
-    } finally {
-      setLocalProcessing(false);
-    }
+    await handleCancelRequest(request.id);
+    setLocalProcessing(false);
   };
   
   const isButtonDisabled = isProcessing || localProcessing;
