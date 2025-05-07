@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Bell, MessageSquare } from "lucide-react";
@@ -35,17 +36,8 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout, unreadCount: m
     markAllAsRead 
   } = useNotifications(userId);
   
-  console.log('[UserMenu] Current user ID:', userId);
-  console.log('[UserMenu] Notifications count:', notifications?.length || 0);
-  console.log('[UserMenu] Unread notification count:', notificationUnreadCount);
-  
-  useEffect(() => {
-    console.log('[UserMenu] Notifications updated:', notifications);
-  }, [notifications]);
-  
   const handleNotificationClick = async (notification: any) => {
     try {
-      console.log('[UserMenu] Notification clicked:', notification);
       await markAsRead(notification.id);
     } catch (error) {
       console.error("Error handling notification click:", error);
