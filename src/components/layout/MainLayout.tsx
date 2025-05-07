@@ -1,9 +1,7 @@
-
 import React from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
-import { Outlet } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
+import { Outlet, Toaster } from "react-router-dom";
 import NotificationDebugger from "@/components/debug/NotificationDebugger";
 
 interface MainLayoutProps {
