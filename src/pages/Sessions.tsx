@@ -29,8 +29,8 @@ const Sessions: React.FC = () => {
       // Transform the data to ensure consistent date formatting
       const transformedData = data?.map(session => ({
         ...session,
-        // Ensure the day property is a properly formatted date string
-        day: session.day || session.date
+        // Ensure the day property is properly formatted
+        day: session.day // No fallback to session.date as it doesn't exist
       })) || [];
       
       setUpcomingSessions(transformedData);

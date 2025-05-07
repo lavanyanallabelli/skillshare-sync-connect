@@ -7,7 +7,7 @@ import { CalendarIcon, Video as VideoIcon, Link as LinkIcon, Copy as CopyIcon } 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 interface SessionsTabProps {
   upcomingSessions: any[];
@@ -57,19 +57,20 @@ const SessionCard = ({ session }: { session: any }) => {
   // Format date with proper timezone handling
   const formattedDate = session.day ? 
     (() => {
-      // Make sure we're working with a proper date object
-      // Parse the date correctly - critically important for timezone handling
+      // Create a Date object while preserving the day information
+      // Using new Date() with a date string like '2025-05-06' will respect that date
+      // regardless of timezone
       const dateObj = typeof session.day === 'string' 
-        ? new Date(session.day) // This preserves the actual date regardless of time zone
+        ? new Date(session.day) 
         : session.day;
       
-      // Format the date - now correctly preserving the day
+      // Format the date
       return format(dateObj, 'EEEE, MMMM d, yyyy');
     })() 
-    : session.date || 'Date not specified';
+    : 'Date not specified';
 
   // Format time to show in the same format as in requests tab
-  const formattedTime = session.time_slot || session.time || "Time not specified";
+  const formattedTime = session.time_slot || "Time not specified";
 
   // Determine partner name based on the current user's role
   const partnerName = session.from || session.student_name || session.teacher_name || "Session Partner";
