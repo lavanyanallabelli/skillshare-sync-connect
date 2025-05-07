@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +25,15 @@ const Sessions: React.FC = () => {
         setLoading(false);
         return;
       }
-      setUpcomingSessions(data || []);
+      
+      // Transform the data to ensure consistent date formatting
+      const transformedData = data?.map(session => ({
+        ...session,
+        // Ensure the day property is a properly formatted date string
+        day: session.day || session.date
+      })) || [];
+      
+      setUpcomingSessions(transformedData);
       setLoading(false);
     };
     fetchSessions();

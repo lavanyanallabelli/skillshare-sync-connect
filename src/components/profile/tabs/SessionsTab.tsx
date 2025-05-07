@@ -58,14 +58,18 @@ const SessionCard = ({ session }: { session: any }) => {
   const formattedDate = session.day ? 
     (() => {
       // Make sure we're working with a proper date object
-      // parseISO handles ISO format strings, or create a new Date for other formats
-      const dateObj = typeof session.day === 'string' && session.day.includes('T') 
-        ? parseISO(session.day) 
-        : new Date(session.day);
-        
+      // Parse the date correctly - critically important for timezone handling
+      const dateObj = typeof session.day === 'string' 
+        ? new Date(session.day) // This preserves the actual date regardless of time zone
+        : session.day;
+      
+      // Format the date - now correctly preserving the day
       return format(dateObj, 'EEEE, MMMM d, yyyy');
     })() 
     : session.date || 'Date not specified';
+
+  // Format time to show in the same format as in requests tab
+  const formattedTime = session.time_slot || session.time || "Time not specified";
 
   // Determine partner name based on the current user's role
   const partnerName = session.from || session.student_name || session.teacher_name || "Session Partner";
@@ -93,7 +97,7 @@ const SessionCard = ({ session }: { session: any }) => {
                 </div>
                 <p className="text-sm text-muted-foreground flex items-center mt-1">
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {formattedDate}, {session.time_slot || session.time || "Time not specified"}
+                  {formattedDate}, {formattedTime}
                 </p>
               </div>
             </div>
