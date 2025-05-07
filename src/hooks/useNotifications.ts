@@ -21,6 +21,7 @@ export const useNotifications = (userId: string | null) => {
 
   const fetchNotifications = async () => {
     if (!userId) {
+      console.log('[useNotifications] No userId provided, skipping fetch');
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
@@ -28,6 +29,7 @@ export const useNotifications = (userId: string | null) => {
     }
 
     try {
+      console.log('[useNotifications] Fetching notifications for user:', userId);
       setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
@@ -36,14 +38,15 @@ export const useNotifications = (userId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching notifications:', error);
+        console.error('[useNotifications] Error fetching notifications:', error);
         return;
       }
 
+      console.log('[useNotifications] Notifications fetched:', data?.length || 0, 'notifications');
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
-      console.error('Error in fetchNotifications:', error);
+      console.error('[useNotifications] Error in fetchNotifications:', error);
     } finally {
       setLoading(false);
     }
@@ -108,8 +111,12 @@ export const useNotifications = (userId: string | null) => {
 
   const createNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
     try {
-      if (!userId) return null;
+      if (!userId) {
+        console.log('[useNotifications] Cannot create notification, no userId');
+        return null;
+      }
       
+      console.log('[useNotifications] Creating notification:', notification);
       const { data, error } = await supabase
         .from('notifications')
         .insert([{
@@ -124,21 +131,26 @@ export const useNotifications = (userId: string | null) => {
         .single();
 
       if (error) {
-        console.error('Error creating notification:', error);
+        console.error('[useNotifications] Error creating notification:', error);
         return null;
       }
 
+      console.log('[useNotifications] Notification created successfully:', data);
       // No need to update local state as the subscription will handle it
       return data;
     } catch (error) {
-      console.error('Error in createNotification:', error);
+      console.error('[useNotifications] Error in createNotification:', error);
       return null;
     }
   };
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('[useNotifications] No userId in effect, skipping subscription');
+      return;
+    }
     
+    console.log('[useNotifications] Setting up subscription for user:', userId);
     fetchNotifications();
     
     // Set up realtime subscription
@@ -146,11 +158,17 @@ export const useNotifications = (userId: string | null) => {
       .channel('notifications-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        fetchNotifications
+        (payload) => {
+          console.log('[useNotifications] Received realtime notification update:', payload);
+          fetchNotifications();
+        }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[useNotifications] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[useNotifications] Cleaning up subscription');
       supabase.removeChannel(channel);
     };
   }, [userId]);

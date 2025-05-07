@@ -1,7 +1,8 @@
-
 import React from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
+import { Outlet, Toaster } from "react-router-dom";
+import NotificationDebugger from "@/components/debug/NotificationDebugger";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -9,10 +10,14 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="flex-grow">
+        <Outlet />
+      </main>
       <Footer />
+      <Toaster />
+      <NotificationDebugger />
     </div>
   );
 };

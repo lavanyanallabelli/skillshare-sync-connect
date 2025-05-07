@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -120,6 +119,13 @@ const ConnectionList: React.FC = () => {
   // Create a notification for the target user
   const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
     try {
+      console.log('[ConnectionList] Creating notification for user:', targetUserId, {
+        title,
+        description,
+        type,
+        actionUrl
+      });
+      
       const { error } = await supabase
         .from('notifications')
         .insert({
@@ -132,15 +138,19 @@ const ConnectionList: React.FC = () => {
         });
 
       if (error) {
-        console.error("Error creating notification:", error);
+        console.error("[ConnectionList] Error creating notification:", error);
+      } else {
+        console.log('[ConnectionList] Notification created successfully');
       }
     } catch (error) {
-      console.error("Failed to create notification:", error);
+      console.error("[ConnectionList] Failed to create notification:", error);
     }
   };
 
   const handleAcceptRequest = async (connectionId: string) => {
     try {
+      console.log('[ConnectionList] Accepting connection request:', connectionId);
+      
       // First get the connection details to access the requester information
       const { data: connection, error: fetchError } = await supabase
         .from('connections')
@@ -154,14 +164,24 @@ const ConnectionList: React.FC = () => {
         .eq('id', connectionId)
         .single();
         
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('[ConnectionList] Error fetching connection details:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('[ConnectionList] Connection details:', connection);
 
       const { error } = await supabase
         .from('connections')
         .update({ status: 'accepted' })
         .eq('id', connectionId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('[ConnectionList] Error updating connection status:', error);
+        throw error;
+      }
+      
+      console.log('[ConnectionList] Connection accepted successfully');
       
       // Update UI
       const updatedRequest = pendingRequests.find(req => req.id === connectionId);
@@ -189,6 +209,8 @@ const ConnectionList: React.FC = () => {
           `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
           "Someone";
         
+        console.log('[ConnectionList] Creating notification for requester:', connection.requester_id);
+        
         // Notification for the requester
         await createNotification(
           connection.requester_id,
@@ -211,6 +233,8 @@ const ConnectionList: React.FC = () => {
 
   const handleRejectRequest = async (connectionId: string) => {
     try {
+      console.log('[ConnectionList] Rejecting connection request:', connectionId);
+      
       // First get the connection details to access the requester information
       const { data: connection, error: fetchError } = await supabase
         .from('connections')
@@ -224,14 +248,24 @@ const ConnectionList: React.FC = () => {
         .eq('id', connectionId)
         .single();
         
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('[ConnectionList] Error fetching connection details:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('[ConnectionList] Connection details:', connection);
 
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('[ConnectionList] Error deleting connection:', error);
+        throw error;
+      }
+      
+      console.log('[ConnectionList] Connection rejected successfully');
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
@@ -254,6 +288,8 @@ const ConnectionList: React.FC = () => {
           `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
           "Someone";
         
+        console.log('[ConnectionList] Creating notification for requester:', connection.requester_id);
+        
         // Notification for the requester
         await createNotification(
           connection.requester_id,
@@ -274,12 +310,19 @@ const ConnectionList: React.FC = () => {
 
   const handleCancelRequest = async (connectionId: string) => {
     try {
+      console.log('[ConnectionList] Cancelling connection request:', connectionId);
+      
       const { error } = await supabase
         .from('connections')
         .delete()
         .eq('id', connectionId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('[ConnectionList] Error deleting connection:', error);
+        throw error;
+      }
+      
+      console.log('[ConnectionList] Connection cancelled successfully');
       
       // Update UI
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
