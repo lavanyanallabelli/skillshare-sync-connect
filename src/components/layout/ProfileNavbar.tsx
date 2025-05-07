@@ -20,6 +20,7 @@ import { useAuth } from "@/App";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserMenu } from "./UserMenu";
 import { useUnreadMessages } from "@/hooks/use-unread-messages";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 
 const ProfileNavbar: React.FC = () => {
   const isMobile = useIsMobile();
@@ -108,7 +109,10 @@ const ProfileNavbar: React.FC = () => {
         
         <div className="flex items-center gap-4">
           {!isMobile ? (
-            <UserMenu handleLogout={handleLogout} unreadCount={unreadMessageCount} />
+            <>
+              <NotificationCenter />
+              <UserMenu handleLogout={handleLogout} unreadCount={unreadMessageCount} />
+            </>
           ) : (
             <Button
               variant="ghost"
@@ -179,6 +183,16 @@ const ProfileNavbar: React.FC = () => {
                   {unreadMessageCount}
                 </span>
               )}
+            </Link>
+            <Link 
+              to="/notifications"
+              className={`p-2 rounded-md flex items-center gap-2 ${
+                isActive('/notifications') ? 'bg-muted' : 'hover:bg-muted'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Bell size={16} />
+              Notifications
             </Link>
             <Link 
               to="/settings"
