@@ -23,12 +23,12 @@ import { useUnreadMessages } from "@/hooks/use-unread-messages";
 
 interface UserMenuProps {
   handleLogout: () => void;
+  unreadCount: number;
 }
 
-export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout }) => {
+export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout, unreadCount: messageUnreadCount }) => {
   const { userId } = useAuth();
   const { toast } = useToast();
-  const messageUnreadCount = useUnreadMessages(userId || undefined);
   const { 
     notifications, 
     unreadCount: notificationUnreadCount, 
