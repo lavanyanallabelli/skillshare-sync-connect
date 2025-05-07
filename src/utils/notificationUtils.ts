@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -19,25 +18,45 @@ export const createNotification = async (
   actionUrl?: string
 ) => {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: targetUserId,
-        title,
-        description,
-        type,
-        action_url: actionUrl || null,
-        read: false
-      })
-      .select()
+    // First check if the user exists
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', targetUserId)
       .single();
-
-    if (error) {
-      console.error("Error creating notification:", error);
+    
+    if (userCheckError || !userExists) {
+      console.error("Cannot create notification: User does not exist", targetUserId);
       return null;
     }
 
-    return data;
+    // Use RPC (stored procedure) if Row Level Security is causing issues
+    // Otherwise use direct insert
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: targetUserId,
+          title,
+          description,
+          type,
+          action_url: actionUrl || null,
+          read: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating notification:", error);
+        return null;
+      }
+      
+      console.log("Notification created successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("Failed to create notification:", error);
+      return null;
+    }
   } catch (error) {
     console.error("Failed to create notification:", error);
     return null;
@@ -54,6 +73,11 @@ export const createSessionNotification = async (
   teacherName: string
 ) => {
   try {
+    console.log(`Creating ${action} session notification for:`, {
+      teacher: sessionData.teacher_id,
+      student: sessionData.student_id
+    });
+    
     switch (action) {
       case 'create':
         // Notify teacher about new session request

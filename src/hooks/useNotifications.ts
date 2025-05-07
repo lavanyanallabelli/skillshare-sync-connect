@@ -29,6 +29,8 @@ export const useNotifications = (userId: string | null) => {
 
     try {
       setLoading(true);
+      console.log("Fetching notifications for user:", userId);
+      
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -40,6 +42,7 @@ export const useNotifications = (userId: string | null) => {
         return;
       }
 
+      console.log("Notifications fetched:", data?.length || 0);
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
@@ -81,6 +84,7 @@ export const useNotifications = (userId: string | null) => {
         
       if (unreadIds.length === 0) return;
 
+      console.log("Marking all notifications as read:", unreadIds.length);
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -146,7 +150,10 @@ export const useNotifications = (userId: string | null) => {
       .channel('notifications-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        fetchNotifications
+        (payload) => {
+          console.log("Notification change detected:", payload);
+          fetchNotifications();
+        }
       )
       .subscribe();
 
