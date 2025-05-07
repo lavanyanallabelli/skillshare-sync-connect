@@ -679,6 +679,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      force_delete_connection: {
+        Args: { connection_id: string }
+        Returns: boolean
+      }
       get_unread_message_count: {
         Args: { user_id: string }
         Returns: number
