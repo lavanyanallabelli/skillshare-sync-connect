@@ -12,9 +12,52 @@ export const useRequestActions = (
   const { toast } = useToast();
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
+  // Helper function to create notifications
+  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: targetUserId,
+          title,
+          description,
+          type,
+          action_url: actionUrl || null,
+          read: false
+        });
+
+      if (error) {
+        console.error("Error creating notification:", error);
+      }
+    } catch (error) {
+      console.error("Failed to create notification:", error);
+    }
+  };
+
   const handleRequestAction = async (id: string, action: "accept" | "decline") => {
     try {
       setProcessingRequestId(id);
+      
+      // Get session details first for notifications
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          student:profiles!sessions_student_id_fkey(first_name, last_name),
+          teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
+        `)
+        .eq('id', id)
+        .single();
+        
+      if (sessionError || !sessionData) {
+        console.error("Error fetching session details:", sessionError);
+        throw new Error("Could not fetch session details");
+      }
+
+      const studentName = sessionData.student ? 
+        `${sessionData.student.first_name} ${sessionData.student.last_name}` : "Student";
+      const teacherName = sessionData.teacher ? 
+        `${sessionData.teacher.first_name} ${sessionData.teacher.last_name}` : "Teacher";
       
       if (action === "accept") {
         console.log('[RequestActions] Accepting request, checking Google connection...');
@@ -295,6 +338,15 @@ export const useRequestActions = (
             console.log("Session accepted:", acceptedSession);
             window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
             
+            // Create notification for the student
+            await createNotification(
+              sessionData.student_id,
+              "Session Request Accepted",
+              `${teacherName} accepted your session request for ${sessionData.skill}. Join using the meeting link.`,
+              "session",
+              "/sessions"
+            );
+            
             toast({
               title: "Request accepted",
               description: "The session has been added to your schedule with a Google Meet link.",
@@ -323,6 +375,14 @@ export const useRequestActions = (
             console.error("Database error when declining:", error);
             throw error;
           }
+
+          // Create notification for the student that their session was declined
+          await createNotification(
+            sessionData.student_id,
+            "Session Request Declined",
+            `${teacherName} declined your session request for ${sessionData.skill}.`,
+            "session"
+          );
 
           toast({
             title: "Request declined",

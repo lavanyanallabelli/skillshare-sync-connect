@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
@@ -136,6 +135,27 @@ const Explore: React.FC = () => {
     return matchesSearch && matchesCategory && matchesRating;
   });
 
+  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: targetUserId,
+          title,
+          description,
+          type,
+          action_url: actionUrl || null,
+          read: false
+        });
+
+      if (error) {
+        console.error("Error creating notification:", error);
+      }
+    } catch (error) {
+      console.error("Failed to create notification:", error);
+    }
+  };
+
   const handleSendRequest = async (skillId: string, teacherId: string) => {
     if (!isLoggedIn) {
       toast({
@@ -175,6 +195,19 @@ const Explore: React.FC = () => {
     }
     
     try {
+      // Get current user's profile info for the notification
+      const { data: currentUserProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', userId)
+        .single();
+        
+      if (!currentUserProfile) {
+        throw new Error("Could not find your profile information");
+      }
+        
+      const currentUserName = `${currentUserProfile.first_name} ${currentUserProfile.last_name}`;
+      
       // Insert a new connection request
       const { error } = await supabase
         .from('connections')
@@ -199,6 +232,15 @@ const Explore: React.FC = () => {
           ...connectionStatus,
           [teacherId]: 'pending'
         });
+        
+        // Create a notification for the teacher
+        await createNotification(
+          teacherId,
+          "New Connection Request",
+          `${currentUserName} wants to connect with you.`,
+          "connection",
+          "/profile?tab=connections"
+        );
         
         // Refresh user data
         await refreshUserData();

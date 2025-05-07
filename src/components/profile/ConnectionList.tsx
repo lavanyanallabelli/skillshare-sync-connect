@@ -117,8 +117,45 @@ const ConnectionList: React.FC = () => {
     fetchConnections();
   }, [userId, toast]);
 
+  // Create a notification for the target user
+  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: targetUserId,
+          title,
+          description,
+          type,
+          action_url: actionUrl || null,
+          read: false
+        });
+
+      if (error) {
+        console.error("Error creating notification:", error);
+      }
+    } catch (error) {
+      console.error("Failed to create notification:", error);
+    }
+  };
+
   const handleAcceptRequest = async (connectionId: string) => {
     try {
+      // First get the connection details to access the requester information
+      const { data: connection, error: fetchError } = await supabase
+        .from('connections')
+        .select(`
+          requester_id,
+          profile:profiles!connections_requester_id_fkey(
+            first_name,
+            last_name
+          )
+        `)
+        .eq('id', connectionId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from('connections')
         .update({ status: 'accepted' })
@@ -137,6 +174,31 @@ const ConnectionList: React.FC = () => {
         title: "Connection Accepted",
         description: "You are now connected with this user",
       });
+
+      // Create a notification for the requester that their connection was accepted
+      if (connection) {
+        // Get current user's name for the notification
+        const { data: currentUserProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', userId)
+          .single();
+
+        const requesterName = `${connection.profile.first_name} ${connection.profile.last_name}`;
+        const currentUserName = currentUserProfile ? 
+          `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
+          "Someone";
+        
+        // Notification for the requester
+        await createNotification(
+          connection.requester_id,
+          "Connection Accepted",
+          `${currentUserName} accepted your connection request.`,
+          "connection",
+          `/teacher/${userId}`
+        );
+      }
+      
     } catch (error) {
       console.error("Error accepting connection:", error);
       toast({
@@ -149,6 +211,21 @@ const ConnectionList: React.FC = () => {
 
   const handleRejectRequest = async (connectionId: string) => {
     try {
+      // First get the connection details to access the requester information
+      const { data: connection, error: fetchError } = await supabase
+        .from('connections')
+        .select(`
+          requester_id,
+          profile:profiles!connections_requester_id_fkey(
+            first_name,
+            last_name
+          )
+        `)
+        .eq('id', connectionId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from('connections')
         .delete()
@@ -163,6 +240,28 @@ const ConnectionList: React.FC = () => {
         title: "Request Rejected",
         description: "Connection request has been rejected",
       });
+
+      // Create a notification for the requester that their connection was declined
+      if (connection) {
+        // Get current user's name for the notification
+        const { data: currentUserProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', userId)
+          .single();
+
+        const currentUserName = currentUserProfile ? 
+          `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
+          "Someone";
+        
+        // Notification for the requester
+        await createNotification(
+          connection.requester_id,
+          "Connection Declined",
+          `${currentUserName} declined your connection request.`,
+          "connection"
+        );
+      }
     } catch (error) {
       console.error("Error rejecting connection:", error);
       toast({

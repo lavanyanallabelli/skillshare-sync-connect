@@ -17,7 +17,11 @@ const Sessions: React.FC = () => {
     const fetchSessions = async () => {
       const { data, error } = await supabase
         .from("sessions")
-        .select("*")
+        .select(`
+          *,
+          student:profiles!sessions_student_id_fkey(first_name, last_name),
+          teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
+        `)
         .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
         .in("status", ["accepted"])
         .order("created_at", { ascending: false });
@@ -26,12 +30,23 @@ const Sessions: React.FC = () => {
         return;
       }
       
-      // Transform the data to ensure consistent date formatting
-      const transformedData = data?.map(session => ({
-        ...session,
-        // Ensure the day property is properly formatted
-        day: session.day // No fallback to session.date as it doesn't exist
-      })) || [];
+      // Transform the data to ensure consistent date formatting and names
+      const transformedData = data?.map(session => {
+        let partnerName = "";
+        if (userId === session.teacher_id && session.student) {
+          partnerName = `${session.student.first_name} ${session.student.last_name}`;
+        } else if (userId === session.student_id && session.teacher) {
+          partnerName = `${session.teacher.first_name} ${session.teacher.last_name}`;
+        }
+        
+        return {
+          ...session,
+          // Ensure the day property is properly formatted
+          day: session.day,
+          // Add partner name for display
+          from: partnerName
+        };
+      }) || [];
       
       setUpcomingSessions(transformedData);
       setLoading(false);
