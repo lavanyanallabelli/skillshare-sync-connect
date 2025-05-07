@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -288,6 +287,7 @@ const App = () => {
                 </Suspense>
               ) : <Navigate to="/login" />} />
               <Route path="/communities" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

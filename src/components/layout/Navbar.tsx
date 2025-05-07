@@ -10,6 +10,7 @@ import { SearchForm } from "./SearchForm";
 import { UserMenu } from "./UserMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
 import { useUnreadMessages } from "@/hooks/use-unread-messages";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 
 const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
@@ -60,6 +61,10 @@ const Navbar: React.FC = () => {
           {!isMobile ? (
             <>
               <SearchForm />
+              
+              {isLoggedIn && (
+                <NotificationCenter />
+              )}
               
               {isLoggedIn ? (
                 <UserMenu unreadCount={unreadCount} handleLogout={handleLogout} />
