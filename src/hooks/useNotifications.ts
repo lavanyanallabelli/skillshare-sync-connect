@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,7 +19,7 @@ export const useNotifications = (userId: string | null) => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
@@ -42,7 +42,7 @@ export const useNotifications = (userId: string | null) => {
         return;
       }
 
-      console.log("Notifications fetched:", data?.length || 0);
+      console.log("Notifications fetched:", data?.length || 0, data);
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
@@ -50,7 +50,7 @@ export const useNotifications = (userId: string | null) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -77,6 +77,8 @@ export const useNotifications = (userId: string | null) => {
   };
 
   const markAllAsRead = async () => {
+    if (!userId) return;
+    
     try {
       const unreadIds = notifications
         .filter(n => !n.read)
@@ -114,6 +116,8 @@ export const useNotifications = (userId: string | null) => {
     try {
       if (!userId) return null;
       
+      console.log("Creating notification:", { ...notification, user_id: userId });
+      
       const { data, error } = await supabase
         .from('notifications')
         .insert([{
@@ -132,6 +136,7 @@ export const useNotifications = (userId: string | null) => {
         return null;
       }
 
+      console.log("Notification created successfully:", data);
       // No need to update local state as the subscription will handle it
       return data;
     } catch (error) {
@@ -143,6 +148,17 @@ export const useNotifications = (userId: string | null) => {
   useEffect(() => {
     if (!userId) return;
     
+    // Enable realtime updates for the notifications table if not already enabled
+    const enableRealtimeForNotifications = async () => {
+      try {
+        await supabase.rpc('enable_realtime_for_table', { table_name: 'notifications' });
+      } catch (error) {
+        console.error("Error enabling realtime for notifications table:", error);
+        // Continue anyway, as this might fail if already enabled or due to permissions
+      }
+    };
+    
+    enableRealtimeForNotifications();
     fetchNotifications();
     
     // Set up realtime subscription
@@ -155,12 +171,14 @@ export const useNotifications = (userId: string | null) => {
           fetchNotifications();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchNotifications]);
 
   return {
     notifications,

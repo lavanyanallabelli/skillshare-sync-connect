@@ -151,9 +151,9 @@ const Dashboard: React.FC = () => {
         // For each teaching skill, get the number of students and average rating
         const processedSkills = await Promise.all(rawTeachingSkills.map(async (skill) => {
           // Count students (users who requested sessions for this skill)
-          const { data: students, error: studentsError } = await supabase
+          const { count: studentCount, error: studentsError } = await supabase
             .from('sessions')
-            .select('student_id', { count: 'exact', head: true })
+            .select('student_id', { count: 'exact' })
             .eq('teacher_id', userId)
             .eq('skill', skill)
             .neq('student_id', userId);
@@ -187,7 +187,7 @@ const Dashboard: React.FC = () => {
             id: skill,
             title: skill,
             category: category,
-            students: students?.count || 0,
+            students: studentCount || 0,
             rating: avgRating
           };
         }));
@@ -275,7 +275,7 @@ const Dashboard: React.FC = () => {
   
   // Handle marking all notifications as read
   const handleMarkAllAsRead = async () => {
-    if (notifications && notifications.length > 0) {
+    if (notifications && notifications.length > 0 && userId) {
       const { markAllAsRead } = useNotifications(userId);
       await markAllAsRead();
     }

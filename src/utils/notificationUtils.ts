@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -30,33 +31,34 @@ export const createNotification = async (
       return null;
     }
 
-    // Use RPC (stored procedure) if Row Level Security is causing issues
-    // Otherwise use direct insert
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: targetUserId,
-          title,
-          description,
-          type,
-          action_url: actionUrl || null,
-          read: false
-        })
-        .select()
-        .single();
+    console.log("Creating notification for user:", targetUserId, {
+      title,
+      description,
+      type,
+      actionUrl
+    });
 
-      if (error) {
-        console.error("Error creating notification:", error);
-        return null;
-      }
-      
-      console.log("Notification created successfully:", data);
-      return data;
-    } catch (error) {
-      console.error("Failed to create notification:", error);
+    // Create the notification
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: targetUserId,
+        title,
+        description,
+        type,
+        action_url: actionUrl || null,
+        read: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating notification:", error);
       return null;
     }
+    
+    console.log("Notification created successfully:", data);
+    return data;
   } catch (error) {
     console.error("Failed to create notification:", error);
     return null;
