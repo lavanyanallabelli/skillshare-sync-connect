@@ -108,7 +108,7 @@ const ProfileNavbar: React.FC = () => {
         
         <div className="flex items-center gap-4">
           {!isMobile ? (
-            <UserMenu handleLogout={handleLogout} />
+            <UserMenu handleLogout={handleLogout} unreadCount={unreadMessageCount} />
           ) : (
             <Button
               variant="ghost"
