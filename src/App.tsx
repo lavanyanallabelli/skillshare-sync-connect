@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +20,7 @@ import Skills from "./pages/Skills";
 import TeacherProfile from "./pages/TeacherProfile";
 import Settings from "./pages/Settings";
 import React, { Suspense, lazy } from "react";
+import Notifications from "./pages/Notifications"; // Import the Notifications component
 
 const Sessions = lazy(() => import("./pages/Sessions"));
 
