@@ -148,17 +148,8 @@ export const useNotifications = (userId: string | null) => {
   useEffect(() => {
     if (!userId) return;
     
-    // Enable realtime updates for the notifications table if not already enabled
-    const enableRealtimeForNotifications = async () => {
-      try {
-        await supabase.rpc('enable_realtime_for_table', { table_name: 'notifications' });
-      } catch (error) {
-        console.error("Error enabling realtime for notifications table:", error);
-        // Continue anyway, as this might fail if already enabled or due to permissions
-      }
-    };
-    
-    enableRealtimeForNotifications();
+    // Remove the call to the non-existent function
+    // Instead, just set up the subscription directly
     fetchNotifications();
     
     // Set up realtime subscription
