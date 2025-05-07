@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { createSessionNotification } from "@/utils/notificationUtils";
 
 export const useRequestActions = (
   userId: string,
@@ -338,13 +339,12 @@ export const useRequestActions = (
             console.log("Session accepted:", acceptedSession);
             window.dispatchEvent(new CustomEvent('sessionAccepted', { detail: acceptedSession }));
             
-            // Create notification for the student
-            await createNotification(
-              sessionData.student_id,
-              "Session Request Accepted",
-              `${teacherName} accepted your session request for ${sessionData.skill}. Join using the meeting link.`,
-              "session",
-              "/sessions"
+            // Create notification for the student using the utility function
+            await createSessionNotification(
+              sessionData,
+              'accept',
+              studentName,
+              teacherName
             );
             
             toast({
@@ -376,12 +376,12 @@ export const useRequestActions = (
             throw error;
           }
 
-          // Create notification for the student that their session was declined
-          await createNotification(
-            sessionData.student_id,
-            "Session Request Declined",
-            `${teacherName} declined your session request for ${sessionData.skill}.`,
-            "session"
+          // Create notification for the student using the utility function
+          await createSessionNotification(
+            sessionData,
+            'decline',
+            studentName,
+            teacherName
           );
 
           toast({

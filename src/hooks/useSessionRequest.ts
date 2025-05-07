@@ -2,32 +2,11 @@
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { createSessionNotification } from "@/utils/notificationUtils";
 
 export const useSessionRequest = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Create a notification
-  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: targetUserId,
-          title,
-          description,
-          type,
-          action_url: actionUrl || null,
-          read: false
-        });
-
-      if (error) {
-        console.error("Error creating notification:", error);
-      }
-    } catch (error) {
-      console.error("Failed to create notification:", error);
-    }
-  };
 
   const sendSessionRequest = async (
     teacherId: string,
@@ -80,13 +59,12 @@ export const useSessionRequest = () => {
         return false;
       }
       
-      // Create a notification for the teacher
-      await createNotification(
-        teacherId,
-        "New Session Request",
-        `${studentName} requested a session for ${skill} on ${day}, ${timeSlot}.`,
-        "session",
-        "/profile?tab=requests"
+      // Create a notification for the teacher using the utility function
+      await createSessionNotification(
+        data,
+        'create',
+        studentName,
+        teacherName
       );
       
       toast({
