@@ -7,7 +7,7 @@ import { CalendarIcon, Video as VideoIcon, Link as LinkIcon, Copy as CopyIcon } 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface SessionsTabProps {
   upcomingSessions: any[];
@@ -54,10 +54,18 @@ const SessionCard = ({ session }: { session: any }) => {
     }
   };
 
-  // Format date if it's available
+  // Format date with proper timezone handling
   const formattedDate = session.day ? 
-    format(new Date(session.day), 'EEEE, MMMM d, yyyy') : 
-    session.date || 'Date not specified';
+    (() => {
+      // Make sure we're working with a proper date object
+      // parseISO handles ISO format strings, or create a new Date for other formats
+      const dateObj = typeof session.day === 'string' && session.day.includes('T') 
+        ? parseISO(session.day) 
+        : new Date(session.day);
+        
+      return format(dateObj, 'EEEE, MMMM d, yyyy');
+    })() 
+    : session.date || 'Date not specified';
 
   // Determine partner name based on the current user's role
   const partnerName = session.from || session.student_name || session.teacher_name || "Session Partner";
