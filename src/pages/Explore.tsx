@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
+import { createNotification } from "@/utils/notificationUtils";
 
 // Categories for filtering
 const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "Languages", "Cooking", "Business", "Academic"];
@@ -135,27 +136,6 @@ const Explore: React.FC = () => {
     return matchesSearch && matchesCategory && matchesRating;
   });
 
-  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: targetUserId,
-          title,
-          description,
-          type,
-          action_url: actionUrl || null,
-          read: false
-        });
-
-      if (error) {
-        console.error("Error creating notification:", error);
-      }
-    } catch (error) {
-      console.error("Failed to create notification:", error);
-    }
-  };
-
   const handleSendRequest = async (skillId: string, teacherId: string) => {
     if (!isLoggedIn) {
       toast({
@@ -195,6 +175,18 @@ const Explore: React.FC = () => {
     }
     
     try {
+      // Verify that we have an active session before proceeding
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+      
       // Get current user's profile info for the notification
       const { data: currentUserProfile } = await supabase
         .from('profiles')
@@ -209,22 +201,24 @@ const Explore: React.FC = () => {
       const currentUserName = `${currentUserProfile.first_name} ${currentUserProfile.last_name}`;
       
       // Insert a new connection request
-      const { error } = await supabase
+      const { data: connectionData, error: connectionError } = await supabase
         .from('connections')
         .insert({
           requester_id: userId,
           recipient_id: teacherId,
           status: 'pending'
-        });
+        })
+        .select()
+        .single();
         
-      if (error) {
-        if (error.code === '23505') { // Unique violation
+      if (connectionError) {
+        if (connectionError.code === '23505') { // Unique violation
           toast({
             title: "Already Connected",
             description: "You have already sent a connection request to this teacher",
           });
         } else {
-          throw error;
+          throw connectionError;
         }
       } else {
         // Update local state
@@ -234,13 +228,17 @@ const Explore: React.FC = () => {
         });
         
         // Create a notification for the teacher
-        await createNotification(
+        const notificationResult = await createNotification(
           teacherId,
           "New Connection Request",
           `${currentUserName} wants to connect with you.`,
           "connection",
           "/profile?tab=connections"
         );
+        
+        if (!notificationResult) {
+          console.log("Failed to create notification, but connection was created");
+        }
         
         // Refresh user data
         await refreshUserData();

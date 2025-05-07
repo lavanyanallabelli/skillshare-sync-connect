@@ -30,6 +30,14 @@ export const createNotification = async (
       console.error("Cannot create notification: User does not exist", targetUserId);
       return null;
     }
+    
+    // Get the current user's session to ensure we're authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error("Cannot create notification: No active session");
+      return null;
+    }
 
     console.log("Creating notification for user:", targetUserId, {
       title,
@@ -54,6 +62,11 @@ export const createNotification = async (
 
     if (error) {
       console.error("Error creating notification:", error);
+      
+      if (error.code === '42501') {
+        console.error("This is a Row Level Security (RLS) error. Check if you're authenticated and have permission to insert into the notifications table.");
+      }
+      
       return null;
     }
     
