@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -18,89 +18,282 @@ import {
   Star,
   ChevronRight
 } from "lucide-react";
+import { useAuth } from "@/App";
+import { useProfileData } from "@/hooks/useProfileData";
+import { useNotifications } from "@/hooks/useNotifications";
+import { supabase } from "@/integrations/supabase/client";
 
-// Sample data
-const upcomingSessions = [
-  {
-    id: 1,
-    title: "Photography Basics",
-    with: "Sarah Williams",
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-    date: "Today",
-    time: "3:00 PM - 4:00 PM",
-    status: "upcoming",
-  },
-  {
-    id: 2,
-    title: "Coding Tutorial",
-    with: "Alex Johnson",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    date: "Tomorrow",
-    time: "1:00 PM - 2:30 PM",
-    status: "upcoming",
-  },
-];
+// Define interfaces for our data types
+interface Session {
+  id: string;
+  title: string;
+  with: string;
+  avatar?: string;
+  date: string;
+  time: string;
+  status: string;
+}
 
-const notifications = [
-  {
-    id: 1,
-    type: "message",
-    content: "New message from Sarah Williams",
-    time: "10 minutes ago",
-    read: false,
-  },
-  {
-    id: 2,
-    type: "request",
-    content: "New learning request for Guitar Fundamentals",
-    time: "2 hours ago",
-    read: false,
-  },
-  {
-    id: 3,
-    type: "session",
-    content: "Upcoming session with Alex Johnson in 1 hour",
-    time: "3 hours ago",
-    read: true,
-  },
-];
+interface NotificationType {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  created_at: string;
+  read: boolean;
+}
 
-const teachingSkills = [
-  {
-    id: 1,
-    title: "Digital Photography",
-    category: "Arts & Design",
-    students: 4,
-    rating: 4.8,
-  },
-  {
-    id: 2,
-    title: "Web Development",
-    category: "Technology",
-    students: 2,
-    rating: 5.0,
-  },
-];
+interface TeachingSkill {
+  id: string;
+  title: string;
+  category: string;
+  students: number;
+  rating: number;
+}
 
-const learningSkills = [
-  {
-    id: 1,
-    title: "Guitar Fundamentals",
-    category: "Music",
-    teacher: "Michael Chen",
-    progress: 60,
-  },
-  {
-    id: 2,
-    title: "Yoga for Beginners",
-    category: "Fitness",
-    teacher: "Emily Davis",
-    progress: 30,
-  },
-];
+interface LearningSkill {
+  id: string;
+  title: string;
+  category: string;
+  teacher: string;
+  progress: number;
+}
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const { userId } = useAuth();
+  const { notifications, loading: notificationsLoading } = useNotifications(userId);
+  const { 
+    userData, 
+    teachingSkills: rawTeachingSkills, 
+    learningSkills: rawLearningSkills, 
+    loading: profileLoading 
+  } = useProfileData(userId);
+  
+  // State for session data
+  const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
+  const [teachingSkills, setTeachingSkills] = useState<TeachingSkill[]>([]);
+  const [learningSkills, setLearningSkills] = useState<LearningSkill[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch sessions data from Supabase
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!userId) return;
+      
+      try {
+        const { data: sessionsData, error } = await supabase
+          .from('sessions')
+          .select(`
+            id,
+            skill,
+            day,
+            time_slot,
+            status,
+            student_id,
+            teacher_id,
+            profiles!sessions_teacher_id_fkey(first_name, last_name, avatar_url)
+          `)
+          .eq('status', 'accepted')
+          .or(`student_id.eq.${userId},teacher_id.eq.${userId}`)
+          .order('day', { ascending: true })
+          .limit(5);
+          
+        if (error) throw error;
+        
+        // Transform the data into the required format
+        const formattedSessions = sessionsData.map(session => {
+          const isTeacher = session.teacher_id === userId;
+          const otherPerson = session.profiles;
+          const name = otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : (isTeacher ? "Student" : "Teacher");
+          
+          const sessionDate = new Date(session.day);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          
+          let dateDisplay;
+          if (sessionDate.toDateString() === today.toDateString()) {
+            dateDisplay = "Today";
+          } else if (sessionDate.toDateString() === tomorrow.toDateString()) {
+            dateDisplay = "Tomorrow";
+          } else {
+            dateDisplay = sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+          
+          return {
+            id: session.id,
+            title: session.skill,
+            with: name,
+            avatar: otherPerson?.avatar_url || undefined,
+            date: dateDisplay,
+            time: session.time_slot,
+            status: 'upcoming'
+          };
+        });
+        
+        setUpcomingSessions(formattedSessions);
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+      }
+    };
+    
+    fetchSessions();
+  }, [userId]);
+  
+  // Transform teaching skills data
+  useEffect(() => {
+    if (!rawTeachingSkills || profileLoading) return;
+    
+    const fetchTeachingData = async () => {
+      try {
+        // For each teaching skill, get the number of students and average rating
+        const processedSkills = await Promise.all(rawTeachingSkills.map(async (skill) => {
+          // Count students (users who requested sessions for this skill)
+          const { data: students, error: studentsError } = await supabase
+            .from('sessions')
+            .select('student_id', { count: 'exact', head: true })
+            .eq('teacher_id', userId)
+            .eq('skill', skill)
+            .neq('student_id', userId);
+            
+          if (studentsError) throw studentsError;
+          
+          // Get average rating
+          const { data: ratings, error: ratingsError } = await supabase
+            .from('reviews')
+            .select('rating')
+            .eq('recipient_id', userId);
+            
+          if (ratingsError) throw ratingsError;
+          
+          let avgRating = 5.0; // Default rating
+          if (ratings && ratings.length > 0) {
+            const sum = ratings.reduce((acc, curr) => acc + curr.rating, 0);
+            avgRating = Math.round((sum / ratings.length) * 10) / 10; // Round to 1 decimal
+          }
+          
+          // Get the category
+          const { data: skillData } = await supabase
+            .from('skills_catalog')
+            .select('category')
+            .eq('name', skill)
+            .single();
+          
+          const category = skillData?.category || "Other";
+            
+          return {
+            id: skill,
+            title: skill,
+            category: category,
+            students: students?.count || 0,
+            rating: avgRating
+          };
+        }));
+        
+        setTeachingSkills(processedSkills);
+      } catch (error) {
+        console.error("Error processing teaching skills:", error);
+      }
+    };
+    
+    fetchTeachingData();
+  }, [rawTeachingSkills, userId, profileLoading]);
+  
+  // Transform learning skills data
+  useEffect(() => {
+    if (!rawLearningSkills || profileLoading) return;
+    
+    const fetchLearningData = async () => {
+      try {
+        const processedSkills = await Promise.all(rawLearningSkills.map(async (skill) => {
+          // Find the teacher for this skill
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('sessions')
+            .select(`
+              teacher_id,
+              profiles!sessions_teacher_id_fkey(first_name, last_name)
+            `)
+            .eq('student_id', userId)
+            .eq('skill', skill)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+          let teacherName = "Not assigned";
+          if (sessionData?.profiles) {
+            teacherName = `${sessionData.profiles.first_name} ${sessionData.profiles.last_name}`;
+          }
+          
+          // Calculate progress (could be based on quiz results or session completion)
+          // For now, we'll use a random progress between 10-90%
+          const progress = Math.floor(Math.random() * 80) + 10;
+          
+          // Get the category
+          const { data: skillData } = await supabase
+            .from('skills_catalog')
+            .select('category')
+            .eq('name', skill)
+            .single();
+          
+          const category = skillData?.category || "Other";
+            
+          return {
+            id: skill,
+            title: skill,
+            category: category,
+            teacher: teacherName,
+            progress: progress
+          };
+        }));
+        
+        setLearningSkills(processedSkills);
+      } catch (error) {
+        console.error("Error processing learning skills:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchLearningData();
+  }, [rawLearningSkills, userId, profileLoading]);
+  
+  // Format timestamp to relative time
+  const formatRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    
+    return date.toLocaleDateString();
+  };
+  
+  // Handle marking all notifications as read
+  const handleMarkAllAsRead = async () => {
+    if (notifications && notifications.length > 0) {
+      const { markAllAsRead } = useNotifications(userId);
+      await markAllAsRead();
+    }
+  };
+  
+  // Loading state
+  if (loading && (profileLoading || notificationsLoading)) {
+    return (
+      <ProfileLayout>
+        <div className="container py-12">
+          <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+          <div className="h-96 flex items-center justify-center">
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </div>
+      </ProfileLayout>
+    );
+  }
   
   return (
     <ProfileLayout>
@@ -210,34 +403,51 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="space-y-4">
-                {upcomingSessions.map((session) => (
-                  <Card key={session.id}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="bg-muted p-3 rounded-full">
-                        <Clock size={24} className="text-skill-purple" />
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h3 className="font-medium">{session.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <img 
-                            src={session.avatar} 
-                            alt={session.with} 
-                            className="h-5 w-5 rounded-full object-cover" 
-                          />
-                          <span>with {session.with}</span>
+                {upcomingSessions.length > 0 ? (
+                  upcomingSessions.map((session) => (
+                    <Card key={session.id}>
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="bg-muted p-3 rounded-full">
+                          <Clock size={24} className="text-skill-purple" />
                         </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{session.date}</p>
-                        <p className="text-xs text-muted-foreground">{session.time}</p>
-                      </div>
-                      
-                      <ChevronRight size={16} className="text-muted-foreground" />
+                        
+                        <div className="flex-1">
+                          <h3 className="font-medium">{session.title}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {session.avatar ? (
+                              <img 
+                                src={session.avatar} 
+                                alt={session.with} 
+                                className="h-5 w-5 rounded-full object-cover" 
+                              />
+                            ) : (
+                              <User size={14} />
+                            )}
+                            <span>with {session.with}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{session.date}</p>
+                          <p className="text-xs text-muted-foreground">{session.time}</p>
+                        </div>
+                        
+                        <ChevronRight size={16} className="text-muted-foreground" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <p className="text-muted-foreground">No upcoming sessions</p>
+                      <Link to="/explore" className="mt-2 inline-block">
+                        <Button size="sm" className="bg-skill-purple hover:bg-skill-purple-dark">
+                          Find Teachers
+                        </Button>
+                      </Link>
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
             </div>
             
@@ -256,38 +466,48 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="space-y-2">
-                {notifications.slice(0, 3).map((notification) => (
-                  <Card key={notification.id}>
-                    <CardContent className="p-4 flex items-center gap-3">
-                      {notification.type === "message" && (
-                        <div className="bg-blue-500/10 p-2 rounded-full text-blue-500">
-                          <MessageSquare size={16} />
+                {notifications && notifications.length > 0 ? (
+                  notifications.slice(0, 3).map((notification) => (
+                    <Card key={notification.id}>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        {notification.type === "message" && (
+                          <div className="bg-blue-500/10 p-2 rounded-full text-blue-500">
+                            <MessageSquare size={16} />
+                          </div>
+                        )}
+                        {notification.type === "session" && (
+                          <div className="bg-green-500/10 p-2 rounded-full text-green-500">
+                            <Calendar size={16} />
+                          </div>
+                        )}
+                        {notification.type === "connection" && (
+                          <div className="bg-amber-500/10 p-2 rounded-full text-amber-500">
+                            <Users size={16} />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1">
+                          <p className={notification.read ? "text-muted-foreground" : "font-medium"}>
+                            {notification.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatRelativeTime(notification.created_at)}
+                          </p>
                         </div>
-                      )}
-                      {notification.type === "request" && (
-                        <div className="bg-amber-500/10 p-2 rounded-full text-amber-500">
-                          <Users size={16} />
-                        </div>
-                      )}
-                      {notification.type === "session" && (
-                        <div className="bg-green-500/10 p-2 rounded-full text-green-500">
-                          <Calendar size={16} />
-                        </div>
-                      )}
-                      
-                      <div className="flex-1">
-                        <p className={notification.read ? "text-muted-foreground" : "font-medium"}>
-                          {notification.content}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{notification.time}</p>
-                      </div>
-                      
-                      {!notification.read && (
-                        <div className="h-2 w-2 rounded-full bg-skill-purple"></div>
-                      )}
+                        
+                        {!notification.read && (
+                          <div className="h-2 w-2 rounded-full bg-skill-purple"></div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <p className="text-muted-foreground">No notifications</p>
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
             </div>
           </TabsContent>
@@ -419,12 +639,12 @@ const Dashboard: React.FC = () => {
           <TabsContent value="notifications" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">Notifications</h2>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
                 Mark All as Read
               </Button>
             </div>
             
-            {notifications.length > 0 ? (
+            {notifications && notifications.length > 0 ? (
               <div className="space-y-3">
                 {notifications.map((notification) => (
                   <Card key={notification.id}>
@@ -434,22 +654,27 @@ const Dashboard: React.FC = () => {
                           <MessageSquare size={16} />
                         </div>
                       )}
-                      {notification.type === "request" && (
-                        <div className="bg-amber-500/10 p-2 rounded-full text-amber-500">
-                          <Users size={16} />
-                        </div>
-                      )}
                       {notification.type === "session" && (
                         <div className="bg-green-500/10 p-2 rounded-full text-green-500">
                           <Calendar size={16} />
                         </div>
                       )}
+                      {notification.type === "connection" && (
+                        <div className="bg-amber-500/10 p-2 rounded-full text-amber-500">
+                          <Users size={16} />
+                        </div>
+                      )}
                       
                       <div className="flex-1">
                         <p className={notification.read ? "text-muted-foreground" : "font-medium"}>
-                          {notification.content}
+                          {notification.title}
                         </p>
-                        <p className="text-xs text-muted-foreground">{notification.time}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(notification.created_at)}
+                        </p>
+                        {notification.description && (
+                          <p className="text-sm mt-1">{notification.description}</p>
+                        )}
                       </div>
                       
                       {!notification.read && (
