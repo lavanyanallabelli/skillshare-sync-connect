@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
@@ -29,6 +28,15 @@ const Navbar: React.FC = () => {
     navigate("/");
   };
   
+  const navItems = [
+    { name: "Home", path: "/" },
+    { name: "Explore", path: "/explore" },
+    { name: "Teach", path: "/teach" },
+    { name: "About", path: "/about" },
+    // Add the Admin route for logged-in users
+    ...(isLoggedIn ? [{ name: "Admin", path: "/admin" }] : [])
+  ];
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between">
@@ -44,15 +52,11 @@ const Navbar: React.FC = () => {
           
           {!isMobile && (
             <div className="hidden md:flex items-center gap-6">
-              <Link to="/explore" className="text-muted-foreground hover:text-foreground">
-                Explore
-              </Link>
-              <Link to="/teach" className="text-muted-foreground hover:text-foreground">
-                Teach
-              </Link>
-              <Link to="/about" className="text-muted-foreground hover:text-foreground">
-                How It Works
-              </Link>
+              {navItems.map((item) => (
+                <Link key={item.path} to={item.path} className="text-muted-foreground hover:text-foreground">
+                  {item.name}
+                </Link>
+              ))}
             </div>
           )}
         </div>

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +20,7 @@ import TeacherProfile from "./pages/TeacherProfile";
 import Settings from "./pages/Settings";
 import React, { Suspense, lazy } from "react";
 import Notifications from "./pages/Notifications"; // Import the Notifications component
+import AdminDashboard from "./pages/AdminDashboard"; // Add this import
 
 const Sessions = lazy(() => import("./pages/Sessions"));
 
@@ -290,6 +290,7 @@ const App = () => {
               ) : <Navigate to="/login" />} />
               <Route path="/communities" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/admin" element={isLoggedIn ? <AdminDashboard /> : <Navigate to="/login" />} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
