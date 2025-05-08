@@ -177,13 +177,21 @@ const AdminDashboard = () => {
 
   const handleDeleteAccount = async (userId: string, reportId: string) => {
     try {
-      // In a real app, consider more cleanup steps before deletion
-      // Here we just delete the user accounts
-      
-      // Delete user from auth.users (this is a simplified example; typically would use an admin API)
-      const { error: deleteError } = await supabase.rpc('delete_user', { user_id: userId });
+      // Call the delete_user edge function with the user's authorization token
+      const authHeader = supabase.auth.getSession();
+      const { data, error } = await fetch(
+        "https://rojydqsndhoielitdquu.supabase.co/functions/v1/delete_user",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${(await authHeader).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }
+      ).then((res) => res.json());
 
-      if (deleteError) throw deleteError;
+      if (error) throw new Error(error.message || "Failed to delete user");
 
       // Mark the report as resolved
       await supabase
