@@ -1,8 +1,9 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star } from "lucide-react";
+import ReviewCard from "../ReviewCard";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface ReviewsTabProps {
   reviews: any[];
@@ -12,42 +13,25 @@ const ReviewsTab: React.FC<ReviewsTabProps> = ({ reviews }) => {
   return (
     <div className="grid grid-cols-1 gap-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Reviews</CardTitle>
+          <Button variant="outline" asChild>
+            <Link to="/reviews">View All Reviews</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           {reviews.length > 0 ? (
             <div className="space-y-4">
               {reviews.map((review) => (
-                <div key={review.id} className="border p-4 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={review.userAvatar} alt="User avatar" />
-                      <AvatarFallback>
-                        {review.userName.split(" ").map((n: string) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium">{review.userName}</h4>
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < review.rating
-                                ? "fill-yellow-500 text-yellow-500"
-                                : "text-gray-300"
-                            }`}
-                          />
-                        ))}
-                        <span className="text-sm ml-2 text-muted-foreground">
-                          {review.date}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm">{review.comment}</p>
-                </div>
+                <ReviewCard
+                  key={review.id}
+                  id={review.id}
+                  name={review.userName}
+                  avatar={review.userAvatar}
+                  rating={review.rating}
+                  date={review.date}
+                  comment={review.comment}
+                />
               ))}
             </div>
           ) : (

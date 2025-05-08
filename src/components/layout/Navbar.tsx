@@ -53,6 +53,7 @@ const Navbar: React.FC = () => {
     { name: "Explore", path: "/explore" },
     { name: "Teach", path: "/teach" },
     { name: "About", path: "/about" },
+    { name: "Reviews", path: "/reviews" },
     // Add the Admin route only for the admin user
     ...(isAdmin ? [{ name: "Admin", path: "/admin" }] : [])
   ];

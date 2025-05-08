@@ -1,8 +1,7 @@
-
 import React from "react";
-import { Link } from "react-router-dom";
-import { UserIcon, MessageSquare } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/App";
 
 interface MobileNavMenuProps {
   isLoggedIn: boolean;
@@ -11,76 +10,94 @@ interface MobileNavMenuProps {
   onClose: () => void;
 }
 
-export const MobileNavMenu: React.FC<MobileNavMenuProps> = ({
+const MobileNavMenu: React.FC<MobileNavMenuProps> = ({
   isLoggedIn,
   unreadCount,
   handleLogout,
   onClose,
 }) => {
+  const navigate = useNavigate();
+  const { userId } = useAuth();
+
+  const handleLogoutAndClose = () => {
+    handleLogout();
+    onClose();
+    navigate("/");
+  };
+
+  // Add Reviews to the navItems array along with the existing items
+  const navItems = [
+    { name: "Home", path: "/" },
+    { name: "Explore", path: "/explore" },
+    { name: "Teach", path: "/teach" },
+    { name: "About", path: "/about" },
+    { name: "Reviews", path: "/reviews" },
+  ];
+
   return (
-    <div className="absolute top-16 left-0 w-full bg-background border-b shadow-lg animate-fade-in">
-      <div className="container py-4 flex flex-col gap-4">
-        <Link to="/explore" className="p-2 hover:bg-muted rounded-md" onClick={onClose}>
-          Explore
-        </Link>
-        <Link to="/teach" className="p-2 hover:bg-muted rounded-md" onClick={onClose}>
-          Teach
-        </Link>
-        <Link to="/about" className="p-2 hover:bg-muted rounded-md" onClick={onClose}>
-          How It Works
-        </Link>
-        
-        {isLoggedIn ? (
-          <>
-            <Link to="/profile" className="p-2 hover:bg-muted rounded-md flex items-center gap-2" onClick={onClose}>
-              <UserIcon size={16} />
-              Profile
+    <div className="px-4 py-6">
+      <ul className="space-y-2">
+        {navItems.map((item) => (
+          <li key={item.path}>
+            <Link
+              to={item.path}
+              className="block py-2 text-lg text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              {item.name}
             </Link>
-            <Link to="/dashboard" className="p-2 hover:bg-muted rounded-md flex items-center gap-2" onClick={onClose}>
-              <UserIcon size={16} />
-              Dashboard
-            </Link>
-            <Link to="/skills" className="p-2 hover:bg-muted rounded-md flex items-center gap-2" onClick={onClose}>
-              <UserIcon size={16} />
-              My Skills
-            </Link>
-            <Link to="/messages" className="p-2 hover:bg-muted rounded-md flex items-center gap-2" onClick={onClose}>
-              <MessageSquare size={16} />
-              Messages
+          </li>
+        ))}
+        {isLoggedIn && (
+          <li>
+            <Link
+              to="/notifications"
+              className="block py-2 text-lg text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              Notifications{" "}
               {unreadCount > 0 && (
-                <span className="ml-auto bg-skill-purple text-white text-xs h-5 w-5 rounded-full flex items-center justify-center">
+                <span className="ml-1 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
                   {unreadCount}
                 </span>
               )}
             </Link>
-            <div className="pt-2 border-t">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  handleLogout();
-                  onClose();
-                }}
-              >
-                Log out
-              </Button>
-            </div>
-          </>
+          </li>
+        )}
+        {isLoggedIn && (
+          <li>
+            <Link
+              to={`/teachers/${userId}`}
+              className="block py-2 text-lg text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              Profile
+            </Link>
+          </li>
+        )}
+      </ul>
+      <div className="mt-8 space-y-2">
+        {isLoggedIn ? (
+          <Button variant="outline" className="w-full" onClick={handleLogoutAndClose}>
+            Log out
+          </Button>
         ) : (
-          <div className="flex gap-2 pt-2 border-t">
-            <Link to="/login" className="flex-1" onClick={onClose}>
-              <Button variant="outline" className="w-full">
+          <>
+            <Link to="/login">
+              <Button variant="outline" className="w-full" onClick={onClose}>
                 Log in
               </Button>
             </Link>
-            <Link to="/signup" className="flex-1" onClick={onClose}>
-              <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark">
+            <Link to="/signup">
+              <Button className="w-full bg-skill-purple hover:bg-skill-purple-dark" onClick={onClose}>
                 Sign up
               </Button>
             </Link>
-          </div>
+          </>
         )}
       </div>
     </div>
   );
 };
+
+export default MobileNavMenu;
