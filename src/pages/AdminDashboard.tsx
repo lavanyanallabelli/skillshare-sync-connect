@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -34,6 +33,8 @@ type Report = {
   admin_notes?: string | null;
 };
 
+const ADMIN_EMAIL = "lavanyanallabelli@gmail.com";
+
 const AdminDashboard = () => {
   const { userId, isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -53,28 +54,35 @@ const AdminDashboard = () => {
         return;
       }
 
-      // In a real app, you'd verify admin status from a user_roles table
-      // For now, we'll do a simple check against a predefined admin user ID
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", userId)
-        .single();
-
-      if (error || !data) {
+      try {
+        // Get the user's email to check if they're the admin
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) throw userError;
+        
+        const userEmail = userData.user?.email;
+        
+        if (userEmail !== ADMIN_EMAIL) {
+          navigate("/");
+          toast({
+            title: "Unauthorized",
+            description: "You do not have access to this page.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        setIsAdmin(true);
+        fetchReports();
+      } catch (error) {
+        console.error("Error checking admin status:", error);
         navigate("/");
         toast({
-          title: "Unauthorized",
-          description: "You do not have access to this page.",
+          title: "Error",
+          description: "An error occurred while checking your permissions.",
           variant: "destructive",
         });
-        return;
       }
-
-      // For demo purposes, consider the user an admin if they're logged in
-      // In a real app, you would check against a roles table
-      setIsAdmin(true);
-      fetchReports();
     };
 
     checkAdminStatus();
