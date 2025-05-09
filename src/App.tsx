@@ -145,6 +145,33 @@ const App = () => {
         setUserId(session?.user?.id ?? null);
         setIsLoggedIn(isAuthenticated);
         
+        if (session?.user && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+          // Log user metadata to check for avatar URL
+          console.log("User metadata:", session.user.user_metadata);
+          
+          // Update profile avatar from OAuth if available
+          if (session.user.user_metadata?.avatar_url) {
+            console.log("Found avatar URL in user metadata:", session.user.user_metadata.avatar_url);
+            
+            setTimeout(async () => {
+              try {
+                const { error: avatarError } = await supabase
+                  .from('profiles')
+                  .update({ avatar_url: session.user.user_metadata.avatar_url })
+                  .eq('id', session.user.id);
+                  
+                if (avatarError) {
+                  console.error("Error updating avatar URL:", avatarError);
+                } else {
+                  console.log("Avatar URL updated in profile");
+                }
+              } catch (error) {
+                console.error("Error updating avatar:", error);
+              }
+            }, 0);
+          }
+        }
+        
         if (session?.provider_token && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
           // Determine if this is a Google login by checking multiple indicators
           const identities = session.user?.identities || [];

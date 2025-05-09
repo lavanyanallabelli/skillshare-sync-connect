@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { login, refreshUserData } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -39,6 +39,25 @@ const Login: React.FC = () => {
                                !!session.provider_refresh_token;
                                
           console.log('[Google OAuth] Is Google login:', isGoogleLogin);
+          console.log('[Google OAuth] User metadata:', session.user?.user_metadata);
+          
+          // Save avatar URL from Google if available
+          if (isGoogleLogin && session.user?.user_metadata?.avatar_url) {
+            console.log('[Google OAuth] Avatar URL found:', session.user.user_metadata.avatar_url);
+            
+            // Update the user profile with the avatar URL
+            const { error: avatarError } = await supabase
+              .from('profiles')
+              .update({ avatar_url: session.user.user_metadata.avatar_url })
+              .eq('id', session.user.id);
+              
+            if (avatarError) {
+              console.error('[Google OAuth] Error updating avatar URL:', avatarError);
+            } else {
+              console.log('[Google OAuth] Avatar URL updated in profile');
+              refreshUserData();
+            }
+          }
           
           if (!session.provider_token) {
             console.warn('[Google OAuth] No provider_token found in session. Google OAuth may not be configured correctly in Supabase.');
@@ -90,7 +109,7 @@ const Login: React.FC = () => {
     };
     
     getGoogleAccessToken();
-  }, [toast]);
+  }, [toast, refreshUserData]);
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -256,7 +275,7 @@ const Login: React.FC = () => {
         description: "You will be redirected to continue login...",
       });
       
-      const scopes = provider === 'google' ? 'https://www.googleapis.com/auth/calendar' : undefined;
+      const scopes = provider === 'google' ? 'https://www.googleapis.com/auth/calendar profile' : undefined;
       
       const redirectUrl = provider === 'google' 
         ? `${window.location.origin}/profile?tab=requests`

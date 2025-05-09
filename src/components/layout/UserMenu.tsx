@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ interface UserMenuProps {
 export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout, unreadCount: messageUnreadCount }) => {
   const { userId } = useAuth();
   const { toast } = useToast();
+  const [ userAvatar, setUserAvatar ] = useState<string>("/placeholder.svg");
   const { 
     notifications, 
     unreadCount: notificationUnreadCount, 
@@ -36,6 +37,22 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout, unreadCount: m
     markAllAsRead 
   } = useNotifications(userId);
   
+  useEffect(() => {
+    // Get user data from localStorage
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+      try {
+        const userData = JSON.parse(userDataStr);
+        if (userData.avatar && userData.avatar !== "/placeholder.svg") {
+          setUserAvatar(userData.avatar);
+          console.log("User avatar loaded from localStorage:", userData.avatar);
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
+  }, [userId]);
+
   const handleNotificationClick = async (notification: any) => {
     try {
       await markAsRead(notification.id);
@@ -133,7 +150,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ handleLogout, unreadCount: m
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="/placeholder.svg" alt="User avatar" />
+              <AvatarImage src={userAvatar} alt="User avatar" />
               <AvatarFallback>US</AvatarFallback>
             </Avatar>
           </Button>
