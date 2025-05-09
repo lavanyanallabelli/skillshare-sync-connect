@@ -199,7 +199,7 @@ const Login: React.FC = () => {
 
       if (data?.user) {
         console.log("User authenticated successfully:", data.user.id);
-        login(data.user.id);
+        login();
         toast({
           title: "Welcome back!",
           description: "You've been successfully logged in.",

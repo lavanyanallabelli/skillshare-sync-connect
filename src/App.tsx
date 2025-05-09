@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
@@ -26,7 +25,6 @@ interface AuthContextProps {
   userId: string | null;
   login: (userId: string) => void;
   logout: () => void;
-  refreshUserData: () => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
@@ -34,7 +32,6 @@ const AuthContext = createContext<AuthContextProps>({
   userId: null,
   login: () => {},
   logout: () => {},
-  refreshUserData: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -70,24 +67,8 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('supabase.auth.token');
   };
 
-  const refreshUserData = () => {
-    // This function will check and update the auth state
-    const checkAuthState = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        setIsLoggedIn(true);
-        setUserId(data.user.id);
-      } else {
-        setIsLoggedIn(false);
-        setUserId(null);
-      }
-    };
-    
-    checkAuthState();
-  };
-
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userId, login, logout, refreshUserData }}>
+    <AuthContext.Provider value={{ isLoggedIn, userId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
