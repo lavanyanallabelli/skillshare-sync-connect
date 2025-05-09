@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -14,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
+import { createConnectionNotification } from "@/utils/notificationUtils";
 import {
   Clock,
   Calendar as CalendarIcon,
