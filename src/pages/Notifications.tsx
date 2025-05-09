@@ -114,9 +114,9 @@ const Notifications = () => {
                             {notification.description && (
                               <p className="text-muted-foreground">{notification.description}</p>
                             )}
-                            {notification.actionUrl && (
+                            {notification.action_url && (
                               <Link
-                                to={notification.actionUrl}
+                                to={notification.action_url}
                                 className="text-skill-purple hover:underline text-sm mt-2 inline-block"
                               >
                                 View details

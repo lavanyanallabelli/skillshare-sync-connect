@@ -18,7 +18,7 @@ const NotificationItem = ({ notification, onRead }: {
     id: string;
     title: string;
     description?: string;
-    actionUrl?: string;
+    action_url?: string;
     type: string;
     read: boolean;
     created_at: string;
@@ -45,9 +45,9 @@ const NotificationItem = ({ notification, onRead }: {
       {notification.description && (
         <p className="text-sm text-muted-foreground mb-2">{notification.description}</p>
       )}
-      {notification.actionUrl && (
+      {notification.action_url && (
         <Link 
-          to={notification.actionUrl} 
+          to={notification.action_url} 
           className="text-xs text-skill-purple hover:underline"
         >
           View details

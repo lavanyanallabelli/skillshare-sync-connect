@@ -1,11 +1,13 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useSaveProfileData } from "../actions/ProfileSaveActions";
+import { supabase } from "@/integrations/supabase/client";
 import ProfileAbout from "../sections/ProfileAbout";
 import ProfileExperience from "../sections/ProfileExperience";
 import ProfileEducation from "../sections/ProfileEducation";
 import ProfileSkills from "../sections/ProfileSkills";
 import ProfileUpcomingSessions from "./ProfileUpcomingSessions";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfileTabContainerProps {
   userData: any;
@@ -58,12 +60,43 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   setNewSkill,
   isOwnProfile
 }) => {
+  const { toast } = useToast();
   const { 
     handleSaveBio, 
     saveExperiences, 
     saveEducation,
     saveSkills 
   } = useSaveProfileData({ userId, userData });
+
+  // Add effect to reload teaching skills after saving
+  useEffect(() => {
+    const loadTeachingSkills = async () => {
+      if (!userId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('teaching_skills')
+          .select('skill')
+          .eq('user_id', userId);
+          
+        if (error) {
+          console.error('Error loading teaching skills:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          const skillNames = data.map(item => item.skill);
+          setSkills(skillNames);
+        }
+      } catch (error) {
+        console.error('Error in loadTeachingSkills:', error);
+      }
+    };
+    
+    if (!editingSkills) {
+      loadTeachingSkills();
+    }
+  }, [userId, editingSkills, setSkills]);
 
   const handleBioSave = async () => {
     const success = await handleSaveBio(bio);
@@ -87,6 +120,15 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   };
 
   const handleSaveSkills = async () => {
+    if (skills.length === 0) {
+      toast({
+        title: "No skills to save",
+        description: "Please add at least one skill before saving.",
+      });
+      return;
+    }
+    
+    console.log("Saving skills:", skills);
     const success = await saveSkills(skills);
     if (success) {
       setEditingSkills(false);

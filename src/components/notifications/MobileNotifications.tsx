@@ -52,9 +52,9 @@ const MobileNotifications = () => {
               {notification.description && (
                 <p className="text-sm text-muted-foreground mt-1">{notification.description}</p>
               )}
-              {notification.actionUrl && (
+              {notification.action_url && (
                 <Link 
-                  to={notification.actionUrl}
+                  to={notification.action_url}
                   className="block mt-2 text-xs text-skill-purple hover:underline"
                 >
                   View details
