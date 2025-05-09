@@ -232,17 +232,12 @@ const Explore: React.FC = () => {
         });
         
         // Create a notification for the teacher
-        const notificationResult = await createConnectionNotification(
+        await createConnectionNotification(
           teacherId,
           "New Connection Request",
           `${currentUserName} wants to connect with you.`,
-          "connection",
-          "/profile?tab=connections"
+          "connection"
         );
-        
-        if (!notificationResult) {
-          console.log("Failed to create notification, but connection was created");
-        }
         
         // Refresh user data
         await refreshUserData();
