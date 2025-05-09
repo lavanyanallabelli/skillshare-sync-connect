@@ -32,7 +32,15 @@ export const createNotification = async (
       return null;
     }
 
-    // Create the notification - now with proper RLS policy in place
+    // Log the current user ID and target user ID for debugging
+    console.log('[Notifications] Current user:', sessionData.session.user.id);
+    console.log('[Notifications] Target user:', targetUserId);
+    
+    // Check if we're creating a notification for ourselves or another user
+    const isSelfNotification = sessionData.session.user.id === targetUserId;
+    console.log('[Notifications] Is self notification:', isSelfNotification);
+
+    // Create the notification
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -48,6 +56,15 @@ export const createNotification = async (
 
     if (error) {
       console.error('[Notifications] Error creating notification:', error);
+      
+      // If we hit an RLS error, let's add more detailed logging
+      if (error.code === '42501') {
+        console.error('[Notifications] RLS policy violation. Make sure:');
+        console.error('1. You have a policy that allows ANY authenticated user to insert notifications');
+        console.error('2. Your policy uses WITH CHECK (auth.uid() IS NOT NULL) for inserts');
+        console.error('3. The user is authenticated (session exists)');
+      }
+      
       toast({
         title: 'Error creating notification',
         description: error.message,
