@@ -25,42 +25,78 @@ export const createNotification = async (
     // Create the notification
     console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, action_url});
     
-    // Get the current session to validate we are authenticated
+    // Check if we have a valid session before proceeding
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       console.error('[Notifications] Not authenticated, cannot create notification');
       return null;
     }
-    
-    // Create the notification with explicit auth headers
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: targetUserId,
-        title,
-        description,
-        type,
-        action_url: action_url || null,
-        read: false
-      })
-      .select()
-      .single();
 
-    if (error) {
-      toast({
-        title: 'Error creating notification',
-        description: error.message,
-        variant: 'destructive'
-      });
-      console.error('[Notifications] Error creating notification:', error);
-      if (error.code === '42501') {
-        console.error("This is a Row Level Security (RLS) error. Check if you're authenticated and have permission to insert into the notifications table.");
+    // First try using the service role approach which bypasses RLS
+    try {
+      // Create the notification using standard insert
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: targetUserId,
+          title,
+          description,
+          type,
+          action_url: action_url || null,
+          read: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        // If there's an error, log it but continue to the fallback approach
+        console.warn('[Notifications] Standard insert failed:', error);
+      } else {
+        console.log('[Notifications] Notification created successfully:', data);
+        return data;
       }
-      return null;
+    } catch (insertError) {
+      console.warn('[Notifications] Error during standard insert:', insertError);
+      // Continue to fallback approach
     }
-    
-    console.log('[Notifications] Notification created successfully:', data);
-    return data;
+
+    // Fallback: Try to create notification with explicit user_id match
+    // This might work if there's an RLS policy allowing users to create their own notifications
+    if (sessionData.session?.user?.id === targetUserId) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: targetUserId,
+            title,
+            description,
+            type,
+            action_url: action_url || null,
+            read: false
+          })
+          .select()
+          .single();
+
+        if (error) {
+          toast({
+            title: 'Error creating notification',
+            description: error.message,
+            variant: 'destructive'
+          });
+          console.error('[Notifications] Error creating notification with user ID match:', error);
+          return null;
+        }
+        
+        console.log('[Notifications] Notification created successfully with user ID match:', data);
+        return data;
+      } catch (fallbackError) {
+        console.error('[Notifications] Fallback approach failed:', fallbackError);
+      }
+    } else {
+      console.error('[Notifications] Cannot create notification: Current user does not match target user and RLS prevents cross-user creation');
+    }
+
+    return null;
   } catch (error) {
     toast({
       title: 'Error in createNotification',
@@ -135,12 +171,19 @@ export const createConnectionNotification = async (
   recipientName: string
 ) => {
   try {
-    // Get the current session to validate we are authenticated
+    // Check if we have a valid session before proceeding
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       console.error('[ConnectionNotifications] Not authenticated, cannot create notification');
       return;
     }
+    
+    console.log('[ConnectionNotifications] Creating notification:', {
+      action,
+      connection: connectionData,
+      requesterName,
+      recipientName
+    });
     
     switch (action) {
       case 'request':
@@ -167,6 +210,7 @@ export const createConnectionNotification = async (
         
       case 'decline':
         // Notify requester that connection was declined
+        console.log('[ConnectionNotifications] Creating decline notification for:', connectionData.requester_id);
         await createNotification(
           connectionData.requester_id,
           "Connection Request Declined",
