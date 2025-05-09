@@ -62,9 +62,7 @@ const Navbar: React.FC = () => {
             <>
               <SearchForm />
               
-              {isLoggedIn && (
-                <NotificationCenter />
-              )}
+              
               
               {isLoggedIn ? (
                 <UserMenu unreadCount={unreadCount} handleLogout={handleLogout} />

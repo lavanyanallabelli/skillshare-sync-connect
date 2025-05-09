@@ -125,9 +125,7 @@ const Profile: React.FC = () => {
     },
   };
 
-  if (!isLoggedIn) {
-    return null;
-  }
+
 
   if (loading) {
     return (
@@ -158,7 +156,7 @@ const Profile: React.FC = () => {
               education={userData?.education || ""}
               achievements={["New Member"]}
               bio={userData?.bio}
-              isOwnProfile={true}
+              isOwnProfile={userId && userData?.id && userId === userData?.id}
               onUpdateProfile={handleUpdateProfile}
               teachingSkills={teachingSkills}
               learningSkills={learningSkills}

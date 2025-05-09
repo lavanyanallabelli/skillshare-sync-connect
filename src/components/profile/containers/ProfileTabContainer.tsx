@@ -30,6 +30,7 @@ interface ProfileTabContainerProps {
   setEditingSkills: (editing: boolean) => void;
   newSkill: string;
   setNewSkill: (skill: string) => void;
+  isOwnProfile: boolean;
 }
 
 const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
@@ -54,7 +55,8 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   editingSkills,
   setEditingSkills,
   newSkill,
-  setNewSkill
+  setNewSkill,
+  isOwnProfile
 }) => {
   const { 
     handleSaveBio, 
@@ -170,7 +172,7 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
         handleSaveBio={handleBioSave}
       />
 
-      <ProfileUpcomingSessions upcomingSessions={upcomingSessions} />
+      {isOwnProfile && <ProfileUpcomingSessions upcomingSessions={upcomingSessions} /> }
 
       <ProfileExperience
         experiences={experiences}

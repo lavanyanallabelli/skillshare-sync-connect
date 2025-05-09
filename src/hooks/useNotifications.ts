@@ -20,6 +20,8 @@ export const useNotifications = (userId: string | null) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifications = useCallback(async () => {
+    console.log('[Notifications] fetchNotifications called for user:', userId);
+
     if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
@@ -38,11 +40,16 @@ export const useNotifications = (userId: string | null) => {
         .order('created_at', { ascending: false });
 
       if (error) {
+        toast({
+          title: 'Error fetching notifications',
+          description: error.message,
+          variant: 'destructive'
+        });
         console.error('Error fetching notifications:', error);
         return;
       }
 
-      console.log("Notifications fetched:", data?.length || 0, data);
+      console.log('[Notifications] Notifications fetched:', data?.length || 0, data);
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
@@ -113,10 +120,13 @@ export const useNotifications = (userId: string | null) => {
   };
 
   const createNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
+    console.log('[Notifications] createNotification called:', notification, 'userId:', userId);
+
     try {
       if (!userId) return null;
       
-      console.log("Creating notification:", { ...notification, user_id: userId });
+      console.log('[Notifications] Creating notification:', { ...notification, user_id: userId });
+      console.log('[Notifications] Notification data:', notification);
       
       const { data, error } = await supabase
         .from('notifications')
@@ -132,15 +142,25 @@ export const useNotifications = (userId: string | null) => {
         .single();
 
       if (error) {
-        console.error('Error creating notification:', error);
+        toast({
+          title: 'Error creating notification',
+          description: error.message,
+          variant: 'destructive'
+        });
+        console.error('[Notifications] Error creating notification:', error);
         return null;
       }
 
-      console.log("Notification created successfully:", data);
+      console.log('[Notifications] Notification created successfully:', data);
       // No need to update local state as the subscription will handle it
       return data;
     } catch (error) {
-      console.error('Error in createNotification:', error);
+      toast({
+      title: 'Error in createNotification',
+      description: error instanceof Error ? error.message : String(error),
+      variant: 'destructive'
+    });
+    console.error('[Notifications] Error in createNotification:', error);
       return null;
     }
   };

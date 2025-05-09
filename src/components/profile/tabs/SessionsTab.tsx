@@ -7,7 +7,7 @@ import { CalendarIcon, Video as VideoIcon, Link as LinkIcon, Copy as CopyIcon } 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmptyState } from "../common/ProfileUIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface SessionsTabProps {
   upcomingSessions: any[];
@@ -57,13 +57,10 @@ const SessionCard = ({ session }: { session: any }) => {
   // Format date with proper timezone handling
   const formattedDate = session.day ? 
     (() => {
-      // Create a Date object while preserving the day information
-      // Using new Date() with a date string like '2025-05-06' will respect that date
-      // regardless of timezone
+      // Use parseISO to correctly parse date-only strings and avoid timezone bugs
       const dateObj = typeof session.day === 'string' 
-        ? new Date(session.day) 
+        ? parseISO(session.day)
         : session.day;
-      
       // Format the date
       return format(dateObj, 'EEEE, MMMM d, yyyy');
     })() 

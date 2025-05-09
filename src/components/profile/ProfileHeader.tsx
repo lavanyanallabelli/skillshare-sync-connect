@@ -251,11 +251,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               )}
             </div>
 
-            {bio && (
-              <div className="mt-3 text-sm text-gray-600">
-                {bio}
-              </div>
-            )}
+
           </div>
 
           <React.Suspense fallback={<div className="h-16 bg-gray-100 animate-pulse rounded mt-4"></div>}>

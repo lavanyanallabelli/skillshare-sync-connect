@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
  * @param actionUrl Optional URL to direct the user to when clicking the notification
  * @returns The created notification or null if there was an error
  */
+import { toast } from '@/hooks/use-toast';
+
 export const createNotification = async (
   targetUserId: string, 
   title: string, 
@@ -47,6 +49,7 @@ export const createNotification = async (
     });
 
     // Create the notification
+    console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, actionUrl});
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -61,19 +64,27 @@ export const createNotification = async (
       .single();
 
     if (error) {
-      console.error("Error creating notification:", error);
-      
+      toast({
+        title: 'Error creating notification',
+        description: error.message,
+        variant: 'destructive'
+      });
+      console.error('[Notifications] Error creating notification:', error);
       if (error.code === '42501') {
         console.error("This is a Row Level Security (RLS) error. Check if you're authenticated and have permission to insert into the notifications table.");
       }
-      
       return null;
     }
     
-    console.log("Notification created successfully:", data);
+    console.log('[Notifications] Notification created successfully:', data);
     return data;
   } catch (error) {
-    console.error("Failed to create notification:", error);
+    toast({
+      title: 'Error in createNotification',
+      description: error instanceof Error ? error.message : String(error),
+      variant: 'destructive'
+    });
+    console.error('[Notifications] Failed to create notification:', error);
     return null;
   }
 };

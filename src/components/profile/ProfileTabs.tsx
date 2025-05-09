@@ -29,13 +29,13 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
     <div className="mt-8">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="mb-6 w-full justify-start overflow-x-auto">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="requests">Requests</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-        </TabsList>
+        <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        <TabsTrigger value="availability">Availability</TabsTrigger>
+        <TabsTrigger value="reviews">Reviews</TabsTrigger>
+        <TabsTrigger value="requests">Requests</TabsTrigger>
+        <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+      </TabsList>
 
         <TabsContent value="profile">
           <Suspense fallback={<TabLoadingPlaceholder />}>
@@ -47,7 +47,6 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ tabProps, activeTab, setActiv
             <ScheduleTab {...tabProps.scheduleTabProps} />
           </Suspense>
         </TabsContent>
-
         <TabsContent value="availability">
           <Suspense fallback={<TabLoadingPlaceholder />}>
             <AvailabilityTab {...tabProps.availabilityTabProps} />

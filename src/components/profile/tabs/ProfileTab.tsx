@@ -27,6 +27,8 @@ interface ProfileTabProps {
   setEditingBio: (editing: boolean) => void;
 }
 
+import { useAuth } from "@/App";
+
 const ProfileTab: React.FC<ProfileTabProps> = ({
   userData,
   userId,
@@ -51,6 +53,9 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
   editingBio,
   setEditingBio
 }) => {
+  const { userId: loggedInUserId } = useAuth();
+  const isOwnProfile = loggedInUserId && userId && loggedInUserId === userId;
+
   return (
     <ProfileTabContainer
       userData={userData}
@@ -75,6 +80,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
       setEditingSkills={setEditingSkills}
       newSkill={newSkill}
       setNewSkill={setNewSkill}
+      isOwnProfile={!!isOwnProfile}
     />
   );
 };
