@@ -140,7 +140,7 @@ export const useProfileData = (userId: string | null) => {
         setUserData(updatedUserData);
         setExperiences(formattedExperiences);
         setEducations(formattedEducations);
-        setSkills([...formattedTeachingSkills, ...formattedLearningSkills]);
+        setSkills(formattedTeachingSkills); // Use teaching skills as the primary skills
         setTeachingSkills(formattedTeachingSkills);
         setLearningSkills(formattedLearningSkills);
 

@@ -59,7 +59,8 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   const { 
     handleSaveBio, 
     saveExperiences, 
-    saveEducation
+    saveEducation,
+    saveSkills 
   } = useSaveProfileData({ userId, userData });
 
   const handleBioSave = async () => {
@@ -80,6 +81,13 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
     const success = await saveEducation(educations);
     if (success) {
       setEditingEducation(false);
+    }
+  };
+
+  const handleSaveSkills = async () => {
+    const success = await saveSkills(skills);
+    if (success) {
+      setEditingSkills(false);
     }
   };
 
@@ -185,13 +193,14 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
       />
 
       <ProfileSkills 
-        skills={teachingSkills}
+        skills={teachingSkills.length > 0 ? teachingSkills : skills}
         editingSkills={editingSkills}
         setEditingSkills={setEditingSkills}
         newSkill={newSkill}
         setNewSkill={setNewSkill}
         addSkill={addSkill}
         removeSkill={removeSkill}
+        handleSaveSkills={handleSaveSkills}
         isTeachingSkill={true}
       />
     </div>

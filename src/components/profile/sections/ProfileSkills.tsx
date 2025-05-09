@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Edit, X, AwardIcon } from "lucide-react";
+import { Edit, X, AwardIcon, Save } from "lucide-react";
 
 interface ProfileSkillsProps {
   skills: string[];
@@ -14,6 +14,7 @@ interface ProfileSkillsProps {
   setNewSkill: (skill: string) => void;
   addSkill: () => void;
   removeSkill: (index: number) => void;
+  handleSaveSkills?: () => void;
   isTeachingSkill?: boolean;
 }
 
@@ -25,6 +26,7 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
   setNewSkill,
   addSkill,
   removeSkill,
+  handleSaveSkills,
   isTeachingSkill = true
 }) => {
   return (
@@ -74,6 +76,17 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
                 Add
               </Button>
             </div>
+            {handleSaveSkills && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleSaveSkills}
+                  className="flex gap-2 items-center"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Skills
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">

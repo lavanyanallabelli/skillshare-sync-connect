@@ -137,14 +137,45 @@ export const useSaveProfileData = ({ userId, userData }: ProfileSaveActionsProps
   const saveSkills = async (skills: string[]) => {
     if (!userId) return false;
     
-    // This is a placeholder for skill saving logic
-    // The current application doesn't appear to save skills directly to a table
-    toast({
-      title: "Skills updated",
-      description: "Your skills have been updated",
-    });
-    
-    return true;
+    try {
+      // First, delete all existing teaching skills for this user
+      const { error: deleteError } = await supabase
+        .from('teaching_skills')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (deleteError) throw deleteError;
+      
+      // Then insert the current skills
+      if (skills.length > 0) {
+        const skillsToInsert = skills.map(skill => ({
+          user_id: userId,
+          skill,
+          proficiency_level: 'Intermediate' // Default level
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('teaching_skills')
+          .insert(skillsToInsert);
+          
+        if (insertError) throw insertError;
+      }
+      
+      toast({
+        title: "Skills saved",
+        description: "Your teaching skills have been updated successfully",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving skills:', error);
+      toast({
+        title: "Error saving skills",
+        description: "Failed to save your skills. Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   return {
