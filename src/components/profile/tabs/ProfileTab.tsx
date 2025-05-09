@@ -13,6 +13,7 @@ interface ProfileTabProps {
   setEducations: (educations: any[]) => void;
   skills: string[];
   setSkills: (skills: string[]) => void;
+  teachingSkills: string[];
   upcomingSessions: any[];
   editingExperience: boolean;
   setEditingExperience: (editing: boolean) => void;
@@ -37,6 +38,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
   setEducations,
   skills,
   setSkills,
+  teachingSkills,
   upcomingSessions,
   editingExperience,
   setEditingExperience,
@@ -61,6 +63,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
       setEducations={setEducations}
       skills={skills}
       setSkills={setSkills}
+      teachingSkills={teachingSkills}
       upcomingSessions={upcomingSessions}
       editingBio={editingBio}
       setEditingBio={setEditingBio}

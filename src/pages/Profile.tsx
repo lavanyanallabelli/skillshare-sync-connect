@@ -78,6 +78,7 @@ const Profile: React.FC = () => {
       setEducations,
       skills,
       setSkills,
+      teachingSkills,
       upcomingSessions,
       editingBio,
       setEditingBio,

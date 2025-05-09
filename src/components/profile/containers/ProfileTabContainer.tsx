@@ -18,6 +18,7 @@ interface ProfileTabContainerProps {
   setEducations: (educations: any[]) => void;
   skills: string[];
   setSkills: (skills: string[]) => void;
+  teachingSkills: string[];
   upcomingSessions: any[];
   editingBio: boolean;
   setEditingBio: (editing: boolean) => void;
@@ -42,6 +43,7 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
   setEducations,
   skills,
   setSkills,
+  teachingSkills,
   upcomingSessions,
   editingBio,
   setEditingBio,
@@ -183,13 +185,14 @@ const ProfileTabContainer: React.FC<ProfileTabContainerProps> = ({
       />
 
       <ProfileSkills 
-        skills={skills}
+        skills={teachingSkills}
         editingSkills={editingSkills}
         setEditingSkills={setEditingSkills}
         newSkill={newSkill}
         setNewSkill={setNewSkill}
         addSkill={addSkill}
         removeSkill={removeSkill}
+        isTeachingSkill={true}
       />
     </div>
   );

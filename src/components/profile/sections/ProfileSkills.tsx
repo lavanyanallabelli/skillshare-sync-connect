@@ -14,6 +14,7 @@ interface ProfileSkillsProps {
   setNewSkill: (skill: string) => void;
   addSkill: () => void;
   removeSkill: (index: number) => void;
+  isTeachingSkill?: boolean;
 }
 
 const ProfileSkills: React.FC<ProfileSkillsProps> = ({
@@ -23,7 +24,8 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
   newSkill,
   setNewSkill,
   addSkill,
-  removeSkill
+  removeSkill,
+  isTeachingSkill = true
 }) => {
   return (
     <Card>
@@ -31,7 +33,7 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
         <CardTitle className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <AwardIcon className="h-5 w-5" />
-            Skills
+            {isTeachingSkill ? "Skills I Teach" : "Skills"}
           </div>
           <Button
             variant="ghost"
@@ -59,7 +61,7 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="Add a skill"
+                placeholder={`Add a ${isTeachingSkill ? "teaching skill" : "skill"}`}
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
                 onKeyDown={(e) => {
@@ -83,8 +85,8 @@ const ProfileSkills: React.FC<ProfileSkillsProps> = ({
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No skills added yet</p>
-                <p className="text-sm mt-2">Add your skills to showcase your expertise</p>
+                <p>No {isTeachingSkill ? "teaching skills" : "skills"} added yet</p>
+                <p className="text-sm mt-2">Add {isTeachingSkill ? "skills you can teach" : "your skills"} to showcase your expertise</p>
               </div>
             )}
           </div>
