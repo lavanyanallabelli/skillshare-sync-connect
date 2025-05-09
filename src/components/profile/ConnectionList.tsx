@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserCheck, UserX, UserPlus, Clock, Link as LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { createConnectionNotification } from "@/utils/notificationUtils";
 
 type Connection = {
   id: string;
@@ -117,28 +117,6 @@ const ConnectionList: React.FC = () => {
     fetchConnections();
   }, [userId, toast]);
 
-  // Create a notification for the target user
-  const createNotification = async (targetUserId: string, title: string, description: string, type: string, actionUrl?: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: targetUserId,
-          title,
-          description,
-          type,
-          action_url: actionUrl || null,
-          read: false
-        });
-
-      if (error) {
-        console.error("Error creating notification:", error);
-      }
-    } catch (error) {
-      console.error("Failed to create notification:", error);
-    }
-  };
-
   const handleAcceptRequest = async (connectionId: string) => {
     try {
       // First get the connection details to access the requester information
@@ -184,18 +162,19 @@ const ConnectionList: React.FC = () => {
           .eq('id', userId)
           .single();
 
-        const requesterName = `${connection.profile.first_name} ${connection.profile.last_name}`;
         const currentUserName = currentUserProfile ? 
           `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
           "Someone";
         
-        // Notification for the requester
-        await createNotification(
-          connection.requester_id,
-          "Connection Accepted",
-          `${currentUserName} accepted your connection request.`,
-          "connection",
-          `/teacher/${userId}`
+        // Use the utility function to create the notification
+        await createConnectionNotification(
+          {
+            requester_id: connection.requester_id,
+            recipient_id: userId
+          },
+          'accept',
+          connection.profile.first_name + " " + connection.profile.last_name,
+          currentUserName
         );
       }
       
@@ -254,12 +233,15 @@ const ConnectionList: React.FC = () => {
           `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
           "Someone";
         
-        // Notification for the requester
-        await createNotification(
-          connection.requester_id,
-          "Connection Declined",
-          `${currentUserName} declined your connection request.`,
-          "connection"
+        // Use the utility function to create the notification
+        await createConnectionNotification(
+          {
+            requester_id: connection.requester_id,
+            recipient_id: userId
+          },
+          'decline',
+          connection.profile.first_name + " " + connection.profile.last_name,
+          currentUserName
         );
       }
     } catch (error) {

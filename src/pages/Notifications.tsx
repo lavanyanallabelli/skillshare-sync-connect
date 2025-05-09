@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -141,15 +140,165 @@ const Notifications = () => {
               </TabsContent>
 
               <TabsContent value="unread" className="pt-2">
-                {/* Content will be filtered by the activeFilter state */}
+                {loading ? (
+                  <div className="text-center py-8">Loading notifications...</div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
+                    <p>No unread notifications</p>
+                    <p className="text-sm mt-2">Marked notifications will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border rounded-lg relative ${
+                          !notification.read ? 'bg-muted/20' : ''
+                        }`}
+                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              {getNotificationIcon(notification.type)}
+                              <span className="font-semibold">{notification.title}</span>
+                            </div>
+                            {notification.description && (
+                              <p className="text-muted-foreground">{notification.description}</p>
+                            )}
+                            {notification.action_url && (
+                              <Link
+                                to={notification.action_url}
+                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
+                              >
+                                View details
+                              </Link>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
+                            {new Date(notification.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        {!notification.read && (
+                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="connection" className="pt-2">
-                {/* Content will be filtered by the activeFilter state */}
+                {loading ? (
+                  <div className="text-center py-8">Loading notifications...</div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
+                    <p>No connection notifications</p>
+                    <p className="text-sm mt-2">Notifications about connections will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border rounded-lg relative ${
+                          !notification.read ? 'bg-muted/20' : ''
+                        }`}
+                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              {getNotificationIcon(notification.type)}
+                              <span className="font-semibold">{notification.title}</span>
+                            </div>
+                            {notification.description && (
+                              <p className="text-muted-foreground">{notification.description}</p>
+                            )}
+                            {notification.action_url && (
+                              <Link
+                                to={notification.action_url}
+                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
+                              >
+                                View details
+                              </Link>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
+                            {new Date(notification.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        {!notification.read && (
+                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="session" className="pt-2">
-                {/* Content will be filtered by the activeFilter state */}
+                {loading ? (
+                  <div className="text-center py-8">Loading notifications...</div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
+                    <p>No session notifications</p>
+                    <p className="text-sm mt-2">Notifications about sessions will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border rounded-lg relative ${
+                          !notification.read ? 'bg-muted/20' : ''
+                        }`}
+                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              {getNotificationIcon(notification.type)}
+                              <span className="font-semibold">{notification.title}</span>
+                            </div>
+                            {notification.description && (
+                              <p className="text-muted-foreground">{notification.description}</p>
+                            )}
+                            {notification.action_url && (
+                              <Link
+                                to={notification.action_url}
+                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
+                              >
+                                View details
+                              </Link>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
+                            {new Date(notification.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        {!notification.read && (
+                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

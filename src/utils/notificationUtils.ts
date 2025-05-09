@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
  * @param title Notification title
  * @param description Notification description
  * @param type Type of notification: 'connection', 'session', 'message'
- * @param actionUrl Optional URL to direct the user to when clicking the notification
+ * @param action_url Optional URL to direct the user to when clicking the notification
  * @returns The created notification or null if there was an error
  */
 import { toast } from '@/hooks/use-toast';
@@ -18,7 +18,7 @@ export const createNotification = async (
   title: string, 
   description: string, 
   type: string, 
-  actionUrl?: string
+  action_url?: string
 ) => {
   try {
     // First check if the user exists
@@ -45,11 +45,11 @@ export const createNotification = async (
       title,
       description,
       type,
-      actionUrl
+      action_url
     });
 
     // Create the notification
-    console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, actionUrl});
+    console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, action_url});
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -57,7 +57,7 @@ export const createNotification = async (
         title,
         description,
         type,
-        action_url: actionUrl || null,
+        action_url: action_url || null,
         read: false
       })
       .select()
