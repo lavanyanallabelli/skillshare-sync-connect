@@ -32,71 +32,32 @@ export const createNotification = async (
       return null;
     }
 
-    // First try using the service role approach which bypasses RLS
-    try {
-      // Create the notification using standard insert
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: targetUserId,
-          title,
-          description,
-          type,
-          action_url: action_url || null,
-          read: false
-        })
-        .select()
-        .single();
+    // Create the notification - now with proper RLS policy in place
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: targetUserId,
+        title,
+        description,
+        type,
+        action_url: action_url || null,
+        read: false
+      })
+      .select()
+      .single();
 
-      if (error) {
-        // If there's an error, log it but continue to the fallback approach
-        console.warn('[Notifications] Standard insert failed:', error);
-      } else {
-        console.log('[Notifications] Notification created successfully:', data);
-        return data;
-      }
-    } catch (insertError) {
-      console.warn('[Notifications] Error during standard insert:', insertError);
-      // Continue to fallback approach
+    if (error) {
+      console.error('[Notifications] Error creating notification:', error);
+      toast({
+        title: 'Error creating notification',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return null;
     }
-
-    // Fallback: Try to create notification with explicit user_id match
-    // This might work if there's an RLS policy allowing users to create their own notifications
-    if (sessionData.session?.user?.id === targetUserId) {
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: targetUserId,
-            title,
-            description,
-            type,
-            action_url: action_url || null,
-            read: false
-          })
-          .select()
-          .single();
-
-        if (error) {
-          toast({
-            title: 'Error creating notification',
-            description: error.message,
-            variant: 'destructive'
-          });
-          console.error('[Notifications] Error creating notification with user ID match:', error);
-          return null;
-        }
-        
-        console.log('[Notifications] Notification created successfully with user ID match:', data);
-        return data;
-      } catch (fallbackError) {
-        console.error('[Notifications] Fallback approach failed:', fallbackError);
-      }
-    } else {
-      console.error('[Notifications] Cannot create notification: Current user does not match target user and RLS prevents cross-user creation');
-    }
-
-    return null;
+    
+    console.log('[Notifications] Notification created successfully:', data);
+    return data;
   } catch (error) {
     toast({
       title: 'Error in createNotification',
