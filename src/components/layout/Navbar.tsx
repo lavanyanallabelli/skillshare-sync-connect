@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { SearchForm } from "./SearchForm";
 import { UserMenu } from "./UserMenu";
-import MobileNavMenu from "./MobileNavMenu";
+import { MobileNavMenu } from "./MobileNavMenu";
 import { useUnreadMessages } from "@/hooks/use-unread-messages";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,7 +53,6 @@ const Navbar: React.FC = () => {
     { name: "Explore", path: "/explore" },
     { name: "Teach", path: "/teach" },
     { name: "About", path: "/about" },
-    { name: "Reviews", path: "/reviews" },
     // Add the Admin route only for the admin user
     ...(isAdmin ? [{ name: "Admin", path: "/admin" }] : [])
   ];
