@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +7,7 @@ export interface Notification {
   type: string;
   title: string;
   description?: string;
-  actionUrl?: string;
+  action_url?: string;  // This field name must match the database column name
   read: boolean;
   created_at: string;
 }
@@ -29,6 +28,7 @@ export const useNotifications = (userId: string | null) => {
 
     try {
       setLoading(true);
+      console.log("[Notifications] fetchNotifications called for user:", userId);
       console.log("Fetching notifications for user:", userId);
       
       const { data, error } = await supabase
@@ -42,7 +42,7 @@ export const useNotifications = (userId: string | null) => {
         return;
       }
 
-      console.log("Notifications fetched:", data?.length || 0, data);
+      console.log("[Notifications] Notifications fetched:", data?.length || 0, data);
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
@@ -125,7 +125,7 @@ export const useNotifications = (userId: string | null) => {
           type: notification.type,
           title: notification.title,
           description: notification.description || '',
-          action_url: notification.actionUrl,
+          action_url: notification.action_url,  // Make sure this matches the DB column
           read: false
         }])
         .select()
@@ -148,8 +148,6 @@ export const useNotifications = (userId: string | null) => {
   useEffect(() => {
     if (!userId) return;
     
-    // Remove the call to the non-existent function
-    // Instead, just set up the subscription directly
     fetchNotifications();
     
     // Set up realtime subscription

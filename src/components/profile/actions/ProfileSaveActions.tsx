@@ -138,13 +138,18 @@ export const useSaveProfileData = ({ userId, userData }: ProfileSaveActionsProps
     if (!userId) return false;
     
     try {
+      console.log(`Saving ${skills.length} skills for user ${userId}:`, skills);
+      
       // First, delete all existing teaching skills for this user
       const { error: deleteError } = await supabase
         .from('teaching_skills')
         .delete()
         .eq('user_id', userId);
         
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting existing skills:', deleteError);
+        throw deleteError;
+      }
       
       // Then insert the current skills
       if (skills.length > 0) {
@@ -154,11 +159,16 @@ export const useSaveProfileData = ({ userId, userData }: ProfileSaveActionsProps
           proficiency_level: 'Intermediate' // Default level
         }));
         
+        console.log('Inserting skills:', skillsToInsert);
+        
         const { error: insertError } = await supabase
           .from('teaching_skills')
           .insert(skillsToInsert);
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error inserting skills:', insertError);
+          throw insertError;
+        }
       }
       
       toast({
