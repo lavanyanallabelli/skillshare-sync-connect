@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
-import { createNotification } from "@/utils/notificationUtils";
+import { createConnectionNotification } from "@/utils/notificationUtils";
 
 // Categories for filtering
 const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "Languages", "Cooking", "Business", "Academic"];
@@ -100,8 +100,12 @@ const Explore: React.FC = () => {
           if (error) throw error;
           
           // Create a map of teacher ID to connection status
+          // Only include connections with status 'pending' or 'accepted', ignore 'declined'
           const statusMap: Record<string, string> = {};
           connections?.forEach(conn => {
+            // Skip declined connections - this allows the Connect button to appear again
+            if (conn.status === 'declined') return;
+            
             if (conn.requester_id === userId) {
               statusMap[conn.recipient_id] = conn.status;
             } else {
@@ -228,7 +232,7 @@ const Explore: React.FC = () => {
         });
         
         // Create a notification for the teacher
-        const notificationResult = await createNotification(
+        const notificationResult = await createConnectionNotification(
           teacherId,
           "New Connection Request",
           `${currentUserName} wants to connect with you.`,

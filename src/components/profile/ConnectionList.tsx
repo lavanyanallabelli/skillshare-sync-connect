@@ -97,9 +97,11 @@ const ConnectionList: React.FC = () => {
         // Combine both sets of connections
         const allConnections = [...formattedOutgoing, ...formattedIncoming];
         
-        // Separate pending requests from accepted connections
+        // Separate pending requests from accepted connections and filter out declined ones
         const pending = allConnections.filter(conn => conn.status === 'pending');
         const accepted = allConnections.filter(conn => conn.status === 'accepted');
+        
+        // Do not include declined connections in either list - this allows users to send a new connection request
         
         setConnections(accepted);
         setPendingRequests(pending);
