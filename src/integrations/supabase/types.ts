@@ -691,6 +691,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: string
       }
+      handle_connection_request: {
+        Args: { p_requester_id: string; p_recipient_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

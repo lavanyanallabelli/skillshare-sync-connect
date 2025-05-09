@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -247,7 +248,6 @@ const ConnectionList: React.FC = () => {
           recipient_id: connection.recipient_id
         });
         
-        // Fix: Updated to match the new function signature
         await createConnectionNotification(
           connection.requester_id,
           'decline',

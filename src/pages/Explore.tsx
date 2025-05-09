@@ -191,26 +191,6 @@ const Explore: React.FC = () => {
         return;
       }
       
-      // First, check if there's a declined connection that needs to be removed
-      const { data: existingConnection } = await supabase
-        .from('connections')
-        .select('id, status')
-        .or(`and(requester_id.eq.${userId},recipient_id.eq.${teacherId}),and(requester_id.eq.${teacherId},recipient_id.eq.${userId})`)
-        .single();
-      
-      // If there's a declined connection, delete it before creating a new one
-      if (existingConnection && existingConnection.status === 'declined') {
-        const { error: deleteError } = await supabase
-          .from('connections')
-          .delete()
-          .eq('id', existingConnection.id);
-          
-        if (deleteError) {
-          console.error("Error deleting declined connection:", deleteError);
-          throw deleteError;
-        }
-      }
-      
       // Get current user's profile info for the notification
       const { data: currentUserProfile } = await supabase
         .from('profiles')
@@ -224,49 +204,38 @@ const Explore: React.FC = () => {
         
       const currentUserName = `${currentUserProfile.first_name} ${currentUserProfile.last_name}`;
       
-      // Insert a new connection request
+      // Use our new database function to handle the connection request
       const { data: connectionData, error: connectionError } = await supabase
-        .from('connections')
-        .insert({
-          requester_id: userId,
-          recipient_id: teacherId,
-          status: 'pending'
-        })
-        .select()
-        .single();
+        .rpc('handle_connection_request', {
+          p_requester_id: userId,
+          p_recipient_id: teacherId
+        });
         
       if (connectionError) {
-        if (connectionError.code === '23505') { // Unique violation
-          toast({
-            title: "Already Connected",
-            description: "You have already sent a connection request to this teacher",
-          });
-        } else {
-          throw connectionError;
-        }
-      } else {
-        // Update local state
-        setConnectionStatus({
-          ...connectionStatus,
-          [teacherId]: 'pending'
-        });
-        
-        // Create a notification for the teacher
-        await createConnectionNotification(
-          teacherId,
-          "request",
-          `${currentUserName} wants to connect with you.`,
-          "connection"
-        );
-        
-        // Refresh user data
-        await refreshUserData();
-        
-        toast({
-          title: "Connection Request Sent!",
-          description: "Your connection request has been sent to the teacher.",
-        });
+        throw connectionError;
       }
+        
+      // Update local state
+      setConnectionStatus({
+        ...connectionStatus,
+        [teacherId]: 'pending'
+      });
+      
+      // Create a notification for the teacher
+      await createConnectionNotification(
+        teacherId,
+        "request",
+        `${currentUserName} wants to connect with you.`,
+        "connection"
+      );
+      
+      // Refresh user data
+      await refreshUserData();
+      
+      toast({
+        title: "Connection Request Sent!",
+        description: "Your connection request has been sent to the teacher.",
+      });
     } catch (error) {
       console.error("Error connecting:", error);
       toast({
@@ -439,7 +408,7 @@ const Explore: React.FC = () => {
                         className="flex-1"
                         disabled
                       >
-                        <Clock className="mr-2 h-4 w-4" />
+                        <PendingIcon className="mr-2 h-4 w-4" />
                         Pending
                       </Button>
                     ) : (

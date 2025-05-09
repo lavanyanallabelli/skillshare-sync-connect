@@ -239,25 +239,33 @@ const TeacherProfile = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('connections')
-        .insert({
-          requester_id: userId,
-          recipient_id: id,
-          status: 'pending'
+      const { data: connectionId, error: connectionError } = await supabase
+        .rpc('handle_connection_request', {
+          p_requester_id: userId,
+          p_recipient_id: id
         });
 
-      if (error) {
-        if (error.code === '23505') {
-          toast({
-            title: "Already Connected",
-            description: "You have already sent a connection request to this teacher",
-          });
-        } else {
-          throw error;
-        }
+      if (connectionError) {
+        throw connectionError;
       } else {
         setConnectionStatus('pending');
+
+        const { data: currentUserProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', userId)
+          .single();
+
+        if (currentUserProfile) {
+          const currentUserName = `${currentUserProfile.first_name} ${currentUserProfile.last_name}`;
+          
+          await createConnectionNotification(
+            id,
+            "request",
+            `${currentUserName} wants to connect with you.`,
+            "connection"
+          );
+        }
 
         toast({
           title: "Connection Request Sent!",
