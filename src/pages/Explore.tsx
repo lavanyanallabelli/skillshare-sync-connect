@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
@@ -234,7 +235,7 @@ const Explore: React.FC = () => {
         // Create a notification for the teacher
         await createConnectionNotification(
           teacherId,
-          "New Connection Request",
+          "request", // Fix: changed from "New Connection Request" to "request"
           `${currentUserName} wants to connect with you.`,
           "connection"
         );

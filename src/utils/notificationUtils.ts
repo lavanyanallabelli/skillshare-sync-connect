@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -143,10 +142,10 @@ export const createSessionNotification = async (
  * Creates notifications for connection status changes
  */
 export const createConnectionNotification = async (
-  connectionData: any,
+  recipientId: string,
   action: 'request' | 'accept' | 'decline',
-  requesterName: string,
-  recipientName: string
+  message: string,
+  type: string
 ) => {
   try {
     // Check if we have a valid session before proceeding
@@ -158,45 +157,23 @@ export const createConnectionNotification = async (
     
     console.log('[ConnectionNotifications] Creating notification:', {
       action,
-      connection: connectionData,
-      requesterName,
-      recipientName
+      recipientId,
+      message,
+      type
     });
     
-    switch (action) {
-      case 'request':
-        // Notify recipient about new connection request
-        await createNotification(
-          connectionData.recipient_id,
-          "New Connection Request",
-          `${requesterName} wants to connect with you.`,
-          "connection", 
-          "/profile?tab=connections"
-        );
-        break;
-      
-      case 'accept':
-        // Notify requester that connection was accepted
-        await createNotification(
-          connectionData.requester_id,
-          "Connection Request Accepted",
-          `${recipientName} accepted your connection request.`,
-          "connection",
-          `/teacher/${connectionData.recipient_id}`
-        );
-        break;
-        
-      case 'decline':
-        // Notify requester that connection was declined
-        console.log('[ConnectionNotifications] Creating decline notification for:', connectionData.requester_id);
-        await createNotification(
-          connectionData.requester_id,
-          "Connection Request Declined",
-          `${recipientName} declined your connection request.`,
-          "connection"
-        );
-        break;
-    }
+    // Create the appropriate notification based on the action
+    await createNotification(
+      recipientId,
+      action === 'request' ? "New Connection Request" :
+      action === 'accept' ? "Connection Request Accepted" :
+      "Connection Request Declined",
+      message,
+      type, 
+      action === 'request' ? "/profile?tab=connections" :
+      action === 'accept' ? `/teacher/${sessionData.session.user.id}` :
+      undefined
+    );
   } catch (error) {
     console.error("Error in createConnectionNotification:", error);
   }
