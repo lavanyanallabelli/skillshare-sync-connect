@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -177,15 +176,12 @@ const ConnectionList: React.FC = () => {
           currentUserName
         });
         
-        // Use the utility function to create the notification
+        // Fix: Updated to match the new function signature
         await createConnectionNotification(
-          {
-            requester_id: connection.requester_id,
-            recipient_id: connection.recipient_id
-          },
+          connection.requester_id,
           'accept',
-          connection.profile.first_name + " " + connection.profile.last_name,
-          currentUserName
+          `${currentUserName} accepted your connection request.`,
+          "connection"
         );
       }
       
@@ -251,15 +247,12 @@ const ConnectionList: React.FC = () => {
           recipient_id: connection.recipient_id
         });
         
-        // Use the utility function to create the notification
+        // Fix: Updated to match the new function signature
         await createConnectionNotification(
-          {
-            requester_id: connection.requester_id,
-            recipient_id: connection.recipient_id
-          },
+          connection.requester_id,
           'decline',
-          connection.profile.first_name + " " + connection.profile.last_name,
-          currentUserName
+          `${currentUserName} declined your connection request.`,
+          "connection"
         );
       }
     } catch (error) {
