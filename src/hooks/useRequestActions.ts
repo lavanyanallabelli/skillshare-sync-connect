@@ -366,6 +366,7 @@ export const useRequestActions = (
       } else {
         console.log("Declining request with ID:", id);
         try {
+          // Update the status to 'declined' instead of deleting the record
           const { error } = await supabase
             .from('sessions')
             .update({ status: 'declined' })
@@ -389,6 +390,7 @@ export const useRequestActions = (
             description: "The request has been declined",
           });
           
+          // Remove from current list view
           setSessionRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
         } catch (dbError) {
           console.error("Database error when declining session:", dbError);

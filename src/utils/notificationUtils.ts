@@ -1,16 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-
-/**
- * Creates a notification for a user
- * 
- * @param targetUserId The user who will receive the notification
- * @param title Notification title
- * @param description Notification description
- * @param type Type of notification: 'connection', 'session', 'message'
- * @param action_url Optional URL to direct the user to when clicking the notification
- * @returns The created notification or null if there was an error
- */
 import { toast } from '@/hooks/use-toast';
 
 export const createNotification = async (
@@ -33,21 +22,6 @@ export const createNotification = async (
       return null;
     }
     
-    // Get the current user's session to ensure we're authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      console.error("Cannot create notification: No active session");
-      return null;
-    }
-
-    console.log("Creating notification for user:", targetUserId, {
-      title,
-      description,
-      type,
-      action_url
-    });
-
     // Create the notification
     console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, action_url});
     const { data, error } = await supabase

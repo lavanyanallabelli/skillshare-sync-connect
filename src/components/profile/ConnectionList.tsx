@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -205,19 +206,20 @@ const ConnectionList: React.FC = () => {
         
       if (fetchError) throw fetchError;
 
+      // Update the status to 'declined' instead of deleting
       const { error } = await supabase
         .from('connections')
-        .delete()
+        .update({ status: 'declined' })
         .eq('id', connectionId);
         
       if (error) throw error;
       
-      // Update UI
+      // Update UI - remove from pending requests
       setPendingRequests(pendingRequests.filter(req => req.id !== connectionId));
       
       toast({
-        title: "Request Rejected",
-        description: "Connection request has been rejected",
+        title: "Request Declined",
+        description: "Connection request has been declined",
       });
 
       // Create a notification for the requester that their connection was declined
@@ -248,7 +250,7 @@ const ConnectionList: React.FC = () => {
       console.error("Error rejecting connection:", error);
       toast({
         title: "Error",
-        description: "Failed to reject connection request",
+        description: "Failed to decline connection request",
         variant: "destructive",
       });
     }
@@ -256,6 +258,7 @@ const ConnectionList: React.FC = () => {
 
   const handleCancelRequest = async (connectionId: string) => {
     try {
+      // Just delete outgoing connection requests that are being cancelled by the requester
       const { error } = await supabase
         .from('connections')
         .delete()
@@ -420,4 +423,4 @@ const ConnectionList: React.FC = () => {
   );
 };
 
-export default ConnectionList;
+export default React.memo(ConnectionList);
