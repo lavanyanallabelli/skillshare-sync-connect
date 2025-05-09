@@ -408,7 +408,7 @@ const Explore: React.FC = () => {
                         className="flex-1"
                         disabled
                       >
-                        <PendingIcon className="mr-2 h-4 w-4" />
+                        <Clock className="mr-2 h-4 w-4" />
                         Pending
                       </Button>
                     ) : (
