@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,6 @@ import { UserMenu } from "./UserMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
 import { useUnreadMessages } from "@/hooks/use-unread-messages";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
-import { supabase } from "@/integrations/supabase/client";
-
-const ADMIN_EMAIL = "lavanyanallabelli@gmail.com";
 
 const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
@@ -22,22 +18,6 @@ const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isLoggedIn, logout, userId } = useAuth();
   const unreadCount = useUnreadMessages(userId);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (isLoggedIn && userId) {
-        const { data: userData, error } = await supabase.auth.getUser();
-        if (!error && userData?.user?.email === ADMIN_EMAIL) {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      }
-    };
-    
-    checkAdminStatus();
-  }, [isLoggedIn, userId]);
   
   const handleLogout = () => {
     logout();
@@ -53,8 +33,8 @@ const Navbar: React.FC = () => {
     { name: "Explore", path: "/explore" },
     { name: "Teach", path: "/teach" },
     { name: "About", path: "/about" },
-    // Add the Admin route only for the admin user
-    ...(isAdmin ? [{ name: "Admin", path: "/admin" }] : [])
+    // Add the Admin route for logged-in users
+    ...(isLoggedIn ? [{ name: "Admin", path: "/admin" }] : [])
   ];
 
   return (
