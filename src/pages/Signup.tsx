@@ -186,7 +186,7 @@ const Signup: React.FC = () => {
           description: "Please check your email for verification.",
         });
 
-        login();
+        login(data.user.id);
         
         navigate("/profile");
       }
@@ -226,7 +226,7 @@ const Signup: React.FC = () => {
           description: "Please check your email for verification.",
         });
 
-        login();
+        login(data.user.id);
         
         navigate("/profile");
       }
