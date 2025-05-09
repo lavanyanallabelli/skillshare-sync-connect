@@ -14,7 +14,8 @@ import {
   UserPlus, 
   UserCheck, 
   BookOpen,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
@@ -204,7 +205,29 @@ const Explore: React.FC = () => {
         
       const currentUserName = `${currentUserProfile.first_name} ${currentUserProfile.last_name}`;
       
-      // Use our new database function to handle the connection request
+      // Check if there's a pending connection first
+      const { data: existingConn, error: connCheckError } = await supabase
+        .from('connections')
+        .select('status')
+        .or(`and(requester_id.eq.${userId},recipient_id.eq.${teacherId}),and(requester_id.eq.${teacherId},recipient_id.eq.${userId})`)
+        .maybeSingle();
+      
+      if (connCheckError) {
+        console.error("Error checking connection status:", connCheckError);
+      }
+      
+      // If connection is already pending, show a message instead of creating a new one
+      if (existingConn && existingConn.status === 'pending') {
+        toast({
+          title: "Connection Request Pending",
+          description: "You already have a pending connection request with this teacher.",
+          variant: "default",
+          icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+        });
+        return;
+      }
+      
+      // Use our updated database function to handle the connection request
       const { data: connectionData, error: connectionError } = await supabase
         .rpc('handle_connection_request', {
           p_requester_id: userId,
