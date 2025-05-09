@@ -1,33 +1,31 @@
 
 project_id = "rojydqsndhoielitdquu"
 
-[api]
+[auth.email]
+# Email auth provider is enabled by default.
 enabled = true
-port = 54321
-schemas = ["public", "storage", "graphql_public"]
+
+[api]
+# Port to use for the API URL.
+port = 8080
 
 [db]
-port = 54322
+# Port to use for the local database URL.
+port = 5432
+
+[db.shadow]
+# Port to use for the local shadow database URL.
+port = 5433
 
 [studio]
-enabled = true
-port = 54323
-api_url = "http://localhost"
-
-[inbucket]
-enabled = true
-port = 54324
+# Port to use for Supabase Studio.
+port = 8082
 
 [storage]
-enabled = true
-
-[auth]
-enabled = true
-site_url = "http://localhost:3000"
-
-[realtime]
-enabled = true
+# The maximum file size in bytes that can be uploaded to storage.
+file_size_limit = "50MiB"
 
 [functions]
-[functions.delete_user]
+[functions.create-google-meet-link]
+# Required JWT verification for the edge function
 verify_jwt = true
