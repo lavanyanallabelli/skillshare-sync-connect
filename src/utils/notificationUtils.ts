@@ -24,6 +24,15 @@ export const createNotification = async (
     
     // Create the notification
     console.log('[Notifications] createNotification called:', {targetUserId, title, description, type, action_url});
+    
+    // Get the current session to validate we are authenticated
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.error('[Notifications] Not authenticated, cannot create notification');
+      return null;
+    }
+    
+    // Create the notification with explicit auth headers
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -126,6 +135,13 @@ export const createConnectionNotification = async (
   recipientName: string
 ) => {
   try {
+    // Get the current session to validate we are authenticated
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.error('[ConnectionNotifications] Not authenticated, cannot create notification');
+      return;
+    }
+    
     switch (action) {
       case 'request':
         // Notify recipient about new connection request

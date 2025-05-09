@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
@@ -125,6 +124,7 @@ const ConnectionList: React.FC = () => {
         .from('connections')
         .select(`
           requester_id,
+          recipient_id,
           profile:profiles!connections_requester_id_fkey(
             first_name,
             last_name
@@ -171,7 +171,7 @@ const ConnectionList: React.FC = () => {
         await createConnectionNotification(
           {
             requester_id: connection.requester_id,
-            recipient_id: userId
+            recipient_id: connection.recipient_id
           },
           'accept',
           connection.profile.first_name + " " + connection.profile.last_name,
@@ -196,6 +196,7 @@ const ConnectionList: React.FC = () => {
         .from('connections')
         .select(`
           requester_id,
+          recipient_id,
           profile:profiles!connections_requester_id_fkey(
             first_name,
             last_name
@@ -235,11 +236,13 @@ const ConnectionList: React.FC = () => {
           `${currentUserProfile.first_name} ${currentUserProfile.last_name}` : 
           "Someone";
         
+        console.log("Creating decline notification for:", connection.requester_id);
+        
         // Use the utility function to create the notification
         await createConnectionNotification(
           {
             requester_id: connection.requester_id,
-            recipient_id: userId
+            recipient_id: connection.recipient_id
           },
           'decline',
           connection.profile.first_name + " " + connection.profile.last_name,

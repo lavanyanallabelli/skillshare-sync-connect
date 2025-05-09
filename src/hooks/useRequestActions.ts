@@ -60,6 +60,7 @@ export const useRequestActions = (
       const teacherName = sessionData.teacher ? 
         `${sessionData.teacher.first_name} ${sessionData.teacher.last_name}` : "Teacher";
       
+      // Handle accept/decline actions
       if (action === "accept") {
         console.log('[RequestActions] Accepting request, checking Google connection...');
         console.log('[RequestActions] isGoogleConnected:', isGoogleConnected);
