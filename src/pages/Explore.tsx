@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
@@ -192,6 +191,26 @@ const Explore: React.FC = () => {
         return;
       }
       
+      // First, check if there's a declined connection that needs to be removed
+      const { data: existingConnection } = await supabase
+        .from('connections')
+        .select('id, status')
+        .or(`and(requester_id.eq.${userId},recipient_id.eq.${teacherId}),and(requester_id.eq.${teacherId},recipient_id.eq.${userId})`)
+        .single();
+      
+      // If there's a declined connection, delete it before creating a new one
+      if (existingConnection && existingConnection.status === 'declined') {
+        const { error: deleteError } = await supabase
+          .from('connections')
+          .delete()
+          .eq('id', existingConnection.id);
+          
+        if (deleteError) {
+          console.error("Error deleting declined connection:", deleteError);
+          throw deleteError;
+        }
+      }
+      
       // Get current user's profile info for the notification
       const { data: currentUserProfile } = await supabase
         .from('profiles')
@@ -235,7 +254,7 @@ const Explore: React.FC = () => {
         // Create a notification for the teacher
         await createConnectionNotification(
           teacherId,
-          "request", // Fix: changed from "New Connection Request" to "request"
+          "request",
           `${currentUserName} wants to connect with you.`,
           "connection"
         );
