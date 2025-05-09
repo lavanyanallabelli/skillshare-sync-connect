@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { SearchForm } from "./SearchForm";
 import { UserMenu } from "./UserMenu";
-import MobileNavMenu from "./MobileNavMenu";
+import { MobileNavMenu } from "./MobileNavMenu";
 import { useUnreadMessages } from "@/hooks/use-unread-messages";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
 
