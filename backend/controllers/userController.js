@@ -1,86 +1,100 @@
 
-const User = require('../models/User');
-const TeachingSkill = require('../models/TeachingSkill');
-const LearningSkill = require('../models/LearningSkill');
+const { supabase } = require('../config/supabaseClient');
 
-// @desc    Get all users
-// @route   GET /api/users
-// @access  Public
+// Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
-    res.status(200).json(users);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, bio, location, occupation, education, avatar_url, headline')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Get user by ID
-// @route   GET /api/users/:userId
-// @access  Public
+// Get a single user by ID
 const getUserById = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Check if the provided ID is a valid MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: "Invalid user ID format" });
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      throw error;
     }
-
-    const user = await User.findById(userId).select('-password');
     
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    if (!data) {
+      return res.status(404).json({ error: 'User not found' });
     }
-
-    // Get teaching skills
-    const teachingSkills = await TeachingSkill.find({ userId: user._id });
     
-    // Get learning skills
-    const learningSkills = await LearningSkill.find({ userId: user._id });
-    
-    // Combine user data with skills
-    const userProfile = {
-      ...user.toObject(),
-      teachingSkills,
-      learningSkills
-    };
-
-    res.status(200).json(userProfile);
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Create new user
-// @route   POST /api/users
-// @access  Public
+// Create a new user (typically handled by auth system but included for API completeness)
 const createUser = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, password, firstName, lastName, bio, location, occupation, education } = req.body;
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Email, password, firstName, and lastName are required' });
     }
     
-    const user = await User.create(req.body);
+    // Create the user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName
+        }
+      }
+    });
     
-    // Create token
-    const token = user.getSignedJwtToken();
+    if (authError) throw authError;
+    
+    // The profile should be created automatically via trigger, but we can update additional fields
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        bio: bio || null,
+        location: location || null,
+        occupation: occupation || null,
+        education: education || null
+      })
+      .eq('id', authData.user.id)
+      .select();
+      
+    if (error) throw error;
     
     res.status(201).json({
-      success: true,
-      token,
+      message: 'User created successfully',
       user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email
+        id: authData.user.id,
+        email: authData.user.email,
+        firstName,
+        lastName,
+        bio: bio || null,
+        location: location || null,
+        occupation: occupation || null,
+        education: education || null
       }
     });
   } catch (error) {
@@ -89,60 +103,71 @@ const createUser = async (req, res) => {
   }
 };
 
-// @desc    Update user
-// @route   PUT /api/users/:userId
-// @access  Private
+// Update a user profile
 const updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
+    const { firstName, lastName, bio, location, occupation, education, website, linkedin, github, twitter, headline, avatarUrl } = req.body;
     
-    // Check if user exists
-    let user = await User.findById(userId);
+    // Ensure the authenticated user is updating their own profile
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to update this user' });
+    }
     
-    if (!user) {
+    const updates = {
+      updated_at: new Date().toISOString()
+    };
+    
+    // Only include fields that are provided
+    if (firstName !== undefined) updates.first_name = firstName;
+    if (lastName !== undefined) updates.last_name = lastName;
+    if (bio !== undefined) updates.bio = bio;
+    if (location !== undefined) updates.location = location;
+    if (occupation !== undefined) updates.occupation = occupation;
+    if (education !== undefined) updates.education = education;
+    if (website !== undefined) updates.website = website;
+    if (linkedin !== undefined) updates.linkedin = linkedin;
+    if (github !== undefined) updates.github = github;
+    if (twitter !== undefined) updates.twitter = twitter;
+    if (headline !== undefined) updates.headline = headline;
+    if (avatarUrl !== undefined) updates.avatar_url = avatarUrl;
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select();
+      
+    if (error) throw error;
+    
+    if (data.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Ensure user can only update their own profile
-    if (userId !== req.user.id) {
-      return res.status(401).json({ error: 'Not authorized to update this user' });
-    }
-    
-    user = await User.findByIdAndUpdate(
-      userId,
-      { ...req.body, updatedAt: Date.now() },
-      { new: true, runValidators: true }
-    ).select('-password');
-    
-    res.status(200).json(user);
+    res.status(200).json(data[0]);
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Delete user
-// @route   DELETE /api/users/:userId
-// @access  Private
+// Delete a user
 const deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Check if user exists
-    const user = await User.findById(userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    // Ensure the authenticated user is deleting their own account
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this user' });
     }
     
-    // Ensure user can only delete their own account
-    if (userId !== req.user.id) {
-      return res.status(401).json({ error: 'Not authorized to delete this user' });
-    }
+    // Delete the user from Supabase Auth
+    // This will cascade delete the profile and related data due to RLS policies
+    const { error } = await supabase.auth.admin.deleteUser(userId);
     
-    await user.remove();
+    if (error) throw error;
     
-    res.status(200).json({ success: true, message: 'User deleted successfully' });
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ error: error.message });

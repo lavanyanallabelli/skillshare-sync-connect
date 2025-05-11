@@ -1,102 +1,113 @@
 
-const Notification = require('../models/Notification');
-const mongoose = require('mongoose');
+const { supabase } = require('../config/supabaseClient');
 
-// @desc    Get user notifications
-// @route   GET /api/notifications
-// @access  Private
+// Get notifications for the current user
 const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    const notifications = await Notification.find({ userId })
-      .sort({ createdAt: -1 });
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
     
-    res.status(200).json(notifications);
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Mark notification as read
-// @route   PUT /api/notifications/:notificationId/read
-// @access  Private
+// Mark a notification as read
 const markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
     const userId = req.user.id;
     
-    // Find notification
-    const notification = await Notification.findById(notificationId);
+    // Verify the notification belongs to the user
+    const { data: notificationData, error: fetchError } = await supabase
+      .from('notifications')
+      .select('user_id')
+      .eq('id', notificationId)
+      .single();
+      
+    if (fetchError) throw fetchError;
     
-    if (!notification) {
+    // Check if notification exists and belongs to user
+    if (!notificationData) {
       return res.status(404).json({ error: 'Notification not found' });
     }
     
-    // Check if user owns the notification
-    if (notification.userId.toString() !== userId) {
-      return res.status(401).json({ error: 'Not authorized to update this notification' });
+    if (notificationData.user_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to update this notification' });
     }
     
-    // Mark as read
-    notification.read = true;
-    await notification.save();
+    // Update the notification
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ read: true, updated_at: new Date().toISOString() })
+      .eq('id', notificationId)
+      .select();
+      
+    if (error) throw error;
     
-    res.status(200).json(notification);
+    res.status(200).json(data[0]);
   } catch (error) {
     console.error('Error marking notification as read:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Mark all notifications as read
-// @route   PUT /api/notifications/read-all
-// @access  Private
+// Mark all notifications as read for the current user
 const markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Update all unread notifications
-    const result = await Notification.updateMany(
-      { userId, read: false },
-      { $set: { read: true } }
-    );
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ read: true, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('read', false)
+      .select();
+      
+    if (error) throw error;
     
-    res.status(200).json({ 
-      success: true, 
-      message: 'All notifications marked as read',
-      count: result.modifiedCount
-    });
+    res.status(200).json({ message: 'All notifications marked as read', count: data.length });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Create notification
-// @route   POST /api/notifications
-// @access  Private
+// Create a new notification
 const createNotification = async (req, res) => {
   try {
-    const { userId, type, title, description, actionUrl, iconType } = req.body;
+    const { userId, title, description, type, actionUrl } = req.body;
     
-    // Check for required fields
-    if (!userId || !type || !title) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!userId || !title || !type) {
+      return res.status(400).json({ error: 'Missing required fields: userId, title, and type are required' });
     }
     
-    const notification = await Notification.create({
-      userId,
-      type,
+    const notification = {
+      user_id: userId,
       title,
-      description: description || '',
-      actionUrl: actionUrl || '',
-      iconType: iconType || '',
+      description,
+      type,
+      action_url: actionUrl,
       read: false
-    });
+    };
     
-    res.status(201).json(notification);
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([notification])
+      .select();
+      
+    if (error) throw error;
+    
+    res.status(201).json(data[0]);
   } catch (error) {
     console.error('Error creating notification:', error);
     res.status(500).json({ error: error.message });

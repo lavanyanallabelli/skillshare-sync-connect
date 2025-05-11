@@ -1,222 +1,258 @@
 
-const Connection = require('../models/Connection');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
-const mongoose = require('mongoose');
+const { supabase } = require('../config/supabaseClient');
 
-// @desc    Get user connections
-// @route   GET /api/connections
-// @access  Private
-const getConnections = async (req, res) => {
+// Get all connections for the current user
+const getUserConnections = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get accepted connections
-    const connections = await Connection.find({
-      $or: [{ requesterId: userId }, { recipientId: userId }],
-      status: 'accepted'
-    }).sort({ updatedAt: -1 });
+    // Get connections where the user is either the requester or the recipient and the status is accepted
+    const { data, error } = await supabase
+      .from('connections')
+      .select(`
+        id, 
+        status, 
+        created_at, 
+        requester:requester_id(id, first_name, last_name, avatar_url, headline), 
+        recipient:recipient_id(id, first_name, last_name, avatar_url, headline)
+      `)
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+      .eq('status', 'accepted')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
     
-    // Populate user details
-    const populatedConnections = await Promise.all(
-      connections.map(async (connection) => {
-        const requesterId = connection.requesterId.toString();
-        const recipientId = connection.recipientId.toString();
-        
-        const requester = await User.findById(requesterId).select('firstName lastName avatar');
-        const recipient = await User.findById(recipientId).select('firstName lastName avatar');
-        
-        return {
-          id: connection._id,
-          status: connection.status,
-          requesterId,
-          recipientId,
-          requesterName: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
-          recipientName: recipient ? `${recipient.firstName} ${recipient.lastName}` : 'Unknown',
-          requesterAvatar: requester?.avatar,
-          recipientAvatar: recipient?.avatar,
-          createdAt: connection.createdAt
-        };
-      })
-    );
+    // Format the response to be more user-friendly
+    const formattedConnections = data.map(conn => {
+      const otherUser = conn.requester_id === userId ? conn.recipient : conn.requester;
+      return {
+        id: conn.id,
+        status: conn.status,
+        createdAt: conn.created_at,
+        user: {
+          id: otherUser.id,
+          firstName: otherUser.first_name,
+          lastName: otherUser.last_name,
+          avatarUrl: otherUser.avatar_url,
+          headline: otherUser.headline
+        }
+      };
+    });
     
-    res.status(200).json(populatedConnections);
+    res.status(200).json(formattedConnections);
   } catch (error) {
     console.error('Error fetching connections:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Get pending connection requests
-// @route   GET /api/connections/pending
-// @access  Private
-const getPendingRequests = async (req, res) => {
+// Get all connection requests for the current user
+const getConnectionRequests = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get pending connection requests
-    const pendingRequests = await Connection.find({
-      recipientId: userId,
-      status: 'pending'
-    }).sort({ createdAt: -1 });
+    // Get connections where the user is the recipient and the status is pending
+    const { data, error } = await supabase
+      .from('connections')
+      .select(`
+        id, 
+        status, 
+        created_at, 
+        requester:requester_id(id, first_name, last_name, avatar_url, headline)
+      `)
+      .eq('recipient_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
     
-    // Populate requester details
-    const populatedRequests = await Promise.all(
-      pendingRequests.map(async (request) => {
-        const requester = await User.findById(request.requesterId).select('firstName lastName avatar');
-        
-        return {
-          id: request._id,
-          status: request.status,
-          requesterId: request.requesterId,
-          recipientId: request.recipientId,
-          requesterName: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
-          requesterAvatar: requester?.avatar,
-          createdAt: request.createdAt
-        };
-      })
-    );
-    
-    res.status(200).json(populatedRequests);
+    res.status(200).json(data);
   } catch (error) {
-    console.error('Error fetching pending requests:', error);
+    console.error('Error fetching connection requests:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Send connection request
-// @route   POST /api/connections
-// @access  Private
+// Send a connection request to another user
 const sendConnectionRequest = async (req, res) => {
   try {
-    const { recipientId } = req.body;
     const requesterId = req.user.id;
+    const { recipientId } = req.body;
     
     if (!recipientId) {
-      return res.status(400).json({ error: 'Missing recipient ID' });
+      return res.status(400).json({ error: 'Recipient ID is required' });
     }
     
-    // Check if users are the same
     if (requesterId === recipientId) {
-      return res.status(400).json({ error: 'Cannot connect with yourself' });
+      return res.status(400).json({ error: 'Cannot send a connection request to yourself' });
     }
     
-    // Check if connection already exists
-    const existingConnection = await Connection.findOne({
-      $or: [
-        { requesterId, recipientId },
-        { requesterId: recipientId, recipientId: requesterId }
-      ]
-    });
-    
-    if (existingConnection) {
-      return res.status(400).json({ 
-        error: 'Connection already exists', 
-        status: existingConnection.status 
-      });
+    // Check if the recipient exists
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', recipientId)
+      .single();
+      
+    if (recipientError) {
+      if (recipientError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Recipient not found' });
+      }
+      throw recipientError;
     }
     
-    // Create connection request
-    const connection = await Connection.create({
-      requesterId,
-      recipientId,
-      status: 'pending'
+    // Check if there's an existing connection (in either direction) that's not declined
+    const { data: existingConn, error: connError } = await supabase
+      .from('connections')
+      .select('id, status')
+      .or(`and(requester_id.eq.${requesterId},recipient_id.eq.${recipientId}),and(requester_id.eq.${recipientId},recipient_id.eq.${requesterId})`)
+      .neq('status', 'declined');
+      
+    if (connError) throw connError;
+    
+    if (existingConn && existingConn.length > 0) {
+      const conn = existingConn[0];
+      if (conn.status === 'accepted') {
+        return res.status(400).json({ error: 'You are already connected with this user' });
+      } else if (conn.status === 'pending') {
+        return res.status(400).json({ error: 'A connection request already exists between you and this user' });
+      }
+    }
+    
+    // Call the function to handle connection request
+    const { data, error } = await supabase.rpc('handle_connection_request', {
+      p_requester_id: requesterId,
+      p_recipient_id: recipientId
     });
     
-    // Create notification for recipient
-    const requester = await User.findById(requesterId).select('firstName lastName');
-    const requesterName = requester ? `${requester.firstName} ${requester.lastName}` : 'Someone';
+    if (error) throw error;
     
-    await Notification.create({
-      userId: recipientId,
-      type: 'connection_request',
+    // Create a notification for the recipient
+    const notification = {
+      user_id: recipientId,
       title: 'New Connection Request',
-      description: `${requesterName} wants to connect with you.`,
-      actionUrl: '/profile?tab=connections',
-      iconType: 'user-plus'
-    });
+      description: 'You have received a new connection request',
+      type: 'connection_request',
+      action_url: '/profile?tab=requests'
+    };
     
-    res.status(201).json(connection);
+    await supabase
+      .from('notifications')
+      .insert([notification]);
+    
+    res.status(201).json({ 
+      message: 'Connection request sent successfully',
+      connectionId: data
+    });
   } catch (error) {
     console.error('Error sending connection request:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Respond to connection request
-// @route   PUT /api/connections/:connectionId/respond
-// @access  Private
-const respondToRequest = async (req, res) => {
+// Accept or decline a connection request
+const respondToConnectionRequest = async (req, res) => {
   try {
-    const { connectionId } = req.params;
-    const { accept } = req.body;
     const userId = req.user.id;
+    const { connectionId } = req.params;
+    const { status } = req.body;
     
-    if (typeof accept !== 'boolean') {
-      return res.status(400).json({ error: 'Missing accept parameter' });
+    if (!status || !['accepted', 'declined'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be either "accepted" or "declined"' });
     }
     
-    // Find the connection
-    const connection = await Connection.findById(connectionId);
-    
-    if (!connection) {
-      return res.status(404).json({ error: 'Connection request not found' });
+    // Check if the connection exists and the user is the recipient
+    const { data: connData, error: connError } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', connectionId)
+      .eq('recipient_id', userId)
+      .single();
+      
+    if (connError) {
+      if (connError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Connection request not found' });
+      }
+      throw connError;
     }
     
-    // Check if user is the recipient
-    if (connection.recipientId.toString() !== userId) {
-      return res.status(401).json({ error: 'Not authorized to respond to this connection request' });
-    }
+    // Update the connection status
+    const { data, error } = await supabase
+      .from('connections')
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', connectionId)
+      .select();
+      
+    if (error) throw error;
     
-    // Update connection status
-    connection.status = accept ? 'accepted' : 'declined';
-    await connection.save();
+    // Create a notification for the requester
+    const notification = {
+      user_id: connData.requester_id,
+      title: status === 'accepted' ? 'Connection Request Accepted' : 'Connection Request Declined',
+      description: status === 'accepted' 
+        ? 'Your connection request has been accepted' 
+        : 'Your connection request has been declined',
+      type: status === 'accepted' ? 'connection_accepted' : 'connection_declined',
+      action_url: status === 'accepted' ? `/profile/${userId}` : '/profile?tab=connections'
+    };
     
-    // Create notification for requester
-    const recipient = await User.findById(userId).select('firstName lastName');
-    const recipientName = recipient ? `${recipient.firstName} ${recipient.lastName}` : 'Someone';
+    await supabase
+      .from('notifications')
+      .insert([notification]);
     
-    await Notification.create({
-      userId: connection.requesterId,
-      type: accept ? 'connection_accepted' : 'connection_declined',
-      title: accept ? 'Connection Accepted' : 'Connection Declined',
-      description: accept 
-        ? `${recipientName} has accepted your connection request.` 
-        : `${recipientName} has declined your connection request.`,
-      actionUrl: accept ? '/profile?tab=connections' : null,
-      iconType: accept ? 'user-check' : 'user-x'
+    res.status(200).json({
+      message: `Connection request ${status} successfully`,
+      connection: data[0]
     });
-    
-    res.status(200).json(connection);
   } catch (error) {
-    console.error('Error responding to connection request:', error);
+    console.error(`Error ${req.body.status} connection request:`, error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Remove connection
-// @route   DELETE /api/connections/:connectionId
-// @access  Private
+// Remove a connection
 const removeConnection = async (req, res) => {
   try {
-    const { connectionId } = req.params;
     const userId = req.user.id;
+    const { connectionId } = req.params;
     
-    // Find the connection
-    const connection = await Connection.findById(connectionId);
-    
-    if (!connection) {
-      return res.status(404).json({ error: 'Connection not found' });
+    // Check if the connection exists and the user is part of it
+    const { data: connData, error: connError } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', connectionId)
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+      .single();
+      
+    if (connError) {
+      if (connError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Connection not found' });
+      }
+      throw connError;
     }
     
-    // Check if user is part of the connection
-    if (connection.requesterId.toString() !== userId && connection.recipientId.toString() !== userId) {
-      return res.status(401).json({ error: 'Not authorized to remove this connection' });
+    // Delete the connection
+    const { error } = await supabase
+      .from('connections')
+      .delete()
+      .eq('id', connectionId);
+      
+    if (error) {
+      // If regular delete fails, try the force delete function
+      const { data: forceDeleteResult, error: forceDeleteError } = await supabase
+        .rpc('force_delete_connection', {
+          connection_id: connectionId
+        });
+        
+      if (forceDeleteError || !forceDeleteResult) {
+        throw error || new Error('Failed to delete connection');
+      }
     }
     
-    await connection.remove();
-    
-    res.status(200).json({ success: true, message: 'Connection removed successfully' });
+    res.status(200).json({ message: 'Connection removed successfully' });
   } catch (error) {
     console.error('Error removing connection:', error);
     res.status(500).json({ error: error.message });
@@ -224,9 +260,9 @@ const removeConnection = async (req, res) => {
 };
 
 module.exports = {
-  getConnections,
-  getPendingRequests,
+  getUserConnections,
+  getConnectionRequests,
   sendConnectionRequest,
-  respondToRequest,
+  respondToConnectionRequest,
   removeConnection
 };
