@@ -1,108 +1,104 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Edit, X, AwardIcon, Save } from "lucide-react";
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { X, Plus, Pencil } from 'lucide-react';
 
-interface ProfileSkillsProps {
+export interface ProfileSkillsProps {
   skills: string[];
+  setSkills: (skills: string[]) => void;
   editingSkills: boolean;
   setEditingSkills: (editing: boolean) => void;
   newSkill: string;
   setNewSkill: (skill: string) => void;
-  addSkill: () => void;
-  removeSkill: (index: number) => void;
-  handleSaveSkills?: () => void;
-  isTeachingSkill?: boolean;
+  isEditable: boolean;
 }
 
 const ProfileSkills: React.FC<ProfileSkillsProps> = ({
   skills,
+  setSkills,
   editingSkills,
   setEditingSkills,
   newSkill,
   setNewSkill,
-  addSkill,
-  removeSkill,
-  handleSaveSkills,
-  isTeachingSkill = true
+  isEditable,
 }) => {
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !skills.includes(newSkill.trim())) {
+      setSkills([...skills, newSkill.trim()]);
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setSkills(skills.filter(skill => skill !== skillToRemove));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddSkill();
+    }
+  };
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <AwardIcon className="h-5 w-5" />
-            {isTeachingSkill ? "Skills I Teach" : "Skills"}
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Skills</h3>
+          {isEditable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditingSkills(!editingSkills)}
+            >
+              {editingSkills ? 'Done' : (
+                <>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        
+        {editingSkills && (
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="Add a skill..."
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1"
+            />
+            <Button onClick={handleAddSkill}>
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setEditingSkills(!editingSkills)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {editingSkills ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {skills.map((skill, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {skill}
-                  <button
-                    onClick={() => removeSkill(index)}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder={`Add a ${isTeachingSkill ? "teaching skill" : "skill"}`}
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newSkill.trim()) {
-                    addSkill();
-                  }
-                }}
-              />
-              <Button onClick={addSkill}>
-                Add
-              </Button>
-            </div>
-            {handleSaveSkills && (
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleSaveSkills}
-                  className="flex gap-2 items-center"
-                >
-                  <Save className="h-4 w-4" />
-                  Save Skills
-                </Button>
-              </div>
-            )}
+        )}
+
+        {skills.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {skills.map((skill, index) => (
+              <Badge
+                key={index}
+                variant="secondary"
+                className="flex items-center gap-1"
+              >
+                {skill}
+                {editingSkills && (
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => handleRemoveSkill(skill)}
+                  />
+                )}
+              </Badge>
+            ))}
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {skills.length > 0 ? (
-              skills.map((skill, index) => (
-                <Badge key={index} variant="secondary">
-                  {skill}
-                </Badge>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No {isTeachingSkill ? "teaching skills" : "skills"} added yet</p>
-                <p className="text-sm mt-2">Add {isTeachingSkill ? "skills you can teach" : "your skills"} to showcase your expertise</p>
-              </div>
-            )}
-          </div>
+          <p className="text-muted-foreground text-sm">No skills added yet.</p>
         )}
       </CardContent>
     </Card>

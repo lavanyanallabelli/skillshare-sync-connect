@@ -1,5 +1,5 @@
-
-import { APIClient } from '@/api/client';
+import { supabase } from "@/integrations/supabase/client";
+import { APIClient } from "@/api/client";
 
 export interface Notification {
   id: string;
