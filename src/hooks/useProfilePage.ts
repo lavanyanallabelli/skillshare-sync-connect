@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +51,7 @@ export const useProfilePage = () => {
 
         // Fetch experiences
         const { data: experiencesData, error: experiencesError } = await supabase
-          .from('user_experiences')
+          .from('experiences')
           .select('*')
           .eq('user_id', userId)
           .order('start_date', { ascending: false });
@@ -62,7 +61,7 @@ export const useProfilePage = () => {
 
         // Fetch educations
         const { data: educationsData, error: educationsError } = await supabase
-          .from('user_education')
+          .from('educations')
           .select('*')
           .eq('user_id', userId)
           .order('start_date', { ascending: false });
@@ -70,14 +69,14 @@ export const useProfilePage = () => {
         if (educationsError) throw educationsError;
         setEducations(educationsData || []);
 
-        // Fetch skills - note there's no user_skills table, using teaching_skills instead
+        // Fetch skills
         const { data: skillsData, error: skillsError } = await supabase
-          .from('teaching_skills')
+          .from('user_skills')
           .select('*')
           .eq('user_id', userId);
 
         if (skillsError) throw skillsError;
-        setSkills(skillsData?.map(item => item.skill) || []);
+        setSkills(skillsData?.map(item => item.skill_name) || []);
 
         // Fetch teaching skills
         const { data: teachingSkillsData, error: teachingSkillsError } = await supabase
@@ -86,7 +85,7 @@ export const useProfilePage = () => {
           .eq('user_id', userId);
 
         if (teachingSkillsError) throw teachingSkillsError;
-        setTeachingSkills(teachingSkillsData?.map(item => item.skill) || []);
+        setTeachingSkills(teachingSkillsData?.map(item => item.skill_name) || []);
 
         // Fetch learning skills
          const { data: learningSkillsData, error: learningSkillsError } = await supabase
@@ -95,7 +94,7 @@ export const useProfilePage = () => {
           .eq('user_id', userId);
 
         if (learningSkillsError) throw learningSkillsError;
-        setLearningSkills(learningSkillsData?.map(item => item.skill) || []);
+        setLearningSkills(learningSkillsData?.map(item => item.skill_name) || []);
 
         // Fetch upcoming sessions
         const { data: sessionsData, error: sessionsError } = await supabase
@@ -128,10 +127,9 @@ export const useProfilePage = () => {
 
         setUpcomingSessions(transformedSessionsData);
 
-        // Fetch session requests - skip this since session_requests doesn't exist
-        // Use sessions table with status filter instead
+        // Fetch session requests
         const { data: requestsData, error: requestsError } = await supabase
-          .from('sessions')
+          .from('session_requests')
           .select('*')
           .eq('teacher_id', userId)
           .eq('status', 'pending');
@@ -143,24 +141,24 @@ export const useProfilePage = () => {
         const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select('*')
-          .eq('recipient_id', userId);
+          .eq('teacher_id', userId);
 
         if (reviewsError) throw reviewsError;
         setReviews(reviewsData || []);
 
         // Fetch availability times
         const { data: availabilityData, error: availabilityError } = await supabase
-          .from('user_availability')
+          .from('availability')
           .select('*')
           .eq('user_id', userId);
 
         if (availabilityError) throw availabilityError;
 
         const formattedAvailability = availabilityData?.reduce((acc: { [key: string]: string[] }, item) => {
-          if (!acc[item.day]) {
-            acc[item.day] = [];
+          if (!acc[item.date]) {
+            acc[item.date] = [];
           }
-          acc[item.day].push(item.time_slot);
+          acc[item.date].push(item.time);
           return acc;
         }, {}) || {};
 
