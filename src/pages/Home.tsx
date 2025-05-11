@@ -1,6 +1,7 @@
+
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/App';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
