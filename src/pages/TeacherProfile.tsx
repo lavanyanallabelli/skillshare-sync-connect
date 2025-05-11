@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
+} from '@/components/ui/dialog';
 import { CalendarDays, Clock, MapPin, Briefcase, GraduationCap, Star } from 'lucide-react';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import ReviewCard from '@/components/profile/ReviewCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { format, parse } from 'date-fns';
+import { createConnectionNotification } from '@/utils/notificationUtils';
+import MessageDialog from '@/components/messages/MessageDialog';
+import ReportDialog from '@/components/profile/ReportDialog';
 
 const TeacherProfile = () => {
   const { id } = useParams();

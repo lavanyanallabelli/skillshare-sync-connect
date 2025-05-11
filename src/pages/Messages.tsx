@@ -32,15 +32,23 @@ const Messages = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url as avatar')
+          .select('id, first_name, last_name, avatar_url')
           .neq('id', userId);
 
         if (error) {
           console.error('Error fetching contacts:', error);
           return;
         }
+        
+        // Transform the data to ensure avatar property matches User interface
+        const transformedData = data?.map(user => ({
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar: user.avatar_url || ''
+        })) || [];
 
-        setContacts(data || []);
+        setContacts(transformedData);
       } catch (error) {
         console.error('Error fetching contacts:', error);
       } finally {

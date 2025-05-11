@@ -35,10 +35,10 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
   useEffect(() => {
     if (selectedDate && availabilityTimes) {
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
-      setSelectedTimes(prev => ({
-        ...prev,
+      setSelectedTimes({
+        ...selectedTimes,
         [formattedDate]: availabilityTimes[formattedDate] || []
-      }));
+      });
     }
   }, [selectedDate, availabilityTimes, setSelectedTimes]);
 
@@ -50,18 +50,16 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
     if (!selectedDate) return;
 
     const formattedDate = format(selectedDate, "yyyy-MM-dd");
-    setSelectedTimes(prev => {
-      const currentTimes = prev[formattedDate] || [];
-      const isSelected = currentTimes.includes(time);
+    const currentTimes = selectedTimes[formattedDate] || [];
+    const isSelected = currentTimes.includes(time);
+    
+    const updatedTimes = isSelected
+      ? currentTimes.filter(t => t !== time)
+      : [...currentTimes, time];
 
-      const updatedTimes = isSelected
-        ? currentTimes.filter(t => t !== time)
-        : [...currentTimes, time];
-
-      return {
-        ...prev,
-        [formattedDate]: updatedTimes
-      };
+    setSelectedTimes({
+      ...selectedTimes,
+      [formattedDate]: updatedTimes
     });
   };
 

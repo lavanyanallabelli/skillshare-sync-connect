@@ -167,7 +167,7 @@ const Profile: React.FC = () => {
         </ErrorBoundary>
 
         <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
-          <ConnectionList />
+          <ConnectionList userId={userId} />
         </Suspense>
 
         <ProfileTabs

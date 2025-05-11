@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -65,16 +66,15 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ userId, upcomingSessions, ses
 
       const { data, error } = await supabase
         .from('sessions')
-        .insert([
-          {
-            student_id: user.id,
-            teacher_id: userId,
-            day: formattedDate,
-            time: selectedTime,
-            notes: additionalNotes,
-            status: 'pending',
-          },
-        ]);
+        .insert({
+          student_id: user.id,
+          teacher_id: userId,
+          day: formattedDate,
+          time_slot: selectedTime,
+          notes: additionalNotes,
+          status: 'pending',
+          skill: 'General' // Adding a default skill value since it's required
+        });
 
       if (error) {
         throw new Error(error.message);
@@ -108,7 +108,10 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ userId, upcomingSessions, ses
 
       if (error) throw error;
 
-      setSessionRequests(prevRequests => prevRequests.filter(req => req.id !== session.id));
+      // Create a copy of the current session requests and filter out the accepted one
+      const updatedRequests = sessionRequests.filter(req => req.id !== session.id);
+      setSessionRequests(updatedRequests);
+      
       toast({
         title: "Session Accepted",
         description: "You have accepted the session request.",
@@ -131,7 +134,10 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ userId, upcomingSessions, ses
 
       if (error) throw error;
 
-      setSessionRequests(prevRequests => prevRequests.filter(req => req.id !== session.id));
+      // Create a copy of the current session requests and filter out the declined one
+      const updatedRequests = sessionRequests.filter(req => req.id !== session.id);
+      setSessionRequests(updatedRequests);
+      
       toast({
         title: "Session Declined",
         description: "You have declined the session request.",
