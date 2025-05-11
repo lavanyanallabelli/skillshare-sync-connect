@@ -1,146 +1,152 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, Calendar, CheckCircle, XCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
+import React, { useState, useEffect } from "react";
+import { Bell } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { useNotifications } from '@/hooks/useNotifications';
-import { useAuth } from '@/App';
-import { Link } from 'react-router-dom';
-import { getNotificationIconType } from '@/utils/notificationUtils';
+} from "@/components/ui/popover";
+import { fetchNotifications, markAsRead, markAllAsRead, Notification } from "@/services/notificationService";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 
-const getIconComponent = (iconType: string) => {
-  switch (iconType) {
-    case 'calendar':
-      return <Calendar className="h-4 w-4" />;
-    case 'check-circle':
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'x-circle':
-      return <XCircle className="h-4 w-4 text-red-500" />;
-    default:
-      return null;
-  }
-};
-
-const NotificationItem = ({ notification, onRead }: { 
-  notification: {
-    id: string;
-    title: string;
-    description?: string;
-    action_url?: string;
-    type: string;
-    read: boolean;
-    created_at: string;
-    icon_type?: string;
-  },
+const NotificationItem: React.FC<{
+  notification: Notification;
   onRead: (id: string) => void;
-}) => {
-  const formattedDate = new Date(notification.created_at).toLocaleDateString();
-  const iconType = notification.icon_type || getNotificationIconType(notification.type);
-  const icon = getIconComponent(iconType);
-  
+}> = ({ notification, onRead }) => {
   const handleClick = () => {
-    if (!notification.read) {
-      onRead(notification.id);
+    onRead(notification.id);
+    if (notification.actionUrl) {
+      window.location.href = notification.actionUrl;
     }
   };
 
   return (
-    <div 
-      className={`p-3 border-b last:border-b-0 hover:bg-muted/50 transition-colors ${!notification.read ? 'bg-muted/20' : ''}`}
+    <div
+      className={`p-3 border-b last:border-0 cursor-pointer hover:bg-muted transition-colors ${
+        notification.read ? "opacity-60" : ""
+      }`}
       onClick={handleClick}
     >
-      <div className="flex justify-between items-start mb-1">
-        <div className="flex items-center gap-2">
-          {icon && <span>{icon}</span>}
-          <span className="font-medium text-sm">{notification.title}</span>
-        </div>
-        <span className="text-xs text-muted-foreground">{formattedDate}</span>
+      <div className="flex items-start justify-between">
+        <h4 className="font-medium">{notification.title}</h4>
+        <div
+          className={`h-2 w-2 rounded-full ${
+            !notification.read ? "bg-skill-purple" : "bg-transparent"
+          }`}
+        />
       </div>
       {notification.description && (
-        <p className="text-sm text-muted-foreground mb-2">{notification.description}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+          {notification.description}
+        </p>
       )}
-      {notification.action_url && (
-        <Link 
-          to={notification.action_url} 
-          className="text-xs text-skill-purple hover:underline"
-        >
-          View details
-        </Link>
-      )}
-      {!notification.read && (
-        <div className="h-2 w-2 rounded-full bg-skill-purple absolute top-3 right-3" />
-      )}
+      <div className="text-xs text-muted-foreground mt-2">
+        {new Date(notification.createdAt).toLocaleString()}
+      </div>
     </div>
   );
 };
 
-const NotificationCenter = () => {
-  const { userId } = useAuth();
+const NotificationCenter: React.FC = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-  } = useNotifications(userId);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const { isLoggedIn } = useAuth();
 
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const loadNotifications = async () => {
+    if (!isLoggedIn) return;
+    
+    setLoading(true);
+    try {
+      const data = await fetchNotifications();
+      setNotifications(data);
+    } catch (error) {
+      console.error("Error loading notifications:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    // This will check if the notification center was opened and closed
-    // We don't mark messages as read just on open to allow users to glance at notifications
-  }, [isOpen]);
+    if (isOpen) {
+      loadNotifications();
+    }
+  }, [isOpen, isLoggedIn]);
+
+  const handleReadNotification = async (id: string) => {
+    try {
+      await markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast({
+        title: "Notifications marked as read",
+        description: "All notifications have been marked as read",
+      });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  };
+
+  if (!isLoggedIn) return null;
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-skill-purple" 
-              variant="secondary"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
+            <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-skill-purple text-white text-xs flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex justify-between items-center p-3 border-b">
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="flex items-center justify-between p-3 border-b">
           <h3 className="font-medium">Notifications</h3>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              Mark all read
+          {notifications.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="text-xs h-8"
+            >
+              Mark all as read
             </Button>
           )}
         </div>
-        <ScrollArea className="max-h-[70vh]">
-          {notifications.length > 0 ? (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <NotificationItem 
-                  key={notification.id} 
-                  notification={notification}
-                  onRead={markAsRead}
-                />
-              ))}
-            </div>
+        <div className="max-h-80 overflow-y-auto">
+          {loading ? (
+            <div className="p-4 text-center">Loading notifications...</div>
+          ) : notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onRead={handleReadNotification}
+              />
+            ))
           ) : (
-            <div className="p-8 text-center text-muted-foreground">
-              <p>No notifications yet</p>
-              <p className="text-sm mt-1">When you get notifications, they'll appear here</p>
+            <div className="p-4 text-center text-muted-foreground">
+              No notifications yet
             </div>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
