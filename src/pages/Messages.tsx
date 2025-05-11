@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ProfileLayout from '@/components/layout/ProfileLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,7 @@ const Messages = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar')
+          .select('id, first_name, last_name, avatar_url as avatar')
           .neq('id', userId);
 
         if (error) {
