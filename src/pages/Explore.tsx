@@ -1,10 +1,41 @@
-import React from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import React, { useState, useEffect } from "react";
+import MainLayout from "@/components/layout/MainLayout";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { 
+  Star, 
+  Users, 
+  Clock, 
+  Filter, 
+  Search, 
+  UserPlus, 
+  UserCheck, 
+  BookOpen,
+  Loader2,
+  AlertCircle
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
+import { createConnectionNotification } from "@/utils/notificationUtils";
 
 // Categories for filtering
 const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "Languages", "Cooking", "Business", "Academic"];
 
 const Explore: React.FC = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const { isLoggedIn, userId, refreshUserData } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
