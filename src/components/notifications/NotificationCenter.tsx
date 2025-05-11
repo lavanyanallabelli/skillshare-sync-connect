@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { fetchNotifications, markAsRead, markAllAsRead, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NotificationItem: React.FC<{
   notification: Notification;

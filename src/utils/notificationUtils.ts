@@ -1,6 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { APIClient } from "@/api/client";
+import { APIClient } from '@/api/client';
 
 export const getNotificationIconType = (type: string): string => {
   switch (type) {

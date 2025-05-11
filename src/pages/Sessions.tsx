@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from "react";
-import { useAuth } from "@/App";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import SessionsTab from "@/components/profile/tabs/SessionsTab";
 import ProfileLayout from "@/components/layout/ProfileLayout";
