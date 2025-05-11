@@ -1,45 +1,11 @@
-
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { createConnectionNotification } from "@/utils/notificationUtils";
-
-import MainLayout from "@/components/layout/MainLayout";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Link } from "react-router-dom";
-import { 
-  Search, 
-  Filter, 
-  Star, 
-  Clock, 
-  Users, 
-  BookOpen, 
-  UserPlus, 
-  UserCheck,
-  Loader2,
-  AlertCircle
-} from "lucide-react";
 
 // Categories for filtering
 const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "Languages", "Cooking", "Business", "Academic"];
 
 const Explore: React.FC = () => {
-  const navigate = useNavigate();
-  const { isLoggedIn, userId } = useAuth();
-  const { toast } = useToast();
+  const { isLoggedIn, userId, refreshUserData } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [minRating, setMinRating] = useState(0);
@@ -254,6 +220,9 @@ const Explore: React.FC = () => {
         `${currentUserName} wants to connect with you.`,
         "connection"
       );
+      
+      // Refresh user data
+      await refreshUserData();
       
       toast({
         title: "Connection Request Sent!",
