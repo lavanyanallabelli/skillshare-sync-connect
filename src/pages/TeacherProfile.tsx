@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
 } from '@/components/ui/dialog';
-import { CalendarDays, Clock, MapPin, Briefcase, GraduationCap, Star } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Briefcase, GraduationCap, Star, MessageSquare } from 'lucide-react';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +20,9 @@ import { format, parse } from 'date-fns';
 import { createConnectionNotification } from '@/utils/notificationUtils';
 import MessageDialog from '@/components/messages/MessageDialog';
 import ReportDialog from '@/components/profile/ReportDialog';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import AvailabilityTabDisplay from '@/components/profile/tabs/AvailabilityTabDisplay';
 
 const TeacherProfile = () => {
   const { id } = useParams();
@@ -694,7 +698,7 @@ const TeacherProfile = () => {
             </TabsContent>
 
             <TabsContent value="availability">
-              <AvailabilityTab
+              <AvailabilityTabDisplay
                 selectedTimes={selectedTimes}
                 onDelete={handleDeleteAvailability}
                 profileUserId={id || ""}

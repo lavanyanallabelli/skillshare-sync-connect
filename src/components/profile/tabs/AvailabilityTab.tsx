@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -57,6 +58,7 @@ const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
       ? currentTimes.filter(t => t !== time)
       : [...currentTimes, time];
 
+    // Fixed the type error here
     setSelectedTimes({
       ...selectedTimes,
       [formattedDate]: updatedTimes

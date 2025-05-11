@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
@@ -51,7 +52,7 @@ export const useProfilePage = () => {
 
         // Fetch experiences
         const { data: experiencesData, error: experiencesError } = await supabase
-          .from("experiences")
+          .from("user_experiences")
           .select("*")
           .eq("user_id", userId)
           .order("start_date", { ascending: false });
@@ -61,7 +62,7 @@ export const useProfilePage = () => {
 
         // Fetch educations
         const { data: educationsData, error: educationsError } = await supabase
-          .from("educations")
+          .from("user_education")
           .select("*")
           .eq("user_id", userId)
           .order("start_date", { ascending: false });
@@ -69,9 +70,9 @@ export const useProfilePage = () => {
         if (educationsError) throw educationsError;
         setEducations(educationsData || []);
 
-        // Fetch skills
+        // Fetch skills (changed from user_skills to teaching_skills)
         const { data: skillsData, error: skillsError } = await supabase
-          .from("user_skills")
+          .from("teaching_skills")
           .select("skill")
           .eq("user_id", userId);
 
