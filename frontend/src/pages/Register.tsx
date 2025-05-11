@@ -1,146 +1,155 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import MainLayout from "@/components/layout/MainLayout";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/App';
 
 const Register = () => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const { toast } = useToast();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
     
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
+    if (!email || !password || !firstName || !lastName) {
+      toast({
+        title: "Missing information",
+        description: "Please fill out all fields",
+        variant: "destructive",
+      });
       return;
     }
-    
+
     try {
-      // Registration logic will go here
-      // For now we'll just simulate success
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/login');
-      }, 1500);
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+      setLoading(true);
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          }
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data.user) {
+        toast({
+          title: "Account created!",
+          description: "You have successfully registered",
+        });
+        
+        login();
+        navigate('/profile');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred during registration",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <MainLayout>
-      <div className="container max-w-md py-16">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md mb-4">
-                {error}
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium mb-1">First Name</label>
-                  <input
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    required
-                    className="w-full p-2 border rounded-md"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium mb-1">Last Name</label>
-                  <input
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    required
-                    className="w-full p-2 border rounded-md"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+          <CardDescription className="text-center">
+            Sign up to start learning or teaching skills
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   required
-                  className="w-full p-2 border rounded-md"
-                  value={formData.email}
-                  onChange={handleChange}
                 />
               </div>
-              
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   required
-                  className="w-full p-2 border rounded-md"
-                  value={formData.password}
-                  onChange={handleChange}
                 />
               </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm Password</label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  className="w-full p-2 border rounded-md"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                />
-              </div>
-              
-              <Button type="submit" className="w-full bg-skill-purple hover:bg-skill-purple-dark" disabled={loading}>
-                {loading ? 'Creating Account...' : 'Sign Up'}
-              </Button>
-              
-              <div className="text-center text-sm mt-4">
-                Already have an account?{" "}
-                <Link to="/login" className="text-skill-purple hover:underline">
-                  Log in
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </MainLayout>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="john.doe@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter>
+          <Button 
+            className="w-full" 
+            onClick={handleRegister}
+            disabled={loading}
+          >
+            {loading ? "Creating account..." : "Create account"}
+          </Button>
+        </CardFooter>
+        <div className="text-center pb-4">
+          <p className="text-sm text-gray-600">
+            Already have an account?{" "}
+            <a 
+              href="/login" 
+              className="font-medium text-primary hover:text-primary/80"
+            >
+              Sign in
+            </a>
+          </p>
+        </div>
+      </Card>
+    </div>
   );
 };
 

@@ -23,5 +23,23 @@ export const API_ENDPOINTS = {
     GET: '/messages',
     SEND: '/messages/send',
     UNREAD: '/messages/unread-count'
+  },
+  CONNECTIONS: {
+    GET: '/connections',
+    REQUEST: '/connections/request',
+    ACCEPT: '/connections/accept',
+    DECLINE: '/connections/decline'
+  },
+  SESSIONS: {
+    GET: '/sessions',
+    CREATE: '/sessions/create',
+    UPDATE: '/sessions/update',
+    CANCEL: '/sessions/cancel'
+  },
+  SKILLS: {
+    GET: '/skills',
+    GET_BY_ID: '/skills/:id',
+    GET_POPULAR: '/skills/popular',
+    SEARCH: '/skills/search'
   }
 };
