@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { APIClient } from '@/api/client';
+import { APIClient } from "@/api/client";
 
 export const useUnreadMessages = (userId?: string) => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
