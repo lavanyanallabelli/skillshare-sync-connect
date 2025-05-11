@@ -1,78 +1,25 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { API_BASE_URL } from './config';
 
-// API client for making requests
-export class APIClient {
-  private static async getAuthHeaders() {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
+export const APIClient = {
+  get: async <T>(endpoint: string, params?: any): Promise<T> => {
+    const response = await axios.get(`${API_BASE_URL}${endpoint}`, { params });
+    return response.data;
+  },
+
+  post: async <T>(endpoint: string, data?: any): Promise<T> => {
+    const response = await axios.post(`${API_BASE_URL}${endpoint}`, data);
+    return response.data;
+  },
+
+  put: async <T>(endpoint: string, data?: any): Promise<T> => {
+    const response = await axios.put(`${API_BASE_URL}${endpoint}`, data);
+    return response.data;
+  },
+
+  delete: async <T>(endpoint: string): Promise<T> => {
+    const response = await axios.delete(`${API_BASE_URL}${endpoint}`);
+    return response.data;
   }
-
-  static async get<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'API request failed');
-    }
-
-    return response.json();
-  }
-
-  static async post<T>(endpoint: string, data: any): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'API request failed');
-    }
-
-    return response.json();
-  }
-
-  static async put<T>(endpoint: string, data: any): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'API request failed');
-    }
-
-    return response.json();
-  }
-
-  static async delete<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'DELETE',
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'API request failed');
-    }
-
-    return response.json();
-  }
-}
+};
