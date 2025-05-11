@@ -70,15 +70,6 @@ export const useProfilePage = () => {
         if (educationsError) throw educationsError;
         setEducations(educationsData || []);
 
-        // Fetch skills (changed from user_skills to teaching_skills)
-        const { data: skillsData, error: skillsError } = await supabase
-          .from("teaching_skills")
-          .select("skill")
-          .eq("user_id", userId);
-
-        if (skillsError) throw skillsError;
-        setSkills(skillsData?.map((item) => item.skill) || []);
-
         // Fetch teaching skills
         const { data: teachingSkillsData, error: teachingSkillsError } = await supabase
           .from("teaching_skills")
@@ -87,6 +78,8 @@ export const useProfilePage = () => {
 
         if (teachingSkillsError) throw teachingSkillsError;
         setTeachingSkills(teachingSkillsData?.map((item) => item.skill) || []);
+        // Use teaching skills as the primary skills list
+        setSkills(teachingSkillsData?.map((item) => item.skill) || []);
 
         // Fetch learning skills
         const { data: learningSkillsData, error: learningSkillsError } = await supabase
@@ -97,11 +90,12 @@ export const useProfilePage = () => {
         if (learningSkillsError) throw learningSkillsError;
         setLearningSkills(learningSkillsData?.map((item) => item.skill) || []);
         
-        // Fetch upcoming sessions
+        // Fetch upcoming sessions - use explicit typing to avoid infinite type instantiation
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("sessions")
           .select(`
-            *,
+            id, day, time_slot, skill, status, meeting_link, created_at, updated_at, 
+            teacher_id, student_id,
             student:profiles!sessions_student_id_fkey(first_name, last_name),
             teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
           `)
@@ -129,11 +123,12 @@ export const useProfilePage = () => {
 
         setUpcomingSessions(transformedSessionsData);
 
-        // Fetch session requests
+        // Fetch session requests with explicit type selection
         const { data: requestsData, error: requestsError } = await supabase
           .from("sessions")
           .select(`
-            *,
+            id, day, time_slot, skill, status, meeting_link, created_at, updated_at,
+            teacher_id, student_id,
             student:profiles!sessions_student_id_fkey(first_name, last_name),
             teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
           `)
