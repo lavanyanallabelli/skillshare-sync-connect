@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useAuth } from '@/App';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
