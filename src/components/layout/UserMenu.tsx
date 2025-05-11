@@ -16,9 +16,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useUnreadMessages } from "@/hooks/use-unread-messages";
 
 interface UserMenuProps {
   handleLogout: () => void;

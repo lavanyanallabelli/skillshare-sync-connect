@@ -343,7 +343,7 @@ export const useRequestActions = (
             // Create notification for the student using the utility function
             await createSessionNotification(
               sessionData,
-              "accept",
+              'accept',
               studentName,
               teacherName
             );
@@ -381,7 +381,7 @@ export const useRequestActions = (
           // Create notification for the student using the utility function
           await createSessionNotification(
             sessionData,
-            "decline",
+            'decline',
             studentName,
             teacherName
           );

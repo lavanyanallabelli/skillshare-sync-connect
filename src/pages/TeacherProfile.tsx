@@ -1,28 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
-import MainLayout from '@/components/layout/MainLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
-} from '@/components/ui/dialog';
-import { CalendarDays, Clock, MapPin, Briefcase, GraduationCap, Star, MessageSquare } from 'lucide-react';
-import ProfileHeader from '@/components/profile/ProfileHeader';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import ReviewCard from '@/components/profile/ReviewCard';
-import { useAuth } from '@/contexts/AuthContext';
-import { format, parse } from 'date-fns';
-import { createConnectionNotification } from '@/utils/notificationUtils';
-import MessageDialog from '@/components/messages/MessageDialog';
-import ReportDialog from '@/components/profile/ReportDialog';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import AvailabilityTabDisplay from '@/components/profile/tabs/AvailabilityTabDisplay';
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import MainLayout from "@/components/layout/MainLayout";
+import ProfileHeader from "@/components/profile/ProfileHeader";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse, addHours, subHours } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
+import { createConnectionNotification } from "@/utils/notificationUtils";
+import {
+  Clock,
+  Calendar as CalendarIcon,
+  Star,
+  MessageSquare,
+  UserPlus,
+  UserCheck,
+  Clock as PendingIcon,
+  Trash2
+} from "lucide-react";
+import MessageDialog from "@/components/messages/MessageDialog";
+import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
+import ReportDialog from "@/components/profile/ReportDialog";
+import ReviewCard from "@/components/profile/ReviewCard";
 
 const TeacherProfile = () => {
   const { id } = useParams();
@@ -698,7 +705,7 @@ const TeacherProfile = () => {
             </TabsContent>
 
             <TabsContent value="availability">
-              <AvailabilityTabDisplay
+              <AvailabilityTab
                 selectedTimes={selectedTimes}
                 onDelete={handleDeleteAvailability}
                 profileUserId={id || ""}

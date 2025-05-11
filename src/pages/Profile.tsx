@@ -1,3 +1,4 @@
+
 import React, { lazy, Suspense } from "react";
 import ProfileLayout from "@/components/layout/ProfileLayout";
 import { useSearchParams } from "react-router-dom";
@@ -124,6 +125,8 @@ const Profile: React.FC = () => {
     },
   };
 
+
+
   if (loading) {
     return (
       <ProfileLayout>
@@ -164,7 +167,7 @@ const Profile: React.FC = () => {
         </ErrorBoundary>
 
         <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
-          <ConnectionList userId={userId || ""} />
+          <ConnectionList />
         </Suspense>
 
         <ProfileTabs

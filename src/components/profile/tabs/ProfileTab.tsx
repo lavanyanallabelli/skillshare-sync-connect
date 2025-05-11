@@ -1,7 +1,6 @@
 
 import React from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import ProfileTabContainer from "@/components/profile/containers/ProfileTabContainer";
+import ProfileTabContainer from "../containers/ProfileTabContainer";
 
 interface ProfileTabProps {
   userData: any;
@@ -27,6 +26,8 @@ interface ProfileTabProps {
   editingBio: boolean;
   setEditingBio: (editing: boolean) => void;
 }
+
+import { useAuth } from "@/App";
 
 const ProfileTab: React.FC<ProfileTabProps> = ({
   userData,

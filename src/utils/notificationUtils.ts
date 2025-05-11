@@ -1,94 +1,95 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { API_BASE_URL } from "@/api/config";
 
-export const getNotificationIconType = (type: string): string => {
-  switch (type) {
-    case 'session':
-      return 'calendar';
-    case 'connection_accepted':
-      return 'check-circle';
-    case 'connection_declined':
-      return 'x-circle';
-    case 'connection_request':
-      return 'user';
-    default:
-      return 'bell';
-  }
-};
-
+/**
+ * Creates a connection notification
+ * @param userId User ID to send notification to
+ * @param action Type of connection action (request, accept, decline)
+ * @param message Notification message
+ * @param type Notification type
+ */
 export const createConnectionNotification = async (
-  userId: string | undefined,
-  type: "request" | "accepted" | "declined",
-  description: string,
-  actionType: string = "connection"
+  userId: string,
+  action: "request" | "accept" | "decline",
+  message: string,
+  type: string
 ) => {
-  if (!userId) return;
-  
   try {
-    const title = 
-      type === "request" ? "New Connection Request" :
-      type === "accepted" ? "Connection Request Accepted" : 
-      "Connection Request Declined";
-    
-    // Create notification directly in the database
-    await supabase.from('notifications').insert({
+    // Get appropriate title based on action
+    let title = "";
+    switch (action) {
+      case "request":
+        title = "New Connection Request";
+        break;
+      case "accept":
+        title = "Connection Accepted";
+        break;
+      case "decline":
+        title = "Connection Declined";
+        break;
+    }
+
+    // Create notification in database
+    const { error } = await supabase.from("notifications").insert({
       user_id: userId,
       title,
-      description,
-      type: actionType,
+      description: message,
+      type,
       read: false,
-      created_at: new Date().toISOString()
     });
-    
+
+    if (error) {
+      console.error("[notificationUtils] Error creating connection notification:", error);
+    }
   } catch (error) {
-    console.error(`Error creating ${type} notification:`, error);
+    console.error("[notificationUtils] Failed to create notification:", error);
   }
 };
 
+/**
+ * Creates a session notification
+ * @param sessionData Session data
+ * @param action Type of session action (create, accept, decline)
+ * @param studentName Student's name
+ * @param teacherName Teacher's name
+ */
 export const createSessionNotification = async (
   sessionData: any,
-  notificationType: "create" | "accept" | "decline",
+  action: "create" | "accept" | "decline",
   studentName: string,
   teacherName: string
 ) => {
   try {
-    let recipientId, title, description, actionUrl;
-    
-    if (notificationType === "create") {
-      // Notification to teacher about new request
-      recipientId = sessionData.teacher_id;
-      title = "New Session Request";
-      description = `${studentName} wants to learn ${sessionData.skill} from you`;
-      actionUrl = "/profile?tab=requests";
-    } else if (notificationType === "accept") {
-      // Notification to student about accepted request
-      recipientId = sessionData.student_id;
-      title = "Session Request Accepted";
-      description = `${teacherName} has accepted your ${sessionData.skill} session request`;
-      actionUrl = "/profile?tab=sessions";
-    } else {
-      // Notification to student about declined request
-      recipientId = sessionData.student_id;
-      title = "Session Request Declined";
-      description = `${teacherName} has declined your ${sessionData.skill} session request`;
-      actionUrl = "/profile";
+    let title = "";
+    let description = "";
+
+    switch (action) {
+      case "create":
+        title = "New Session Request";
+        description = `${studentName} has requested a learning session with you for ${sessionData.skill}.`;
+        break;
+      case "accept":
+        title = "Session Request Accepted";
+        description = `${teacherName} has accepted your session request for ${sessionData.skill}.`;
+        break;
+      case "decline":
+        title = "Session Request Declined";
+        description = `${teacherName} has declined your session request for ${sessionData.skill}.`;
+        break;
     }
-    
-    if (!recipientId) return;
-    
-    // Create notification directly in the database
-    await supabase.from('notifications').insert({
-      user_id: recipientId,
+
+    const { error } = await supabase.from("notifications").insert({
+      user_id: sessionData.student_id, // Send to the student
       title,
       description,
       type: "session",
       read: false,
-      action_url: actionUrl,
-      created_at: new Date().toISOString()
+      action_url: `/sessions/${sessionData.id}`, // URL to the session details
     });
-    
+
+    if (error) {
+      console.error("[notificationUtils] Error creating session notification:", error);
+    }
   } catch (error) {
-    console.error(`Error creating session notification:`, error);
+    console.error("[notificationUtils] Failed to create session notification:", error);
   }
 };

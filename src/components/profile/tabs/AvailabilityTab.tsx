@@ -1,188 +1,157 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format, parse } from "date-fns";
+import { Clock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 interface AvailabilityTabProps {
-  selectedDate: Date | undefined;
-  setSelectedDate: (date: Date | undefined) => void;
   selectedTimes: Record<string, string[]>;
-  setSelectedTimes: (times: Record<string, string[]>) => void;
-  availabilityTimes: Record<string, string[]> | undefined;
+  onDelete?: (date: string, time: string) => void;
+  profileUserId: string;
 }
 
 const AvailabilityTab: React.FC<AvailabilityTabProps> = ({
-  selectedDate,
-  setSelectedDate,
   selectedTimes,
-  setSelectedTimes,
-  availabilityTimes,
+  onDelete,
+  profileUserId
 }) => {
-  const { userId } = useAuth();
   const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
+  const { userId } = useAuth();
 
-  const timeSlots = [
-    "09:00", "10:00", "11:00", "12:00", "13:00", "14:00",
-    "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
-  ];
+  const isProfileOwner = userId === profileUserId;
 
-  useEffect(() => {
-    if (selectedDate && availabilityTimes) {
-      const formattedDate = format(selectedDate, "yyyy-MM-dd");
-      setSelectedTimes({
-        ...selectedTimes,
-        [formattedDate]: availabilityTimes[formattedDate] || []
-      });
-    }
-  }, [selectedDate, availabilityTimes, setSelectedTimes]);
-
-  const handleDateSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-  };
-
-  const toggleTimeSlot = (time: string) => {
-    if (!selectedDate) return;
-
-    const formattedDate = format(selectedDate, "yyyy-MM-dd");
-    const currentTimes = selectedTimes[formattedDate] || [];
-    const isSelected = currentTimes.includes(time);
-    
-    const updatedTimes = isSelected
-      ? currentTimes.filter(t => t !== time)
-      : [...currentTimes, time];
-
-    // Fixed the type error here
-    setSelectedTimes({
-      ...selectedTimes,
-      [formattedDate]: updatedTimes
-    });
-  };
-
-  const isTimeSlotSelected = (time: string): boolean => {
-    if (!selectedDate) return false;
-    const formattedDate = format(selectedDate, "yyyy-MM-dd");
-    return selectedTimes[formattedDate]?.includes(time) || false;
-  };
-
-  const handleSaveAvailability = async () => {
-    if (!userId) return;
-
-    setIsSaving(true);
-
-    try {
-      // Delete existing availability for the selected date
-      if (selectedDate) {
-        const formattedDate = format(selectedDate, "yyyy-MM-dd");
-
-        const { error: deleteError } = await supabase
-          .from('user_availability')
-          .delete()
-          .eq('user_id', userId)
-          .eq('day', formattedDate);
-
-        if (deleteError) {
-          console.error("Error deleting availability:", deleteError);
-          toast({
-            title: "Error",
-            description: "Failed to delete existing availability. Please try again.",
-            variant: "destructive",
-          });
-          setIsSaving(false);
-          return;
-        }
-
-        // Insert new availability entries
-        const newAvailability = selectedTimes[formattedDate]?.map(time => ({
-          user_id: userId,
-          day: formattedDate,
-          time_slot: time,
-          is_available: true,
-        })) || [];
-
-        if (newAvailability.length > 0) {
-          const { error: insertError } = await supabase
-            .from('user_availability')
-            .insert(newAvailability);
-
-          if (insertError) {
-            console.error("Error inserting availability:", insertError);
-            toast({
-              title: "Error",
-              description: "Failed to save availability. Please try again.",
-              variant: "destructive",
-            });
-            setIsSaving(false);
-            return;
-          }
-        }
-
-        toast({
-          title: "Availability saved",
-          description: "Your availability has been updated successfully.",
-        });
-      }
-    } catch (error) {
-      console.error("Error saving availability:", error);
+  const handleDeleteAvailability = async (date: string, time: string) => {
+    if (!userId) {
       toast({
         title: "Error",
-        description: "Failed to save availability. Please try again.",
+        description: "Please log in to delete availability",
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
+      return;
+    }
+
+    if (!isProfileOwner) {
+      toast({
+        title: "Error",
+        description: "You are not authorized to delete this availability",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log("Deleting availability:", { date, time, userId });
+      
+      const { error } = await supabase
+        .from('user_availability')
+        .delete()
+        .eq('user_id', userId)
+        .eq('day', date)
+        .eq('time_slot', time);
+
+      if (error) {
+        console.error("Delete availability error:", error);
+        throw error;
+      }
+
+      console.log("Availability deleted successfully");
+      
+      if (onDelete) {
+        onDelete(date, time);
+      }
+
+      toast({
+        title: "Availability Deleted",
+        description: `The time slot ${formatTimeDisplay(time)} has been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete availability. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to format time for display
+  const formatTimeDisplay = (timeString: string) => {
+    try {
+      // Check if the time is already in HH:mm format (24-hour)
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        return format(parse(timeString, 'HH:mm', new Date()), 'h:mm a');
+      }
+      return timeString;
+    } catch (error) {
+      console.error("Error formatting time:", error, timeString);
+      return timeString;
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Set Your Availability</CardTitle>
-        <CardDescription>
-          Choose the dates and times you are available for sessions.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="rounded-md border">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDateSelect}
-            className="rounded-md border-none shadow-none"
-          />
-        </div>
-        {selectedDate ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-            {timeSlots.map((time) => (
-              <div key={time} className="flex items-center space-x-2">
-                <Checkbox
-                  id={time}
-                  checked={isTimeSlotSelected(time)}
-                  onCheckedChange={() => toggleTimeSlot(time)}
-                />
-                <label
-                  htmlFor={time}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  {time}
-                </label>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">Please select a date to see available time slots.</p>
-        )}
-      </CardContent>
-      <Button onClick={handleSaveAvailability} disabled={isSaving}>
-        {isSaving ? "Saving..." : "Save Availability"}
-      </Button>
-    </Card>
+    <div className="grid grid-cols-1 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Availability</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(selectedTimes).length > 0 ? (
+            <div className="space-y-4">
+              {Object.entries(selectedTimes).map(([date, times]) => {
+                // Ensure date is properly formatted for parsing
+                let parsedDate;
+                try {
+                  parsedDate = parse(date, 'yyyy-MM-dd', new Date());
+                } catch (error) {
+                  console.error("Error parsing date:", error, date);
+                  // Fallback to using the original date string
+                  return (
+                    <div key={date} className="border p-4 rounded-lg">
+                      <h3 className="font-medium mb-2">{date} (format error)</h3>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={date} className="border p-4 rounded-lg">
+                    <h3 className="font-medium mb-2">{format(parsedDate, "MMMM d, yyyy")}</h3>
+                    <div className="space-y-2">
+                      {times.map((time) => (
+                        <div key={time} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 mr-2 text-muted-foreground" />
+                            <span className="text-sm">{formatTimeDisplay(time)}</span>
+                          </div>
+                          {isProfileOwner && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-red-100"
+                              onClick={() => handleDeleteAvailability(date, time)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No availability set</p>
+              <p className="text-sm mt-2">Go to the Schedule tab to set your availability</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

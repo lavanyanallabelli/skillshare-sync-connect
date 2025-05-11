@@ -1,271 +1,16 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./use-toast";
-import { format } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfileData } from "@/hooks/useProfileData";
+import { useAuth } from "@/App";
 
-export const useProfilePage = () => {
-  const { userId, isLoggedIn } = useAuth();
-  const [userData, setUserData] = useState<any>(null);
-  const [experiences, setExperiences] = useState<any[]>([]);
-  const [educations, setEducations] = useState<any[]>([]);
-  const [skills, setSkills] = useState<string[]>([]);
-  const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
-  const [learningSkills, setLearningSkills] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("profile");
-  const [bio, setBio] = useState("");
-  const [editingBio, setEditingBio] = useState(false);
-  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
-  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
-  const [editingExperience, setEditingExperience] = useState(false);
-  const [editingEducation, setEditingEducation] = useState(false);
-  const [editingSkills, setEditingSkills] = useState(false);
-  const [newSkill, setNewSkill] = useState("");
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
-  const [availabilityTimes, setAvailabilityTimes] = useState<Record<string, string[]>>({});
-  const { toast } = useToast();
+export type AvailabilityTimes = string[];
 
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    const fetchProfileData = async () => {
-      setLoading(true);
-      try {
-        // Fetch profile data
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .single();
-
-        if (profileError) throw profileError;
-
-        setUserData(profileData);
-        setBio(profileData?.bio || "");
-
-        // Fetch experiences
-        const { data: experiencesData, error: experiencesError } = await supabase
-          .from("user_experiences")
-          .select("*")
-          .eq("user_id", userId)
-          .order("start_date", { ascending: false });
-
-        if (experiencesError) throw experiencesError;
-        setExperiences(experiencesData || []);
-
-        // Fetch educations
-        const { data: educationsData, error: educationsError } = await supabase
-          .from("user_education")
-          .select("*")
-          .eq("user_id", userId)
-          .order("start_date", { ascending: false });
-
-        if (educationsError) throw educationsError;
-        setEducations(educationsData || []);
-
-        // Fetch teaching skills
-        const { data: teachingSkillsData, error: teachingSkillsError } = await supabase
-          .from("teaching_skills")
-          .select("skill")
-          .eq("user_id", userId);
-
-        if (teachingSkillsError) throw teachingSkillsError;
-        setTeachingSkills(teachingSkillsData?.map((item) => item.skill) || []);
-        // Use teaching skills as the primary skills list
-        setSkills(teachingSkillsData?.map((item) => item.skill) || []);
-
-        // Fetch learning skills
-        const { data: learningSkillsData, error: learningSkillsError } = await supabase
-          .from("learning_skills")
-          .select("skill")
-          .eq("user_id", userId);
-
-        if (learningSkillsError) throw learningSkillsError;
-        setLearningSkills(learningSkillsData?.map((item) => item.skill) || []);
-        
-        // Define specific types for sessions to avoid infinite instantiation
-        type SessionWithProfiles = {
-          id: string;
-          day: string;
-          time_slot: string;
-          skill: string;
-          status: string;
-          meeting_link: string | null;
-          created_at: string;
-          updated_at: string;
-          teacher_id: string;
-          student_id: string;
-          student: { first_name: string; last_name: string } | null;
-          teacher: { first_name: string; last_name: string } | null;
-        };
-
-        // Fetch upcoming sessions with specific field selection
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from("sessions")
-          .select(`
-            id, day, time_slot, skill, status, meeting_link, created_at, updated_at, 
-            teacher_id, student_id,
-            student:profiles!sessions_student_id_fkey(first_name, last_name),
-            teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
-          `)
-          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-          .in("status", ["accepted"])
-          .order("created_at", { ascending: false });
-
-        if (sessionsError) throw sessionsError;
-
-        // Transform the data to ensure consistent date formatting and names
-        const transformedSessionsData = (sessionsData as SessionWithProfiles[] || []).map((session) => {
-          let partnerName = "";
-          if (userId === session.teacher_id && session.student) {
-            partnerName = `${session.student.first_name} ${session.student.last_name}`;
-          } else if (userId === session.student_id && session.teacher) {
-            partnerName = `${session.teacher.first_name} ${session.teacher.last_name}`;
-          }
-
-          return {
-            ...session,
-            day: session.day,
-            from: partnerName,
-          };
-        });
-
-        setUpcomingSessions(transformedSessionsData);
-
-        // Fetch session requests with specific field selection
-        const { data: requestsData, error: requestsError } = await supabase
-          .from("sessions")
-          .select(`
-            id, day, time_slot, skill, status, meeting_link, created_at, updated_at,
-            teacher_id, student_id,
-            student:profiles!sessions_student_id_fkey(first_name, last_name),
-            teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
-          `)
-          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-          .in("status", ["pending"])
-          .order("created_at", { ascending: false });
-
-        if (requestsError) throw requestsError;
-
-        const transformedRequestsData = (requestsData as SessionWithProfiles[] || []).map((session) => {
-          let partnerName = "";
-          if (userId === session.teacher_id && session.student) {
-            partnerName = `${session.student.first_name} ${session.student.last_name}`;
-          } else if (userId === session.student_id && session.teacher) {
-            partnerName = `${session.teacher.first_name} ${session.teacher.last_name}`;
-          }
-
-          return {
-            ...session,
-            day: session.day,
-            from: partnerName,
-          };
-        });
-
-        setSessionRequests(transformedRequestsData);
-
-        // Fetch reviews
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from("reviews")
-          .select("*")
-          .eq("teacher_id", userId);
-
-        if (reviewsError) throw reviewsError;
-        setReviews(reviewsData || []);
-      } catch (error: any) {
-        console.error("Error fetching profile data:", error.message);
-        toast({
-          title: "Error",
-          description: "Failed to load profile data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfileData();
-  }, [userId, toast]);
-
-  const handleUpdateProfile = async (profileData: any) => {
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from("profiles")
-        .update(profileData)
-        .eq("id", userId);
-
-      if (error) throw error;
-
-      setUserData((prevUserData: any) => ({
-        ...prevUserData,
-        ...profileData,
-      }));
-
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
-      });
-    } catch (error: any) {
-      console.error("Error updating profile:", error.message);
-      toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setEditingBio(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const fetchAvailability = async () => {
-      console.log("Fetching availability for user:", userId);
-
-      const { data, error } = await supabase
-        .from("user_availability")
-        .select("day, time_slot")
-        .eq("user_id", userId)
-        .eq("is_available", true);
-
-      if (error) {
-        console.error("Error fetching availability:", error);
-        return;
-      }
-
-      console.log("Availability data from database:", data);
-
-      const availabilityMap = data?.reduce((acc: Record<string, string[]>, curr) => {
-        const dateKey = curr.day;
-        if (!acc[dateKey]) {
-          acc[dateKey] = [];
-        }
-        acc[dateKey].push(curr.time_slot);
-        return acc;
-      }, {}) || {};
-
-      console.log("Processed availability map:", availabilityMap);
-
-      setAvailabilityTimes(availabilityMap);
-    };
-
-    fetchAvailability();
-  }, [userId]);
-
-  return {
-    isLoggedIn,
+export function useProfilePage() {
+  const { isLoggedIn, userId } = useAuth();
+  const {
     userData,
-    userId,
+    setUserData,
     experiences,
     setExperiences,
     educations,
@@ -275,16 +20,205 @@ export const useProfilePage = () => {
     teachingSkills,
     learningSkills,
     loading,
+    refreshUserData
+  } = useProfileData(userId);
+
+  const [activeTab, setActiveTab] = useState("profile");
+  const [availabilityDate, setAvailabilityDate] = useState<Date | undefined>(new Date());
+  const [editingBio, setEditingBio] = useState(false);
+  const [bio, setBio] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [editingExperience, setEditingExperience] = useState(false);
+  const [editingEducation, setEditingEducation] = useState(false);
+  const [editingSkills, setEditingSkills] = useState(false);
+  const [newSkill, setNewSkill] = useState("");
+  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+  const availabilityTimes: AvailabilityTimes = [
+    "9:00 AM - 10:00 AM",
+    "10:00 AM - 11:00 AM",
+    "2:00 PM - 3:00 PM",
+    "3:00 PM - 4:00 PM",
+    "5:00 PM - 6:00 PM",
+  ];
+
+  // Session request and sessions fetching
+  const fetchSessions = useCallback(async () => {
+    if (!userId) return;
+    try {
+      // Fetch pending session requests
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (requestsError) throw requestsError;
+      setSessionRequests(requestsData || []);
+
+      // Fetch accepted sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false });
+
+      if (sessionsError) throw sessionsError;
+      setUpcomingSessions(sessionsData || []);
+    } catch (error) {
+      console.error('Error in fetchSessions:', error);
+    }
+  }, [userId]);
+
+  // Listen for accepted sessions event
+  useEffect(() => {
+    function handleSessionAccepted(event: any) {
+      console.log("Session accepted event received:", event.detail);
+      const session = event.detail;
+      setUpcomingSessions(prev => {
+        // Avoid duplicates
+        if (prev.some(s => s.id === session.id)) {
+          return prev;
+        }
+        return [session, ...prev];
+      });
+      
+      // Remove from requests if it was there
+      setSessionRequests(prev => prev.filter(req => req.id !== session.id));
+    }
+    
+    window.addEventListener('sessionAccepted', handleSessionAccepted);
+    return () => window.removeEventListener('sessionAccepted', handleSessionAccepted);
+  }, []);
+
+  // Initial data fetches
+  useEffect(() => {
+    if (!userId) return;
+    fetchSessions();
+
+    // Set up real-time subscription to session changes
+    const channel = supabase
+      .channel('sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sessions',
+          filter: `teacher_id=eq.${userId}`
+        },
+        () => {
+          fetchSessions();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sessions',
+          filter: `student_id=eq.${userId}`
+        },
+        () => {
+          fetchSessions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, fetchSessions]);
+
+  useEffect(() => {
+    if (userData) {
+      setBio(userData.bio || "");
+    }
+  }, [userData]);
+
+  const handleUpdateProfile = async (profileData: any) => {
+    if (userData && userId) {
+      try {
+        const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            first_name: firstName || userData.firstName,
+            last_name: lastName || userData.lastName,
+            location: profileData.location || userData.location,
+            occupation: profileData.company || userData.occupation,
+            bio: profileData.bio || userData.bio
+          })
+          .eq('id', userId);
+
+        if (error) throw error;
+
+        const updatedUserData = {
+          ...userData,
+          firstName: firstName || userData.firstName,
+          lastName: lastName || userData.lastName,
+          location: profileData.location || userData.location,
+          occupation: profileData.company || userData.occupation,
+          bio: profileData.bio || userData.bio
+        };
+
+        localStorage.setItem("userData", JSON.stringify(updatedUserData));
+        setUserData(updatedUserData);
+
+        if (profileData.bio) {
+          setBio(profileData.bio);
+        }
+
+        const event = new CustomEvent('profileUpdated', {
+          detail: {
+            name: profileData.name,
+            location: profileData.location,
+            company: profileData.company,
+            bio: profileData.bio
+          }
+        });
+        window.dispatchEvent(event);
+      } catch (error) {
+        console.error('Error updating profile:', error);
+      }
+    }
+  };
+
+  return {
+    isLoggedIn,
+    userId,
+    userData,
+    setUserData,
+    experiences,
+    setExperiences,
+    educations,
+    setEducations,
+    skills,
+    setSkills,
+    teachingSkills,
+    learningSkills,
+    loading,
+    refreshUserData,
     activeTab,
     setActiveTab,
-    bio,
-    setBio,
+    availabilityDate,
+    setAvailabilityDate,
     editingBio,
     setEditingBio,
-    upcomingSessions,
-    sessionRequests,
-    setSessionRequests,
-    handleUpdateProfile,
+    bio,
+    setBio,
+    dialogOpen,
+    setDialogOpen,
+    selectedSession,
+    setSelectedSession,
     editingExperience,
     setEditingExperience,
     editingEducation,
@@ -293,12 +227,17 @@ export const useProfilePage = () => {
     setEditingSkills,
     newSkill,
     setNewSkill,
+    sessionRequests,
+    setSessionRequests,
+    upcomingSessions,
+    setUpcomingSessions,
     reviews,
     setReviews,
-    selectedDate,
-    setSelectedDate,
     selectedTimes,
     setSelectedTimes,
+    selectedDate,
+    setSelectedDate,
     availabilityTimes,
+    handleUpdateProfile,
   };
-};
+}

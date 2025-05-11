@@ -5,7 +5,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/App";
 import { SearchForm } from "./SearchForm";
 import { UserMenu } from "./UserMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
@@ -18,7 +18,7 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isLoggedIn, logout, userId } = useAuth();
-  const unreadCount = useUnreadMessages(userId || undefined);
+  const unreadCount = useUnreadMessages(userId);
   
   const handleLogout = () => {
     logout();
@@ -61,6 +61,8 @@ const Navbar: React.FC = () => {
           {!isMobile ? (
             <>
               <SearchForm />
+              
+              
               
               {isLoggedIn ? (
                 <UserMenu unreadCount={unreadCount} handleLogout={handleLogout} />

@@ -1,255 +1,266 @@
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Trash2 } from "lucide-react";
+import { format, parse } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 interface ScheduleTabProps {
-  userId: string | null;
-  upcomingSessions: any[];
-  sessionRequests: any[];
-  setSessionRequests: (requests: any[]) => void;
+  selectedDate: Date | undefined;
+  setSelectedDate: (date: Date | undefined) => void;
+  selectedTimes: Record<string, string[]>;
+  setSelectedTimes: (times: Record<string, string[]>) => void;
+  onSave?: () => void;
 }
 
-const ScheduleTab: React.FC<ScheduleTabProps> = ({ userId, upcomingSessions, sessionRequests, setSessionRequests }) => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const ScheduleTab: React.FC<ScheduleTabProps> = ({
+  selectedDate,
+  setSelectedDate,
+  selectedTimes,
+  setSelectedTimes,
+  onSave
+}) => {
+  const [hour, setHour] = React.useState("12");
+  const [minute, setMinute] = React.useState("00");
+  const [ampm, setAmpm] = React.useState("AM");
+
+  // Helper to convert 12-hour input to 24-hour 'HH:mm' string
+  const get24HourTime = () => {
+    let h = parseInt(hour, 10);
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return `${h.toString().padStart(2, "0")}:${minute}`;
+  };
   const { toast } = useToast();
+  const { userId } = useAuth();
 
-  const availableTimes = [
-    "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
-  ];
+  useEffect(() => {
+    if (!userId) return;
 
-  const handleRequestSession = async () => {
-    if (!userId) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to request a session.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedDate || !selectedTime) {
-      toast({
-        title: "Error",
-        description: "Please select a date and time for the session.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "Could not identify the current user.",
-          variant: "destructive",
-        });
+    const fetchAvailability = async () => {
+      console.log("Fetching availability for user:", userId);
+      
+      const { data, error } = await supabase
+        .from('user_availability')
+        .select('day, time_slot')
+        .eq('user_id', userId)
+        .eq('is_available', true);
+      
+      if (error) {
+        console.error('Error fetching availability:', error);
         return;
       }
 
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-
-      const { data, error } = await supabase
-        .from('sessions')
-        .insert({
-          student_id: user.id,
-          teacher_id: userId,
-          day: formattedDate,
-          time_slot: selectedTime,
-          notes: additionalNotes,
-          status: 'pending',
-          skill: 'General' // Adding a default skill value since it's required
-        });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      toast({
-        title: "Session Requested",
-        description: "Your session request has been submitted.",
-      });
-
-      setSelectedDate(undefined);
-      setSelectedTime("");
-      setAdditionalNotes("");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to request session.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAcceptRequest = async (session: any) => {
-    try {
-      const { error } = await supabase
-        .from('sessions')
-        .update({ status: 'accepted' })
-        .eq('id', session.id);
-
-      if (error) throw error;
-
-      // Create a copy of the current session requests and filter out the accepted one
-      const updatedRequests = sessionRequests.filter(req => req.id !== session.id);
-      setSessionRequests(updatedRequests);
+      console.log("Availability data from database:", data);
       
-      toast({
-        title: "Session Accepted",
-        description: "You have accepted the session request.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to accept session request.",
-        variant: "destructive",
-      });
-    }
-  };
+      const availabilityMap = data.reduce((acc: Record<string, string[]>, curr) => {
+        const dateKey = curr.day;
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        acc[dateKey].push(curr.time_slot);
+        return acc;
+      }, {});
 
-  const handleDeclineRequest = async (session: any) => {
+      console.log("Processed availability map:", availabilityMap);
+      
+      setSelectedTimes(availabilityMap);
+    };
+
+    fetchAvailability();
+  }, [userId, setSelectedTimes]);
+
+
+  const handleSaveAvailability = async () => {
+    if (!selectedDate || !userId) return;
+    
     try {
-      const { error } = await supabase
-        .from('sessions')
+      const dateKey = format(selectedDate, 'yyyy-MM-dd');
+      console.log("Saving availability for date:", dateKey);
+      
+      const selectedTimesForDate = selectedTimes[dateKey] || [];
+      console.log("Selected times for this date:", selectedTimesForDate);
+      
+      // Remove all availability for this date, then add new ones
+      console.log("Deleting existing availability for this date");
+      const { error: deleteError } = await supabase
+        .from('user_availability')
         .delete()
-        .eq('id', session.id);
+        .eq('user_id', userId)
+        .eq('day', dateKey);
+        
+      if (deleteError) throw deleteError;
 
-      if (error) throw error;
-
-      // Create a copy of the current session requests and filter out the declined one
-      const updatedRequests = sessionRequests.filter(req => req.id !== session.id);
-      setSessionRequests(updatedRequests);
+      if (selectedTimesForDate.length > 0) {
+        console.log("Creating new availability entries");
+        const availability = selectedTimesForDate.map(time => ({
+          user_id: userId,
+          day: dateKey,
+          time_slot: time,
+          is_available: true
+        }));
+        
+        console.log("Availability entries to insert:", availability);
+        
+        const { data, error } = await supabase
+          .from('user_availability')
+          .insert(availability)
+          .select();
+          
+        if (error) throw error;
+        
+        console.log("Successfully inserted availability:", data);
+      }
       
+      // Parent state is already updated via setSelectedTimes
       toast({
-        title: "Session Declined",
-        description: "You have declined the session request.",
+        title: "Availability saved",
+        description: "Your availability has been updated successfully",
       });
-    } catch (error: any) {
+      
+      if (onSave) {
+        onSave(); // Parent should setActiveTab('availability')
+      }
+      
+    } catch (error) {
+      console.error('Error saving availability:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to decline session request.",
+        description: "Failed to save availability",
         variant: "destructive",
       });
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Request a Session</CardTitle>
-          <CardDescription>Select a date and time to request a session.</CardDescription>
+          <CardTitle>Set Your Schedule</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="date">Date</Label>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              disabled={isSubmitting}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="time">Time</Label>
-            <Select onValueChange={setSelectedTime} disabled={isSubmitting}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a time" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTimes.map((time) => (
-                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="notes">Additional Notes</Label>
-            <Textarea
-              id="notes"
-              placeholder="Any specific topics you'd like to cover?"
-              value={additionalNotes}
-              onChange={(e) => setAdditionalNotes(e.target.value)}
-              disabled={isSubmitting}
-            />
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Date</Label>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="rounded-md border mt-2"
+              />
+            </div>
+
+            {selectedDate && (
+              <div className="space-y-2">
+                <Label>Available Times for {format(selectedDate, "MMMM d, yyyy")}</Label>
+                <div className="flex items-center gap-2">
+                  <select value={hour} onChange={e => setHour(e.target.value)} className="border rounded px-1 py-1">
+                    {[...Array(12)].map((_, i) => {
+                      const val = (i + 1).toString().padStart(2, "0");
+                      return <option key={val} value={val}>{val}</option>;
+                    })}
+                  </select>
+                  :
+                  <select value={minute} onChange={e => setMinute(e.target.value)} className="border rounded px-1 py-1">
+                    {Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  <select value={ampm} onChange={e => setAmpm(e.target.value)} className="border rounded px-1 py-1">
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedDate) return;
+                      
+                      const time24 = get24HourTime();
+                      console.log("Adding time slot:", time24);
+                      
+                      const dateKey = format(selectedDate, 'yyyy-MM-dd');
+                      const timesForDate = selectedTimes[dateKey] || [];
+                      
+                      if (timesForDate.includes(time24)) {
+                        toast({ title: "Duplicate time", description: "This time slot is already added." });
+                        return;
+                      }
+                      
+                      const updated = { ...selectedTimes };
+                      if (!updated[dateKey]) {
+                        updated[dateKey] = [];
+                      }
+                      updated[dateKey] = [...updated[dateKey], time24].sort();
+                      
+                      console.log("Updated selected times:", updated);
+                      setSelectedTimes(updated);
+                      
+                      setHour("12");
+                      setMinute("00");
+                      setAmpm("AM");
+                    }}
+                    className="ml-2"
+                  >
+                    Add Time
+                  </Button>
+                </div>
+                
+                {/* Display the currently added time slots for this date */}
+                {selectedTimes[format(selectedDate, 'yyyy-MM-dd')] && selectedTimes[format(selectedDate, 'yyyy-MM-dd')].length > 0 && (
+                  <div className="mt-4">
+                    <Label className="mb-2 block">Added time slots:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTimes[format(selectedDate, 'yyyy-MM-dd')].map(time => {
+                        // Convert 24h format to 12h for display
+                        const displayTime = format(parse(time, 'HH:mm', new Date()), 'h:mm a');
+                        
+                        return (
+                          <Badge 
+                            key={time} 
+                            className="py-1 flex items-center gap-1"
+                            variant="secondary"
+                          >
+                            {displayTime}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 ml-1 hover:bg-red-100 rounded-full p-0"
+                              onClick={() => {
+                                const dateKey = format(selectedDate, 'yyyy-MM-dd');
+                                const updated = { ...selectedTimes };
+                                updated[dateKey] = updated[dateKey].filter(t => t !== time);
+                                if (updated[dateKey].length === 0) {
+                                  delete updated[dateKey];
+                                }
+                                setSelectedTimes(updated);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={handleSaveAvailability} className="bg-skill-purple">
+                Save Schedule
+              </Button>
+            </div>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button className="ml-auto bg-skill-purple hover:bg-skill-purple-dark" onClick={handleRequestSession} disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Request Session"}
-          </Button>
-        </CardFooter>
       </Card>
-
-      <div>
-        <h3 className="text-xl font-bold mb-4">Upcoming Sessions</h3>
-        {upcomingSessions.length > 0 ? (
-          <div className="grid gap-4">
-            {upcomingSessions.map((session) => (
-              <Card key={session.id}>
-                <CardHeader>
-                  <CardTitle>Session with {session.from}</CardTitle>
-                  <CardDescription>
-                    {format(new Date(session.day), 'PPP')} at {session.time}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>Notes: {session.notes || "No notes provided."}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">No upcoming sessions scheduled.</p>
-        )}
-      </div>
-
-      <div>
-        <h3 className="text-xl font-bold mb-4">Session Requests</h3>
-        {sessionRequests.length > 0 ? (
-          <div className="grid gap-4">
-            {sessionRequests.map((session) => (
-              <Card key={session.id}>
-                <CardHeader>
-                  <CardTitle>Session Request from {session.from}</CardTitle>
-                  <CardDescription>
-                    {format(new Date(session.day), 'PPP')} at {session.time}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>Notes: {session.notes || "No notes provided."}</p>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => handleDeclineRequest(session)}>
-                    Decline
-                  </Button>
-                  <Button onClick={() => handleAcceptRequest(session)}>Accept</Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">No pending session requests.</p>
-        )}
-      </div>
     </div>
   );
 };
