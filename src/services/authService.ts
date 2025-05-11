@@ -1,6 +1,7 @@
 // Authentication service
-import { supabase } from "@/integrations/supabase/client";
-import { APIClient } from "@/api/client";
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@/models/User';
+import { APIClient } from '@/api/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface SignupData {
