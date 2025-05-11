@@ -1,73 +1,111 @@
-# Welcome to your Lovable project
 
-## Project info
+# SkillShare Sync Connect
 
-**URL**: https://lovable.dev/projects/a75b4a3f-87c9-48b6-971f-ba7f7770e92b
+A full-stack application for connecting learners and teachers to share skills.
 
-## How can I edit this code?
+## Project Structure
 
-There are several ways of editing your application.
+This project is divided into two main parts:
 
-**Use Lovable**
+- **frontend**: React-based user interface
+- **backend**: Express.js API with MongoDB database
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a75b4a3f-87c9-48b6-971f-ba7f7770e92b) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js (v14 or later)
+- MongoDB (local or Atlas)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Backend Setup
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Navigate to the backend folder:
+   ```
+   cd backend
+   ```
 
-Follow these steps:
+2. Install dependencies:
+   ```
+   npm install
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. Create a `.env` file in the backend directory with the following contents:
+   ```
+   MONGO_URI=mongodb://localhost:27017/skillshare-sync
+   PORT=5000
+   JWT_SECRET=your_jwt_secret_here
+   JWT_EXPIRE=30d
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. Start the server:
+   ```
+   npm run dev
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Frontend Setup
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+1. Navigate to the frontend folder:
+   ```
+   cd frontend
+   ```
 
-**Edit a file directly in GitHub**
+2. Install dependencies:
+   ```
+   npm install
+   ```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. Start the development server:
+   ```
+   npm start
+   ```
 
-**Use GitHub Codespaces**
+## API Endpoints
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Authentication
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login a user
+- `GET /api/auth/me` - Get current user
 
-## What technologies are used for this project?
+### Users
+- `GET /api/users` - Get all users
+- `GET /api/users/:userId` - Get user by ID
+- `POST /api/users` - Create user
+- `PUT /api/users/:userId` - Update user
+- `DELETE /api/users/:userId` - Delete user
 
-This project is built with:
+### Sessions
+- `GET /api/sessions` - Get all sessions for user
+- `GET /api/sessions/:sessionId` - Get session by ID
+- `POST /api/sessions` - Create session request
+- `PUT /api/sessions/:sessionId/respond` - Accept/decline session request
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Connections
+- `GET /api/connections` - Get user connections
+- `GET /api/connections/pending` - Get pending connection requests
+- `POST /api/connections` - Send connection request
+- `PUT /api/connections/:connectionId/respond` - Accept/decline connection request
+- `DELETE /api/connections/:connectionId` - Remove connection
 
-## How can I deploy this project?
+### Notifications
+- `GET /api/notifications` - Get user notifications
+- `PUT /api/notifications/:notificationId/read` - Mark notification as read
+- `PUT /api/notifications/read-all` - Mark all notifications as read
+- `POST /api/notifications` - Create notification
 
-Simply open [Lovable](https://lovable.dev/projects/a75b4a3f-87c9-48b6-971f-ba7f7770e92b) and click on Share -> Publish.
+### Messages
+- `GET /api/messages/conversations` - Get user conversations
+- `GET /api/messages/:partnerId` - Get messages with a specific user
+- `POST /api/messages` - Send a message
+- `GET /api/messages/unread-count` - Get unread message count
 
-## Can I connect a custom domain to my Lovable project?
+### Skills
+- `GET /api/skills/teaching/:userId` - Get teaching skills for a user
+- `GET /api/skills/learning/:userId` - Get learning skills for a user
+- `POST /api/skills/teaching` - Add teaching skill
+- `POST /api/skills/learning` - Add learning skill
+- `DELETE /api/skills/teaching/:skillId` - Delete teaching skill
+- `DELETE /api/skills/learning/:skillId` - Delete learning skill
 
-Yes it is!
+## License
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is open source, under the MIT license.
