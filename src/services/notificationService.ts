@@ -1,5 +1,5 @@
 
-import { APIClient } from '@/api/client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
   id: string;
@@ -8,13 +8,20 @@ export interface Notification {
   type: string;
   read: boolean;
   actionUrl?: string;
-  createdAt: string;
+  created_at: string;
 }
 
-export const fetchNotifications = async (): Promise<Notification[]> => {
+export const fetchNotifications = async (userId: string): Promise<Notification[]> => {
   try {
-    const notifications = await APIClient.get<Notification[]>('/notifications');
-    return notifications;
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return [];
@@ -23,15 +30,22 @@ export const fetchNotifications = async (): Promise<Notification[]> => {
 
 export const markAsRead = async (notificationId: string): Promise<void> => {
   try {
-    await APIClient.put(`/notifications/${notificationId}/read`, {});
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
 };
 
-export const markAllAsRead = async (): Promise<void> => {
+export const markAllAsRead = async (userId: string): Promise<void> => {
   try {
-    await APIClient.put('/notifications/read-all', {});
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false);
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
   }

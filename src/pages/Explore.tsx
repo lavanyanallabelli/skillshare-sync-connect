@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 import { createConnectionNotification } from "@/utils/notificationUtils";
 
 // Categories for filtering

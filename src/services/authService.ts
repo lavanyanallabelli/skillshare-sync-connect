@@ -1,8 +1,28 @@
+
 // Authentication service
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/models/User';
 import { APIClient } from '@/api/client';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+
+// Define User interface
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  bio?: string;
+  location?: string;
+  occupation?: string;
+  education?: string;
+  avatar?: string;
+  headline?: string;
+  website?: string;
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface SignupData {
   email: string;
@@ -33,11 +53,6 @@ export const authService = {
       if (error) throw error;
     } catch (error) {
       console.error('Signup error:', error);
-      toast({ 
-        title: 'Signup failed', 
-        description: error.message || 'Could not create account',
-        variant: 'destructive' 
-      });
       throw error;
     }
   },
@@ -52,11 +67,6 @@ export const authService = {
       if (error) throw error;
     } catch (error) {
       console.error('Login error:', error);
-      toast({ 
-        title: 'Login failed', 
-        description: error.message || 'Invalid credentials',
-        variant: 'destructive' 
-      });
       throw error;
     }
   },
@@ -68,11 +78,6 @@ export const authService = {
       localStorage.removeItem('userData');
     } catch (error) {
       console.error('Logout error:', error);
-      toast({ 
-        title: 'Logout failed', 
-        description: error.message || 'Could not sign out',
-        variant: 'destructive' 
-      });
       throw error;
     }
   },
@@ -133,11 +138,6 @@ export const authService = {
       if (error) throw error;
     } catch (error) {
       console.error('Google auth error:', error);
-      toast({ 
-        title: 'Google login failed', 
-        description: error.message || 'Could not authorize with Google',
-        variant: 'destructive' 
-      });
       throw error;
     }
   }

@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { APIClient } from "@/api/client";
+import { API_BASE_URL } from "@/api/config";
 
 export const getNotificationIconType = (type: string): string => {
   switch (type) {
@@ -31,12 +31,14 @@ export const createConnectionNotification = async (
       type === "accepted" ? "Connection Request Accepted" : 
       "Connection Request Declined";
     
-    await APIClient.post('/notifications', {
-      userId,
+    // Create notification directly in the database
+    await supabase.from('notifications').insert({
+      user_id: userId,
       title,
       description,
       type: actionType,
-      actionUrl: `/profile?tab=${type === "request" ? "requests" : "connections"}`
+      read: false,
+      created_at: new Date().toISOString()
     });
     
   } catch (error) {
@@ -75,12 +77,15 @@ export const createSessionNotification = async (
     
     if (!recipientId) return;
     
-    await APIClient.post('/notifications', {
-      userId: recipientId,
+    // Create notification directly in the database
+    await supabase.from('notifications').insert({
+      user_id: recipientId,
       title,
       description,
       type: "session",
-      actionUrl
+      read: false,
+      action_url: actionUrl,
+      created_at: new Date().toISOString()
     });
     
   } catch (error) {
