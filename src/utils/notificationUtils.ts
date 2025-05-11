@@ -108,3 +108,49 @@ export const getNotificationIconType = (type: string): string => {
       return '';
   }
 };
+
+// Create a connection notification
+export const createConnectionNotification = async (
+  userId: string,
+  type: 'request' | 'accept' | 'decline',
+  message: string,
+  category: string = 'connection'
+) => {
+  try {
+    let title = '';
+    let iconType = '';
+    
+    switch (type) {
+      case 'request':
+        title = 'New Connection Request';
+        iconType = 'user-plus';
+        break;
+      case 'accept':
+        title = 'Connection Accepted';
+        iconType = 'user-check';
+        break;
+      case 'decline':
+        title = 'Connection Declined';
+        iconType = 'user-x';
+        break;
+    }
+    
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: `connection_${type}`,
+        title,
+        description: message,
+        action_url: '/profile?tab=connections',
+        read: false,
+        icon_type: iconType
+      });
+      
+    if (error) {
+      console.error("Error creating connection notification:", error);
+    }
+  } catch (error) {
+    console.error("Failed to create connection notification:", error);
+  }
+};

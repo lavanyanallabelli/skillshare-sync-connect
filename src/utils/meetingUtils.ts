@@ -29,7 +29,7 @@ export async function createGoogleMeetLink(
         title: "Error",
         description: "Session date information is missing. Please contact support.",
         variant: "destructive",
-        icon: <AlertCircle className="h-4 w-4 text-red-500" />
+        icon: React.createElement(AlertCircle, { className: "h-4 w-4 text-red-500" })
       });
       return null;
     }
@@ -75,14 +75,14 @@ export async function createGoogleMeetLink(
           title: "Google Token Expired",
           description: "Your Google access token has expired. Please reconnect your Google account.",
           variant: "destructive",
-          icon: <AlertCircle className="h-4 w-4 text-red-500" />
+          icon: React.createElement(AlertCircle, { className: "h-4 w-4 text-red-500" })
         });
       } else {
         toast({
           title: "Google Meet Error",
           description: errorData.error || "Could not create Google Meet link",
           variant: "destructive",
-          icon: <AlertCircle className="h-4 w-4 text-red-500" />
+          icon: React.createElement(AlertCircle, { className: "h-4 w-4 text-red-500" })
         });
       }
       
@@ -97,7 +97,7 @@ export async function createGoogleMeetLink(
         title: "Google Meet Error",
         description: "No meeting link was returned from Google",
         variant: "destructive",
-        icon: <AlertCircle className="h-4 w-4 text-red-500" />
+        icon: React.createElement(AlertCircle, { className: "h-4 w-4 text-red-500" })
       });
       return null;
     }
@@ -109,7 +109,7 @@ export async function createGoogleMeetLink(
       title: "Error",
       description: "Failed to create Google Meet link. Please try again.",
       variant: "destructive",
-      icon: <AlertCircle className="h-4 w-4 text-red-500" />
+      icon: React.createElement(AlertCircle, { className: "h-4 w-4 text-red-500" })
     });
     return null;
   }
