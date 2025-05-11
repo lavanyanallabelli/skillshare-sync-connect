@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MainDashboard } from "@/components/dashboards/MainDashboard";
