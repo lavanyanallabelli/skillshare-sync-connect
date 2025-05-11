@@ -1,4 +1,3 @@
-
 // Authentication service
 import { supabase } from "@/integrations/supabase/client";
 import { APIClient } from "@/api/client";
@@ -14,25 +13,6 @@ export interface SignupData {
 export interface LoginData {
   email: string;
   password: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  bio?: string;
-  location?: string;
-  occupation?: string;
-  education?: string;
-  avatar?: string;
-  headline?: string;
-  website?: string;
-  linkedin?: string;
-  github?: string;
-  twitter?: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export const authService = {
