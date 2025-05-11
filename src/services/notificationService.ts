@@ -15,7 +15,18 @@ export const notificationService = {
         
       if (error) throw error;
       
-      return data || [];
+      // Transform data to match Notification interface
+      return (data || []).map(notification => ({
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        description: notification.description || undefined,
+        actionUrl: notification.action_url || undefined,
+        icon_type: notification.icon_type || undefined,
+        read: notification.read,
+        createdAt: notification.created_at
+      }));
     } catch (error) {
       console.error('Error getting notifications:', error);
       return [];

@@ -30,7 +30,7 @@ export const sessionService = {
         skill: session.skill,
         day: session.day,
         timeSlot: session.time_slot,
-        status: session.status,
+        status: session.status as 'pending' | 'accepted' | 'declined' | 'completed',
         meetingLink: session.meeting_link,
         createdAt: session.created_at,
         updatedAt: session.updated_at
@@ -65,7 +65,7 @@ export const sessionService = {
         skill: session.skill,
         day: session.day,
         timeSlot: session.time_slot,
-        status: session.status,
+        status: session.status as 'pending' | 'accepted' | 'declined' | 'completed',
         meetingLink: session.meeting_link,
         createdAt: session.created_at,
         updatedAt: session.updated_at

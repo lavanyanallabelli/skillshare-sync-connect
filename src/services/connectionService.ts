@@ -34,7 +34,8 @@ export const connectionService = {
           toast({
             title: "Connection Request Pending",
             description: "You've already sent a request to this user.",
-            variant: "warning"
+            // Fix: Use allowed variant type
+            variant: "default"
           });
           return false;
         }
@@ -97,7 +98,7 @@ export const connectionService = {
       
       return (data || []).map(conn => ({
         id: conn.id,
-        status: conn.status,
+        status: conn.status as 'pending' | 'accepted' | 'declined',
         requesterId: conn.requester_id,
         recipientId: conn.recipient_id,
         requesterName: conn.requester ? `${conn.requester.first_name} ${conn.requester.last_name}` : 'Unknown',
@@ -129,7 +130,7 @@ export const connectionService = {
       
       return (data || []).map(conn => ({
         id: conn.id,
-        status: conn.status,
+        status: conn.status as 'pending' | 'accepted' | 'declined',
         requesterId: conn.requester_id,
         recipientId: conn.recipient_id,
         requesterName: conn.requester ? `${conn.requester.first_name} ${conn.requester.last_name}` : 'Unknown',

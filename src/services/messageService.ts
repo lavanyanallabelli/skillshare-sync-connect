@@ -107,7 +107,15 @@ export const messageService = {
         .eq('receiver_id', userId)
         .is('read_at', null);
         
-      return data || [];
+      // Transform data to match Message interface
+      return (data || []).map(msg => ({
+        id: msg.id,
+        senderId: msg.sender_id,
+        receiverId: msg.receiver_id,
+        content: msg.content,
+        readAt: msg.read_at,
+        createdAt: msg.created_at
+      }));
     } catch (error) {
       console.error('Error getting messages:', error);
       return [];
