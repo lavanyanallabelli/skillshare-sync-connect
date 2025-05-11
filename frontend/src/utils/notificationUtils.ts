@@ -1,84 +1,89 @@
 
-import { Bell, Calendar, MessageSquare, UserPlus, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { APIClient } from "@/api/client";
 
-// Function to determine which icon to show for a given notification type
-export const getNotificationIconType = (type: string) => {
+export const getNotificationIconType = (type: string): string => {
   switch (type) {
-    case 'message':
-      return MessageSquare;
-    case 'connection':
-      return UserPlus;
     case 'session':
-      return Calendar;
-    case 'system':
-      return Bell;
+      return 'calendar';
+    case 'connection_accepted':
+      return 'check-circle';
+    case 'connection_declined':
+      return 'x-circle';
+    case 'connection_request':
+      return 'user';
     default:
-      return AlertCircle;
+      return 'bell';
   }
 };
 
-// Format notification time to relative time
-export const formatNotificationTime = (timestamp: string) => {
-  const now = new Date();
-  const notificationTime = new Date(timestamp);
-  const diffInSeconds = Math.floor((now.getTime() - notificationTime.getTime()) / 1000);
+export const createConnectionNotification = async (
+  userId: string | undefined,
+  type: "request" | "accepted" | "declined",
+  description: string,
+  actionType: string = "connection"
+) => {
+  if (!userId) return;
   
-  if (diffInSeconds < 60) {
-    return 'Just now';
-  } else if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60);
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
-  } else if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600);
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-  } else {
-    const days = Math.floor(diffInSeconds / 86400);
-    return `${days} ${days === 1 ? 'day' : 'days'} ago`;
-  }
-};
-
-// Group notifications by day
-export const groupNotificationsByDay = (notifications: any[]) => {
-  const groupedNotifications: Record<string, any[]> = {};
-  
-  notifications.forEach(notification => {
-    const date = new Date(notification.created_at);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    let groupDate = '';
-    if (date.toDateString() === today.toDateString()) {
-      groupDate = 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      groupDate = 'Yesterday';
-    } else {
-      groupDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-    
-    if (!groupedNotifications[groupDate]) {
-      groupedNotifications[groupDate] = [];
-    }
-    
-    groupedNotifications[groupDate].push(notification);
-  });
-  
-  return groupedNotifications;
-};
-
-// Mark all notifications as read
-export const markAllNotificationsAsRead = async (notifications: any[], updateFunction: (id: string) => Promise<void>) => {
   try {
-    const unreadNotifications = notifications.filter(notification => !notification.read);
+    const title = 
+      type === "request" ? "New Connection Request" :
+      type === "accepted" ? "Connection Request Accepted" : 
+      "Connection Request Declined";
     
-    const updatePromises = unreadNotifications.map(notification => 
-      updateFunction(notification.id)
-    );
+    await APIClient.post('/notifications', {
+      userId,
+      title,
+      description,
+      type: actionType,
+      actionUrl: `/profile?tab=${type === "request" ? "requests" : "connections"}`
+    });
     
-    await Promise.all(updatePromises);
-    return true;
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
-    return false;
+    console.error(`Error creating ${type} notification:`, error);
+  }
+};
+
+export const createSessionNotification = async (
+  sessionData: any,
+  notificationType: "create" | "accept" | "decline",
+  studentName: string,
+  teacherName: string
+) => {
+  try {
+    let recipientId, title, description, actionUrl;
+    
+    if (notificationType === "create") {
+      // Notification to teacher about new request
+      recipientId = sessionData.teacher_id;
+      title = "New Session Request";
+      description = `${studentName} wants to learn ${sessionData.skill} from you`;
+      actionUrl = "/profile?tab=requests";
+    } else if (notificationType === "accept") {
+      // Notification to student about accepted request
+      recipientId = sessionData.student_id;
+      title = "Session Request Accepted";
+      description = `${teacherName} has accepted your ${sessionData.skill} session request`;
+      actionUrl = "/profile?tab=sessions";
+    } else {
+      // Notification to student about declined request
+      recipientId = sessionData.student_id;
+      title = "Session Request Declined";
+      description = `${teacherName} has declined your ${sessionData.skill} session request`;
+      actionUrl = "/profile";
+    }
+    
+    if (!recipientId) return;
+    
+    await APIClient.post('/notifications', {
+      userId: recipientId,
+      title,
+      description,
+      type: "session",
+      actionUrl
+    });
+    
+  } catch (error) {
+    console.error(`Error creating session notification:`, error);
   }
 };
