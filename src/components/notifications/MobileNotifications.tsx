@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useAuth } from '@/App';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -40,7 +40,7 @@ const MobileNotifications = () => {
       <div className="flex items-center justify-between bg-muted/30 p-3">
         <h2 className="font-medium">Notifications {unreadCount > 0 && `(${unreadCount})`}</h2>
         {unreadCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+          <Button variant="ghost" size="sm" onClick={() => markAllAsRead()}>
             Mark all read
           </Button>
         )}

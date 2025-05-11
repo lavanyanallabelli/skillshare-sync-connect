@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover";
 import { fetchNotifications, markAsRead, markAllAsRead, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NotificationItem: React.FC<{
   notification: Notification;
@@ -17,8 +17,8 @@ const NotificationItem: React.FC<{
 }> = ({ notification, onRead }) => {
   const handleClick = () => {
     onRead(notification.id);
-    if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+    if (notification.action_url) {
+      window.location.href = notification.action_url;
     }
   };
 
@@ -43,7 +43,7 @@ const NotificationItem: React.FC<{
         </p>
       )}
       <div className="text-xs text-muted-foreground mt-2">
-        {new Date(notification.createdAt).toLocaleString()}
+        {new Date(notification.created_at).toLocaleString()}
       </div>
     </div>
   );
@@ -54,16 +54,16 @@ const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, userId } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const loadNotifications = async () => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !userId) return;
     
     setLoading(true);
     try {
-      const data = await fetchNotifications();
+      const data = await fetchNotifications(userId);
       setNotifications(data);
     } catch (error) {
       console.error("Error loading notifications:", error);
@@ -73,10 +73,10 @@ const NotificationCenter: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && userId) {
       loadNotifications();
     }
-  }, [isOpen, isLoggedIn]);
+  }, [isOpen, isLoggedIn, userId]);
 
   const handleReadNotification = async (id: string) => {
     try {
@@ -90,8 +90,10 @@ const NotificationCenter: React.FC = () => {
   };
 
   const handleMarkAllAsRead = async () => {
+    if (!userId) return;
+    
     try {
-      await markAllAsRead();
+      await markAllAsRead(userId);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       toast({
         title: "Notifications marked as read",

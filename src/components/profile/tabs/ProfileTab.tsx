@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import ProfileTabContainer from "../containers/ProfileTabContainer";
+import ProfileTabContainer from "@/components/profile/containers/ProfileTabContainer";
 
 interface ProfileTabProps {
   userData: any;

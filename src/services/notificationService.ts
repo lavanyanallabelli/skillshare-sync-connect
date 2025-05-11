@@ -7,7 +7,7 @@ export interface Notification {
   description?: string;
   type: string;
   read: boolean;
-  actionUrl?: string;
+  action_url?: string;
   created_at: string;
 }
 
