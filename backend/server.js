@@ -19,7 +19,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect to Supabase (via MongoDB URI for compatibility)
+// Connect to Supabase
 connectDB();
 
 // Routes

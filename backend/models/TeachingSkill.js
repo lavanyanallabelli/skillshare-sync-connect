@@ -14,7 +14,8 @@ const teachingSkillSchema = new mongoose.Schema({
   proficiencyLevel: {
     type: String,
     enum: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
-    default: 'Intermediate'
+    default: 'Intermediate',
+    required: true
   }
 }, {
   timestamps: true
