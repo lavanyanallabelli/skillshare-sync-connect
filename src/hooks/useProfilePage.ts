@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileData } from "@/hooks/useProfileData";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type AvailabilityTimes = string[];
 
