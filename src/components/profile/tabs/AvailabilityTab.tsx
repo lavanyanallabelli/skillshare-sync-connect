@@ -1,12 +1,12 @@
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format, parse } from "date-fns";
-import { Clock, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
+import { format, parse } from "date-fns";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Clock, Trash2 } from "lucide-react";
 
 interface AvailabilityTabProps {
   selectedTimes: Record<string, string[]>;

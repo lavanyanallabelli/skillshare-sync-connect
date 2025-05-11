@@ -1,310 +1,213 @@
-import React, { useState } from 'react';
-import MainLayout from '@/components/layout/MainLayout';
-import { useNotifications } from '@/hooks/useNotifications';
-import { useAuth } from '@/App';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bell, CheckCircle2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
-const Notifications = () => {
-  const { userId } = useAuth();
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  
-  const {
-    notifications,
-    loading,
-    markAsRead,
-    markAllAsRead,
-    unreadCount,
-  } = useNotifications(userId);
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Bell, CheckCircle, XCircle, Calendar, AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-  const filteredNotifications = activeFilter === 'all'
-    ? notifications
-    : activeFilter === 'unread'
-      ? notifications.filter(n => !n.read)
-      : notifications.filter(n => n.type === activeFilter);
+interface Notification {
+  id: string;
+  title: string;
+  description: string | null;
+  read: boolean;
+  created_at: string;
+  type: string;
+  action_url: string | null;
+}
 
-  const handleMarkAsRead = (id: string) => {
-    markAsRead(id);
-  };
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'session':
+    case 'calendar':
+      return <Calendar className="h-5 w-5 text-blue-500" />;
+    case 'success':
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case 'warning':
+      return <AlertCircle className="h-5 w-5 text-amber-500" />;
+    case 'error':
+      return <XCircle className="h-5 w-5 text-red-500" />;
+    default:
+      return <Bell className="h-5 w-5 text-skill-purple" />;
+  }
+};
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'connection':
-        return <Badge className="bg-blue-100 text-blue-800">Connection</Badge>;
-      case 'session':
-        return <Badge className="bg-green-100 text-green-800">Session</Badge>;
-      case 'message':
-        return <Badge className="bg-purple-100 text-purple-800">Message</Badge>;
-      default:
-        return <Badge>Notification</Badge>;
+const Notifications: React.FC = () => {
+  const { isLoggedIn, userId } = useAuth();
+  const { toast } = useToast();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (userId) {
+      fetchNotifications();
+    } else {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <MainLayout>
-      <div className="container py-12">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center">
-              <Bell className="mr-2" /> Notifications
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Stay updated on connection requests, session bookings, and more
-            </p>
-          </div>
-          
-          {unreadCount > 0 && (
-            <Button onClick={markAllAsRead}>
-              <CheckCircle2 className="mr-2 h-4 w-4" /> Mark all as read
-            </Button>
-          )}
-        </div>
+  const markAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Your Notifications</CardTitle>
+      if (error) throw error;
+      
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification.id === id 
+            ? { ...notification, read: true } 
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', userId)
+        .eq('read', false);
+
+      if (error) throw error;
+      
+      setNotifications(prev => 
+        prev.map(notification => ({ ...notification, read: true }))
+      );
+      
+      toast({
+        title: "Success",
+        description: "All notifications marked as read",
+      });
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+    
+    if (notification.action_url) {
+      window.location.href = notification.action_url;
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  if (!isLoggedIn) {
+    return (
+      <div className="container h-screen flex items-center justify-center">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-center">Please Log In</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="all" onClick={() => setActiveFilter('all')}>
-                  All
-                </TabsTrigger>
-                <TabsTrigger value="unread" onClick={() => setActiveFilter('unread')}>
-                  Unread {unreadCount > 0 && `(${unreadCount})`}
-                </TabsTrigger>
-                <TabsTrigger value="connection" onClick={() => setActiveFilter('connection')}>
-                  Connections
-                </TabsTrigger>
-                <TabsTrigger value="session" onClick={() => setActiveFilter('session')}>
-                  Sessions
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all" className="pt-2">
-                {loading ? (
-                  <div className="text-center py-8">Loading notifications...</div>
-                ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
-                    <p>No notifications to display</p>
-                    <p className="text-sm mt-2">When you get new notifications, they'll appear here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredNotifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 border rounded-lg relative ${
-                          !notification.read ? 'bg-muted/20' : ''
-                        }`}
-                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              {getNotificationIcon(notification.type)}
-                              <span className="font-semibold">{notification.title}</span>
-                            </div>
-                            {notification.description && (
-                              <p className="text-muted-foreground">{notification.description}</p>
-                            )}
-                            {notification.action_url && (
-                              <Link
-                                to={notification.action_url}
-                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
-                              >
-                                View details
-                              </Link>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
-                            {new Date(notification.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        {!notification.read && (
-                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="unread" className="pt-2">
-                {loading ? (
-                  <div className="text-center py-8">Loading notifications...</div>
-                ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
-                    <p>No unread notifications</p>
-                    <p className="text-sm mt-2">Marked notifications will appear here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredNotifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 border rounded-lg relative ${
-                          !notification.read ? 'bg-muted/20' : ''
-                        }`}
-                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              {getNotificationIcon(notification.type)}
-                              <span className="font-semibold">{notification.title}</span>
-                            </div>
-                            {notification.description && (
-                              <p className="text-muted-foreground">{notification.description}</p>
-                            )}
-                            {notification.action_url && (
-                              <Link
-                                to={notification.action_url}
-                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
-                              >
-                                View details
-                              </Link>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
-                            {new Date(notification.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        {!notification.read && (
-                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="connection" className="pt-2">
-                {loading ? (
-                  <div className="text-center py-8">Loading notifications...</div>
-                ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
-                    <p>No connection notifications</p>
-                    <p className="text-sm mt-2">Notifications about connections will appear here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredNotifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 border rounded-lg relative ${
-                          !notification.read ? 'bg-muted/20' : ''
-                        }`}
-                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              {getNotificationIcon(notification.type)}
-                              <span className="font-semibold">{notification.title}</span>
-                            </div>
-                            {notification.description && (
-                              <p className="text-muted-foreground">{notification.description}</p>
-                            )}
-                            {notification.action_url && (
-                              <Link
-                                to={notification.action_url}
-                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
-                              >
-                                View details
-                              </Link>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
-                            {new Date(notification.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        {!notification.read && (
-                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="session" className="pt-2">
-                {loading ? (
-                  <div className="text-center py-8">Loading notifications...</div>
-                ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Bell className="mx-auto h-12 w-12 mb-4 opacity-20" />
-                    <p>No session notifications</p>
-                    <p className="text-sm mt-2">Notifications about sessions will appear here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredNotifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 border rounded-lg relative ${
-                          !notification.read ? 'bg-muted/20' : ''
-                        }`}
-                        onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              {getNotificationIcon(notification.type)}
-                              <span className="font-semibold">{notification.title}</span>
-                            </div>
-                            {notification.description && (
-                              <p className="text-muted-foreground">{notification.description}</p>
-                            )}
-                            {notification.action_url && (
-                              <Link
-                                to={notification.action_url}
-                                className="text-skill-purple hover:underline text-sm mt-2 inline-block"
-                              >
-                                View details
-                              </Link>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(notification.created_at).toLocaleDateString()} at {' '}
-                            {new Date(notification.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        {!notification.read && (
-                          <div className="absolute top-4 right-4 h-2 w-2 bg-skill-purple rounded-full" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+          <CardContent className="text-center">
+            <p className="mb-4">You need to be logged in to view your notifications.</p>
+            <Button asChild>
+              <a href="/login">Log In</a>
+            </Button>
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    );
+  }
+
+  return (
+    <div className="container py-6 max-w-4xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Notifications</h1>
+        {unreadCount > 0 && (
+          <Button variant="outline" onClick={markAllAsRead}>
+            Mark all as read
+          </Button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center h-40">
+          <div className="animate-spin h-8 w-8 border-4 border-skill-purple border-t-transparent rounded-full"></div>
+        </div>
+      ) : notifications.length > 0 ? (
+        <div className="space-y-3">
+          {notifications.map((notification) => (
+            <Card 
+              key={notification.id}
+              className={`cursor-pointer hover:bg-muted/50 transition-colors ${
+                !notification.read ? 'border-l-4 border-l-skill-purple' : ''
+              }`}
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <CardContent className="p-4">
+                <div className="flex gap-4">
+                  <div className="mt-1">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium">{notification.title}</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(notification.created_at), "MMM d, h:mm a")}
+                      </span>
+                    </div>
+                    {notification.description && (
+                      <p className="text-muted-foreground mt-1">{notification.description}</p>
+                    )}
+                    {notification.action_url && (
+                      <p className="text-skill-purple text-sm mt-2 hover:underline">
+                        View details
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="bg-muted/20">
+          <CardContent className="p-12 flex flex-col items-center justify-center">
+            <Bell className="h-12 w-12 mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-1">No notifications</h3>
+            <p className="text-muted-foreground text-center max-w-sm">
+              You're all caught up! When you receive notifications, they will appear here.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

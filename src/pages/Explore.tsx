@@ -1,42 +1,45 @@
+
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { createConnectionNotification } from "@/utils/notificationUtils";
+
 import MainLayout from "@/components/layout/MainLayout";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Link } from "react-router-dom";
 import { 
-  Star, 
-  Users, 
-  Clock, 
-  Filter, 
   Search, 
+  Filter, 
+  Star, 
+  Clock, 
+  Users, 
+  BookOpen, 
   UserPlus, 
-  UserCheck, 
-  BookOpen,
+  UserCheck,
   Loader2,
   AlertCircle
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Link, useNavigate } from "react-router-dom";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
-import { createConnectionNotification } from "@/utils/notificationUtils";
 
 // Categories for filtering
 const categories = ["All", "Arts & Design", "Technology", "Fitness", "Music", "Languages", "Cooking", "Business", "Academic"];
 
 const Explore: React.FC = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
-  const { isLoggedIn, userId, refreshUserData } = useAuth();
+  const { isLoggedIn, userId } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [minRating, setMinRating] = useState(0);
@@ -251,9 +254,6 @@ const Explore: React.FC = () => {
         `${currentUserName} wants to connect with you.`,
         "connection"
       );
-      
-      // Refresh user data
-      await refreshUserData();
       
       toast({
         title: "Connection Request Sent!",
