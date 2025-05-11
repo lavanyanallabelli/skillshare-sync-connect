@@ -8,7 +8,7 @@ export interface Quiz {
   id: string;
   title: string;
   description: string;
-  skill_id: string;
+  skill_name: string;  // Changed from skill_id to match the database schema
   created_at: string;
 }
 
@@ -48,7 +48,12 @@ export const useQuizzes = () => {
           .select('*');
         
         if (error) throw error;
-        setQuizzes(data || []);
+        // Transform the data to match our Quiz interface
+        const transformedQuizzes = (data || []).map(quiz => ({
+          ...quiz,
+          skill_name: quiz.skill_name // Ensuring the property name matches
+        }));
+        setQuizzes(transformedQuizzes);
       } catch (error) {
         console.error('Error fetching quizzes:', error);
       } finally {
@@ -68,7 +73,18 @@ export const useQuizzes = () => {
         .eq('quiz_id', quizId);
 
       if (error) throw error;
-      setQuestions(data || []);
+      
+      // Transform the data to ensure options is an array of strings
+      const transformedQuestions = (data || []).map(question => ({
+        ...question,
+        options: Array.isArray(question.options) 
+          ? question.options 
+          : typeof question.options === 'string'
+            ? JSON.parse(question.options)
+            : []
+      }));
+      
+      setQuestions(transformedQuestions);
     } catch (error) {
       console.error('Error fetching quiz questions:', error);
       toast({

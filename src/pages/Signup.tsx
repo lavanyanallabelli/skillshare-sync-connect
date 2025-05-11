@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
-import { authService } from "@/services/authService";
+import { authService, SignupData } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -51,7 +51,15 @@ const Signup = () => {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await authService.signUp(values);
+      // Make sure all required fields are present and non-optional for SignupData
+      const signupData: SignupData = {
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+      };
+      
+      await authService.signUp(signupData);
       toast({
         title: "Signup successful",
         description: "You have successfully created an account.",
