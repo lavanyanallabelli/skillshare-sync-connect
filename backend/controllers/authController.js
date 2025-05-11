@@ -1,113 +1,119 @@
 
-const User = require('../models/User');
+const { supabase } = require('../config/supabaseClient');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
+// Register a new user
 const register = async (req, res) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
-    
-    // Check if required fields are provided
-    if (!firstName || !lastName || !email || !password) {
+    const { email, password, firstName, lastName } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ error: 'Please provide all required fields' });
     }
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-    
-    // Create user
-    const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password
+
+    const { data, error } = await supabase.auth.signUp({
+      email, 
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName
+        }
+      }
     });
-    
-    // Generate token
-    const token = user.getSignedJwtToken();
-    
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
     res.status(201).json({
-      success: true,
-      token,
+      message: 'User registered successfully',
       user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email
+        id: data.user.id,
+        email: data.user.email
       }
     });
   } catch (error) {
-    console.error('Error in registration:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error in register:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// Login user
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    // Check if email and password are provided
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Please provide email and password' });
     }
-    
-    // Check if user exists
-    const user = await User.findOne({ email }).select('+password');
-    
-    if (!user) {
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
-    // Check if password matches
-    const isMatch = await user.matchPassword(password);
-    
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    // Generate token
-    const token = user.getSignedJwtToken();
-    
+
+    // Get user profile
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
     res.status(200).json({
-      success: true,
-      token,
+      token: data.session.access_token,
       user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email
+        id: data.user.id,
+        email: data.user.email,
+        firstName: profileData?.first_name || '',
+        lastName: profileData?.last_name || ''
       }
     });
   } catch (error) {
     console.error('Error in login:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
+// Get current user
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    
+    const user = req.user;
+
+    // Get user profile
+    const { data: profileData, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.status(200).json({
-      success: true,
-      data: user
+      id: user.id,
+      email: user.email,
+      firstName: profileData.first_name,
+      lastName: profileData.last_name,
+      bio: profileData.bio,
+      location: profileData.location,
+      occupation: profileData.occupation,
+      education: profileData.education,
+      avatar: profileData.avatar_url,
+      headline: profileData.headline,
+      website: profileData.website,
+      linkedin: profileData.linkedin,
+      github: profileData.github,
+      twitter: profileData.twitter
     });
   } catch (error) {
     console.error('Error in getMe:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 

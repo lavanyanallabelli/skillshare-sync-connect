@@ -1,16 +1,17 @@
 
-const mongoose = require('mongoose');
+const { supabase } = require('./supabaseClient');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const { data, error } = await supabase.from('skills_catalog').select('count');
     
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    if (error) {
+      throw new Error(`Error connecting to Supabase: ${error.message}`);
+    }
+    
+    console.log('Supabase connection successful');
   } catch (error) {
-    console.error(`Error connecting to MongoDB: ${error.message}`);
+    console.error(`Error connecting to Supabase: ${error.message}`);
     process.exit(1);
   }
 };

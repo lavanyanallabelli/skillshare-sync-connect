@@ -65,9 +65,9 @@ export const messageService = {
           .limit(1);
           
         // Count unread messages
-        const { data: unreadCount } = await supabase
+        const { count } = await supabase
           .from('messages')
-          .select('id', { count: 'exact' })
+          .select('id', { count: 'exact', head: false }) // Using head: false to get only the count
           .eq('sender_id', partnerId)
           .eq('receiver_id', userId)
           .is('read_at', null);
@@ -78,7 +78,7 @@ export const messageService = {
           userAvatar: profileData.avatar_url,
           lastMessage: lastMessageData && lastMessageData.length > 0 ? lastMessageData[0].content : undefined,
           lastMessageDate: lastMessageData && lastMessageData.length > 0 ? lastMessageData[0].created_at : undefined,
-          unreadCount: unreadCount || 0
+          unreadCount: count || 0
         });
       }
       

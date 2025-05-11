@@ -1,155 +1,151 @@
 
-const TeachingSkill = require('../models/TeachingSkill');
-const LearningSkill = require('../models/LearningSkill');
-const User = require('../models/User');
+const { supabase } = require('../config/supabaseClient');
 
-// @desc    Get all teaching skills for a user
-// @route   GET /api/skills/teaching/:userId
-// @access  Public
+// Get teaching skills for a user
 const getTeachingSkills = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    const skills = await TeachingSkill.find({ userId });
+    const { data, error } = await supabase
+      .from('teaching_skills')
+      .select('*')
+      .eq('user_id', userId);
     
-    res.status(200).json(skills);
+    if (error) throw error;
+    
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching teaching skills:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Get all learning skills for a user
-// @route   GET /api/skills/learning/:userId
-// @access  Public
+// Get learning skills for a user
 const getLearningSkills = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    const skills = await LearningSkill.find({ userId });
+    const { data, error } = await supabase
+      .from('learning_skills')
+      .select('*')
+      .eq('user_id', userId);
     
-    res.status(200).json(skills);
+    if (error) throw error;
+    
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching learning skills:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Add teaching skill for a user
-// @route   POST /api/skills/teaching
-// @access  Private
+// Add a teaching skill
 const addTeachingSkill = async (req, res) => {
   try {
     const { skill, proficiencyLevel } = req.body;
     const userId = req.user.id;
     
-    if (!skill) {
-      return res.status(400).json({ error: 'Skill name is required' });
-    }
+    const { data, error } = await supabase
+      .from('teaching_skills')
+      .insert([{
+        user_id: userId,
+        skill,
+        proficiency_level: proficiencyLevel || 'Intermediate'
+      }])
+      .select();
     
-    // Check if skill already exists for user
-    const existingSkill = await TeachingSkill.findOne({ userId, skill });
+    if (error) throw error;
     
-    if (existingSkill) {
-      return res.status(400).json({ error: 'You already have this teaching skill' });
-    }
-    
-    // Create new skill
-    const newSkill = await TeachingSkill.create({
-      userId,
-      skill,
-      proficiencyLevel: proficiencyLevel || 'Intermediate'
-    });
-    
-    res.status(201).json(newSkill);
+    res.status(201).json(data[0]);
   } catch (error) {
     console.error('Error adding teaching skill:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Add learning skill for a user
-// @route   POST /api/skills/learning
-// @access  Private
+// Add a learning skill
 const addLearningSkill = async (req, res) => {
   try {
     const { skill } = req.body;
     const userId = req.user.id;
     
-    if (!skill) {
-      return res.status(400).json({ error: 'Skill name is required' });
-    }
+    const { data, error } = await supabase
+      .from('learning_skills')
+      .insert([{
+        user_id: userId,
+        skill
+      }])
+      .select();
     
-    // Check if skill already exists for user
-    const existingSkill = await LearningSkill.findOne({ userId, skill });
+    if (error) throw error;
     
-    if (existingSkill) {
-      return res.status(400).json({ error: 'You already have this learning skill' });
-    }
-    
-    // Create new skill
-    const newSkill = await LearningSkill.create({
-      userId,
-      skill
-    });
-    
-    res.status(201).json(newSkill);
+    res.status(201).json(data[0]);
   } catch (error) {
     console.error('Error adding learning skill:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Delete teaching skill
-// @route   DELETE /api/skills/teaching/:skillId
-// @access  Private
+// Delete a teaching skill
 const deleteTeachingSkill = async (req, res) => {
   try {
     const { skillId } = req.params;
     const userId = req.user.id;
     
-    const skill = await TeachingSkill.findById(skillId);
+    // First verify the skill belongs to the user
+    const { data: skillData } = await supabase
+      .from('teaching_skills')
+      .select('*')
+      .eq('id', skillId)
+      .eq('user_id', userId)
+      .single();
     
-    if (!skill) {
-      return res.status(404).json({ error: 'Skill not found' });
+    if (!skillData) {
+      return res.status(404).json({ error: 'Skill not found or not owned by user' });
     }
     
-    // Check if user owns this skill
-    if (skill.userId.toString() !== userId) {
-      return res.status(401).json({ error: 'Not authorized to delete this skill' });
-    }
+    const { error } = await supabase
+      .from('teaching_skills')
+      .delete()
+      .eq('id', skillId)
+      .eq('user_id', userId);
     
-    await skill.remove();
+    if (error) throw error;
     
-    res.status(200).json({ success: true, message: 'Skill removed successfully' });
+    res.status(200).json({ message: 'Skill deleted successfully' });
   } catch (error) {
     console.error('Error deleting teaching skill:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// @desc    Delete learning skill
-// @route   DELETE /api/skills/learning/:skillId
-// @access  Private
+// Delete a learning skill
 const deleteLearningSkill = async (req, res) => {
   try {
     const { skillId } = req.params;
     const userId = req.user.id;
     
-    const skill = await LearningSkill.findById(skillId);
+    // First verify the skill belongs to the user
+    const { data: skillData } = await supabase
+      .from('learning_skills')
+      .select('*')
+      .eq('id', skillId)
+      .eq('user_id', userId)
+      .single();
     
-    if (!skill) {
-      return res.status(404).json({ error: 'Skill not found' });
+    if (!skillData) {
+      return res.status(404).json({ error: 'Skill not found or not owned by user' });
     }
     
-    // Check if user owns this skill
-    if (skill.userId.toString() !== userId) {
-      return res.status(401).json({ error: 'Not authorized to delete this skill' });
-    }
+    const { error } = await supabase
+      .from('learning_skills')
+      .delete()
+      .eq('id', skillId)
+      .eq('user_id', userId);
     
-    await skill.remove();
+    if (error) throw error;
     
-    res.status(200).json({ success: true, message: 'Skill removed successfully' });
+    res.status(200).json({ message: 'Skill deleted successfully' });
   } catch (error) {
     console.error('Error deleting learning skill:', error);
     res.status(500).json({ error: error.message });

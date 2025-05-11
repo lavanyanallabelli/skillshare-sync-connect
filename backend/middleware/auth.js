@@ -1,37 +1,40 @@
 
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { supabase } = require('../config/supabaseClient');
 
-// Protect routes
+// Middleware to protect routes
 const protect = async (req, res, next) => {
-  let token;
-  
-  // Check if token exists in headers
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    // Extract token from Bearer token
-    token = req.headers.authorization.split(' ')[1];
-  }
-  
-  // Check if token exists
-  if (!token) {
-    return res.status(401).json({ error: 'Not authorized to access this route' });
-  }
-  
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from token id
-    req.user = await User.findById(decoded.id).select('-password');
-    
-    if (!req.user) {
-      return res.status(401).json({ error: 'User no longer exists' });
+    let token;
+
+    // Check for token in headers
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
     }
-    
-    next();
+
+    // Make sure token exists
+    if (!token) {
+      return res.status(401).json({ error: 'Not authorized, no token' });
+    }
+
+    try {
+      // Verify token using Supabase JWT
+      const { data, error } = await supabase.auth.getUser(token);
+      
+      if (error || !data.user) {
+        return res.status(401).json({ error: 'Not authorized, token failed' });
+      }
+
+      // Set user in request object
+      req.user = data.user;
+      next();
+    } catch (error) {
+      console.error('Error verifying token:', error);
+      res.status(401).json({ error: 'Not authorized, token failed' });
+    }
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(401).json({ error: 'Not authorized to access this route' });
+    console.error('Error in auth middleware:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 

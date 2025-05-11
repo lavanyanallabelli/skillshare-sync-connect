@@ -23,7 +23,7 @@ export const notificationService = {
         title: notification.title,
         description: notification.description || undefined,
         actionUrl: notification.action_url || undefined,
-        icon_type: notification.icon_type || undefined,
+        icon_type: notification.type || undefined, // Use notification.type as fallback
         read: notification.read,
         createdAt: notification.created_at
       }));
@@ -43,7 +43,6 @@ export const notificationService = {
           title: notification.title,
           description: notification.description || '',
           action_url: notification.actionUrl,
-          icon_type: notification.icon_type || '',
           read: false
         }]);
         
