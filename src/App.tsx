@@ -74,7 +74,6 @@ const AppRoutes = () => {
         
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Toaster />
     </Router>
   );
 };
@@ -82,6 +81,7 @@ const AppRoutes = () => {
 const App = () => (
   <AuthProvider>
     <AppRoutes />
+    <Toaster />
   </AuthProvider>
 );
 
