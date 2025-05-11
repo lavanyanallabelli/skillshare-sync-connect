@@ -2,8 +2,8 @@
 import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleToken } from "@/hooks/useGoogleToken";
 import { useRequestActions } from "@/hooks/useRequestActions";
 import GoogleConnectionStatus from "./requests/GoogleConnectionStatus";

@@ -1,35 +1,20 @@
-
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import MainLayout from "@/components/layout/MainLayout";
-import ProfileHeader from "@/components/profile/ProfileHeader";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
-import { format, parse, addHours, subHours } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/App";
-import { supabase } from "@/integrations/supabase/client";
-import { createConnectionNotification } from "@/utils/notificationUtils";
-import {
-  Clock,
-  Calendar as CalendarIcon,
-  Star,
-  MessageSquare,
-  UserPlus,
-  UserCheck,
-  Clock as PendingIcon,
-  Trash2
-} from "lucide-react";
-import MessageDialog from "@/components/messages/MessageDialog";
-import AvailabilityTab from "@/components/profile/tabs/AvailabilityTab";
-import ReportDialog from "@/components/profile/ReportDialog";
-import ReviewCard from "@/components/profile/ReviewCard";
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import MainLayout from '@/components/layout/MainLayout';
 
 const TeacherProfile = () => {
   const { id } = useParams();

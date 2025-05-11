@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from '@/App';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from './use-toast';
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Quiz {
   id: string;

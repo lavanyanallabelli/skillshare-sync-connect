@@ -1,202 +1,259 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfileData } from "@/hooks/useProfileData";
-import { useAuth } from "@/App";
+import { useToast } from "./use-toast";
+import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
-export type AvailabilityTimes = string[];
-
-export function useProfilePage() {
-  const { isLoggedIn, userId } = useAuth();
-  const {
-    userData,
-    setUserData,
-    experiences,
-    setExperiences,
-    educations,
-    setEducations,
-    skills,
-    setSkills,
-    teachingSkills,
-    learningSkills,
-    loading,
-    refreshUserData
-  } = useProfileData(userId);
-
+export const useProfilePage = () => {
+  const { userId, isLoggedIn } = useAuth();
+  const [userData, setUserData] = useState<any>(null);
+  const [experiences, setExperiences] = useState<any[]>([]);
+  const [educations, setEducations] = useState<any[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
+  const [teachingSkills, setTeachingSkills] = useState<string[]>([]);
+  const [learningSkills, setLearningSkills] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("profile");
-  const [availabilityDate, setAvailabilityDate] = useState<Date | undefined>(new Date());
-  const [editingBio, setEditingBio] = useState(false);
   const [bio, setBio] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [editingBio, setEditingBio] = useState(false);
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
   const [editingExperience, setEditingExperience] = useState(false);
   const [editingEducation, setEditingEducation] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
   const [newSkill, setNewSkill] = useState("");
-  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
-  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [availabilityTimes, setAvailabilityTimes] = useState<Record<string, string[]>>({});
+  const { toast } = useToast();
 
-  const availabilityTimes: AvailabilityTimes = [
-    "9:00 AM - 10:00 AM",
-    "10:00 AM - 11:00 AM",
-    "2:00 PM - 3:00 PM",
-    "3:00 PM - 4:00 PM",
-    "5:00 PM - 6:00 PM",
-  ];
-
-  // Session request and sessions fetching
-  const fetchSessions = useCallback(async () => {
-    if (!userId) return;
-    try {
-      // Fetch pending session requests
-      const { data: requestsData, error: requestsError } = await supabase
-        .from('sessions')
-        .select('*')
-        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (requestsError) throw requestsError;
-      setSessionRequests(requestsData || []);
-
-      // Fetch accepted sessions
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('sessions')
-        .select('*')
-        .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
-        .eq('status', 'accepted')
-        .order('created_at', { ascending: false });
-
-      if (sessionsError) throw sessionsError;
-      setUpcomingSessions(sessionsData || []);
-    } catch (error) {
-      console.error('Error in fetchSessions:', error);
-    }
-  }, [userId]);
-
-  // Listen for accepted sessions event
   useEffect(() => {
-    function handleSessionAccepted(event: any) {
-      console.log("Session accepted event received:", event.detail);
-      const session = event.detail;
-      setUpcomingSessions(prev => {
-        // Avoid duplicates
-        if (prev.some(s => s.id === session.id)) {
-          return prev;
-        }
-        return [session, ...prev];
-      });
-      
-      // Remove from requests if it was there
-      setSessionRequests(prev => prev.filter(req => req.id !== session.id));
+    if (!userId) {
+      setLoading(false);
+      return;
     }
-    
-    window.addEventListener('sessionAccepted', handleSessionAccepted);
-    return () => window.removeEventListener('sessionAccepted', handleSessionAccepted);
-  }, []);
 
-  // Initial data fetches
-  useEffect(() => {
-    if (!userId) return;
-    fetchSessions();
+    const fetchProfileData = async () => {
+      setLoading(true);
+      try {
+        // Fetch profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
 
-    // Set up real-time subscription to session changes
-    const channel = supabase
-      .channel('sessions-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sessions',
-          filter: `teacher_id=eq.${userId}`
-        },
-        () => {
-          fetchSessions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sessions',
-          filter: `student_id=eq.${userId}`
-        },
-        () => {
-          fetchSessions();
-        }
-      )
-      .subscribe();
+        if (profileError) throw profileError;
 
-    return () => {
-      supabase.removeChannel(channel);
+        setUserData(profileData);
+        setBio(profileData?.bio || "");
+
+        // Fetch experiences
+        const { data: experiencesData, error: experiencesError } = await supabase
+          .from("experiences")
+          .select("*")
+          .eq("user_id", userId)
+          .order("start_date", { ascending: false });
+
+        if (experiencesError) throw experiencesError;
+        setExperiences(experiencesData || []);
+
+        // Fetch educations
+        const { data: educationsData, error: educationsError } = await supabase
+          .from("educations")
+          .select("*")
+          .eq("user_id", userId)
+          .order("start_date", { ascending: false });
+
+        if (educationsError) throw educationsError;
+        setEducations(educationsData || []);
+
+        // Fetch skills
+        const { data: skillsData, error: skillsError } = await supabase
+          .from("user_skills")
+          .select("skill")
+          .eq("user_id", userId);
+
+        if (skillsError) throw skillsError;
+        setSkills(skillsData?.map((item) => item.skill) || []);
+
+        // Fetch teaching skills
+        const { data: teachingSkillsData, error: teachingSkillsError } = await supabase
+          .from("teaching_skills")
+          .select("skill")
+          .eq("user_id", userId);
+
+        if (teachingSkillsError) throw teachingSkillsError;
+        setTeachingSkills(teachingSkillsData?.map((item) => item.skill) || []);
+
+        // Fetch learning skills
+        const { data: learningSkillsData, error: learningSkillsError } = await supabase
+          .from("learning_skills")
+          .select("skill")
+          .eq("user_id", userId);
+
+        if (learningSkillsError) throw learningSkillsError;
+        setLearningSkills(learningSkillsData?.map((item) => item.skill) || []);
+
+        // Fetch upcoming sessions
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from("sessions")
+          .select(`
+            *,
+            student:profiles!sessions_student_id_fkey(first_name, last_name),
+            teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
+          `)
+          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+          .in("status", ["accepted"])
+          .order("created_at", { ascending: false });
+
+        if (sessionsError) throw sessionsError;
+
+        // Transform the data to ensure consistent date formatting and names
+        const transformedSessionsData = sessionsData?.map((session) => {
+          let partnerName = "";
+          if (userId === session.teacher_id && session.student) {
+            partnerName = `${session.student.first_name} ${session.student.last_name}`;
+          } else if (userId === session.student_id && session.teacher) {
+            partnerName = `${session.teacher.first_name} ${session.teacher.last_name}`;
+          }
+
+          return {
+            ...session,
+            day: session.day,
+            from: partnerName,
+          };
+        }) || [];
+
+        setUpcomingSessions(transformedSessionsData);
+
+        // Fetch session requests
+        const { data: requestsData, error: requestsError } = await supabase
+          .from("sessions")
+          .select(`
+            *,
+            student:profiles!sessions_student_id_fkey(first_name, last_name),
+            teacher:profiles!sessions_teacher_id_fkey(first_name, last_name)
+          `)
+          .or(`teacher_id.eq.${userId},student_id.eq.${userId}`)
+          .in("status", ["pending"])
+          .order("created_at", { ascending: false });
+
+        if (requestsError) throw requestsError;
+
+        const transformedRequestsData = requestsData?.map((session) => {
+          let partnerName = "";
+          if (userId === session.teacher_id && session.student) {
+            partnerName = `${session.student.first_name} ${session.student.last_name}`;
+          } else if (userId === session.student_id && session.teacher) {
+            partnerName = `${session.teacher.first_name} ${session.teacher.last_name}`;
+          }
+
+          return {
+            ...session,
+            day: session.day,
+            from: partnerName,
+          };
+        }) || [];
+
+        setSessionRequests(transformedRequestsData);
+
+        // Fetch reviews
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from("reviews")
+          .select("*")
+          .eq("teacher_id", userId);
+
+        if (reviewsError) throw reviewsError;
+        setReviews(reviewsData || []);
+      } catch (error: any) {
+        console.error("Error fetching profile data:", error.message);
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     };
-  }, [userId, fetchSessions]);
 
-  useEffect(() => {
-    if (userData) {
-      setBio(userData.bio || "");
-    }
-  }, [userData]);
+    fetchProfileData();
+  }, [userId, toast]);
 
   const handleUpdateProfile = async (profileData: any) => {
-    if (userData && userId) {
-      try {
-        const [firstName, lastName] = profileData.name?.split(' ') || [userData.firstName, userData.lastName];
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("profiles")
+        .update(profileData)
+        .eq("id", userId);
 
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            first_name: firstName || userData.firstName,
-            last_name: lastName || userData.lastName,
-            location: profileData.location || userData.location,
-            occupation: profileData.company || userData.occupation,
-            bio: profileData.bio || userData.bio
-          })
-          .eq('id', userId);
+      if (error) throw error;
 
-        if (error) throw error;
+      setUserData((prevUserData: any) => ({
+        ...prevUserData,
+        ...profileData,
+      }));
 
-        const updatedUserData = {
-          ...userData,
-          firstName: firstName || userData.firstName,
-          lastName: lastName || userData.lastName,
-          location: profileData.location || userData.location,
-          occupation: profileData.company || userData.occupation,
-          bio: profileData.bio || userData.bio
-        };
-
-        localStorage.setItem("userData", JSON.stringify(updatedUserData));
-        setUserData(updatedUserData);
-
-        if (profileData.bio) {
-          setBio(profileData.bio);
-        }
-
-        const event = new CustomEvent('profileUpdated', {
-          detail: {
-            name: profileData.name,
-            location: profileData.location,
-            company: profileData.company,
-            bio: profileData.bio
-          }
-        });
-        window.dispatchEvent(event);
-      } catch (error) {
-        console.error('Error updating profile:', error);
-      }
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Error updating profile:", error.message);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setEditingBio(false);
     }
   };
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchAvailability = async () => {
+      console.log("Fetching availability for user:", userId);
+
+      const { data, error } = await supabase
+        .from("user_availability")
+        .select("day, time_slot")
+        .eq("user_id", userId)
+        .eq("is_available", true);
+
+      if (error) {
+        console.error("Error fetching availability:", error);
+        return;
+      }
+
+      console.log("Availability data from database:", data);
+
+      const availabilityMap = data?.reduce((acc: Record<string, string[]>, curr) => {
+        const dateKey = curr.day;
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        acc[dateKey].push(curr.time_slot);
+        return acc;
+      }, {}) || {};
+
+      console.log("Processed availability map:", availabilityMap);
+
+      setAvailabilityTimes(availabilityMap);
+    };
+
+    fetchAvailability();
+  }, [userId]);
+
   return {
     isLoggedIn,
-    userId,
     userData,
-    setUserData,
+    userId,
     experiences,
     setExperiences,
     educations,
@@ -206,19 +263,16 @@ export function useProfilePage() {
     teachingSkills,
     learningSkills,
     loading,
-    refreshUserData,
     activeTab,
     setActiveTab,
-    availabilityDate,
-    setAvailabilityDate,
-    editingBio,
-    setEditingBio,
     bio,
     setBio,
-    dialogOpen,
-    setDialogOpen,
-    selectedSession,
-    setSelectedSession,
+    editingBio,
+    setEditingBio,
+    upcomingSessions,
+    sessionRequests,
+    setSessionRequests,
+    handleUpdateProfile,
     editingExperience,
     setEditingExperience,
     editingEducation,
@@ -227,17 +281,12 @@ export function useProfilePage() {
     setEditingSkills,
     newSkill,
     setNewSkill,
-    sessionRequests,
-    setSessionRequests,
-    upcomingSessions,
-    setUpcomingSessions,
     reviews,
     setReviews,
-    selectedTimes,
-    setSelectedTimes,
     selectedDate,
     setSelectedDate,
+    selectedTimes,
+    setSelectedTimes,
     availabilityTimes,
-    handleUpdateProfile,
   };
-}
+};
