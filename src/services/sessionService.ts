@@ -115,7 +115,7 @@ export const sessionService = {
       // Create a notification for the teacher
       await createSessionNotification(
         data,
-        'create',
+        "create",
         studentName,
         teacherName
       );
@@ -171,7 +171,7 @@ export const sessionService = {
       // Create notification for the student
       await createSessionNotification(
         sessionData,
-        'accept',
+        "accept",
         studentName,
         teacherName
       );
@@ -224,7 +224,7 @@ export const sessionService = {
       // Create notification for the student
       await createSessionNotification(
         sessionData,
-        'decline',
+        "decline",
         studentName,
         teacherName
       );

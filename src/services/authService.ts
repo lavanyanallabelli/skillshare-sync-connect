@@ -1,9 +1,7 @@
-
 // Authentication service
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/models/User';
 import { APIClient } from '@/api/client';
-import { API_ENDPOINTS } from '@/api/config';
 import { toast } from '@/hooks/use-toast';
 
 export interface SignupData {

@@ -2,6 +2,21 @@
 import { supabase } from "@/integrations/supabase/client";
 import { APIClient } from "@/api/client";
 
+export const getNotificationIconType = (type: string): string => {
+  switch (type) {
+    case 'session':
+      return 'calendar';
+    case 'connection_accepted':
+      return 'check-circle';
+    case 'connection_declined':
+      return 'x-circle';
+    case 'connection_request':
+      return 'user';
+    default:
+      return 'bell';
+  }
+};
+
 export const createConnectionNotification = async (
   userId: string | undefined,
   type: "request" | "accepted" | "declined",
@@ -30,27 +45,45 @@ export const createConnectionNotification = async (
 };
 
 export const createSessionNotification = async (
-  userId: string | undefined,
-  type: "request" | "accepted" | "declined",
-  description: string
+  sessionData: any,
+  notificationType: "create" | "accept" | "decline",
+  studentName: string,
+  teacherName: string
 ) => {
-  if (!userId) return;
-  
   try {
-    const title = 
-      type === "request" ? "New Session Request" :
-      type === "accepted" ? "Session Request Accepted" : 
-      "Session Request Declined";
+    let recipientId, title, description, actionUrl;
+    
+    if (notificationType === "create") {
+      // Notification to teacher about new request
+      recipientId = sessionData.teacher_id;
+      title = "New Session Request";
+      description = `${studentName} wants to learn ${sessionData.skill} from you`;
+      actionUrl = "/profile?tab=requests";
+    } else if (notificationType === "accept") {
+      // Notification to student about accepted request
+      recipientId = sessionData.student_id;
+      title = "Session Request Accepted";
+      description = `${teacherName} has accepted your ${sessionData.skill} session request`;
+      actionUrl = "/profile?tab=sessions";
+    } else {
+      // Notification to student about declined request
+      recipientId = sessionData.student_id;
+      title = "Session Request Declined";
+      description = `${teacherName} has declined your ${sessionData.skill} session request`;
+      actionUrl = "/profile";
+    }
+    
+    if (!recipientId) return;
     
     await APIClient.post('/notifications', {
-      userId,
+      userId: recipientId,
       title,
       description,
       type: "session",
-      actionUrl: `/profile?tab=${type === "request" ? "requests" : "sessions"}`
+      actionUrl
     });
     
   } catch (error) {
-    console.error(`Error creating ${type} session notification:`, error);
+    console.error(`Error creating session notification:`, error);
   }
 };
