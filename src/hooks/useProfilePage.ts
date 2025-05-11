@@ -90,7 +90,23 @@ export const useProfilePage = () => {
         if (learningSkillsError) throw learningSkillsError;
         setLearningSkills(learningSkillsData?.map((item) => item.skill) || []);
         
-        // Fetch upcoming sessions - use explicit typing to avoid infinite type instantiation
+        // Define specific types for sessions to avoid infinite instantiation
+        type SessionWithProfiles = {
+          id: string;
+          day: string;
+          time_slot: string;
+          skill: string;
+          status: string;
+          meeting_link: string | null;
+          created_at: string;
+          updated_at: string;
+          teacher_id: string;
+          student_id: string;
+          student: { first_name: string; last_name: string } | null;
+          teacher: { first_name: string; last_name: string } | null;
+        };
+
+        // Fetch upcoming sessions with specific field selection
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("sessions")
           .select(`
@@ -106,7 +122,7 @@ export const useProfilePage = () => {
         if (sessionsError) throw sessionsError;
 
         // Transform the data to ensure consistent date formatting and names
-        const transformedSessionsData = sessionsData?.map((session) => {
+        const transformedSessionsData = (sessionsData as SessionWithProfiles[] || []).map((session) => {
           let partnerName = "";
           if (userId === session.teacher_id && session.student) {
             partnerName = `${session.student.first_name} ${session.student.last_name}`;
@@ -119,11 +135,11 @@ export const useProfilePage = () => {
             day: session.day,
             from: partnerName,
           };
-        }) || [];
+        });
 
         setUpcomingSessions(transformedSessionsData);
 
-        // Fetch session requests with explicit type selection
+        // Fetch session requests with specific field selection
         const { data: requestsData, error: requestsError } = await supabase
           .from("sessions")
           .select(`
@@ -138,7 +154,7 @@ export const useProfilePage = () => {
 
         if (requestsError) throw requestsError;
 
-        const transformedRequestsData = requestsData?.map((session) => {
+        const transformedRequestsData = (requestsData as SessionWithProfiles[] || []).map((session) => {
           let partnerName = "";
           if (userId === session.teacher_id && session.student) {
             partnerName = `${session.student.first_name} ${session.student.last_name}`;
@@ -151,7 +167,7 @@ export const useProfilePage = () => {
             day: session.day,
             from: partnerName,
           };
-        }) || [];
+        });
 
         setSessionRequests(transformedRequestsData);
 
