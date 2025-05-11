@@ -1,203 +1,157 @@
-
-import React, { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGoogleToken } from "@/hooks/useGoogleToken";
-import { useRequestActions } from "@/hooks/useRequestActions";
-import GoogleConnectionStatus from "./requests/GoogleConnectionStatus";
-import RequestsList from "./requests/RequestsList";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { createConnectionNotification } from "@/utils/notificationUtils";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface RequestsTabProps {
-  sessionRequests: any[];
-  setSessionRequests: React.Dispatch<React.SetStateAction<any[]>>;
-  userId: string;
-}
-
-const RequestsTab: React.FC<RequestsTabProps> = ({ 
-  sessionRequests, 
-  setSessionRequests, 
-  userId 
-}) => {
-  const { toast } = useToast();
-  const { isLoggedIn } = useAuth();
-  
-  const {
-    googleAccessToken,
-    isGoogleConnected,
-    isRefreshingToken,
-    setIsRefreshingToken,
-    fetchGoogleAccessToken,
-    setGoogleAccessToken,
-    setIsGoogleConnected,
-    lastChecked
-  } = useGoogleToken(userId, isLoggedIn);
-
-  const connectWithGoogle = async () => {
-    try {
-      toast({
-        title: "Connecting to Google",
-        description: "You will be redirected to authorize with Google...",
-      });
-      
-      const currentPath = window.location.pathname + window.location.search;
-      sessionStorage.setItem("authRedirectPath", currentPath);
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/profile?tab=requests`,
-          scopes: 'https://www.googleapis.com/auth/calendar',
-        }
-      });
-
-      if (error) throw error;
-      
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error: any) {
-      console.error("Google connection error:", error);
-      toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect with Google",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const refreshGoogleConnection = async () => {
-    try {
-      setIsRefreshingToken(true);
-      toast({
-        title: "Reconnecting with Google",
-        description: "Please wait while we refresh your connection...",
-      });
-      
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (sessionData?.session) {
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (!refreshError) {
-          const { data: newSession } = await supabase.auth.getSession();
-          
-          if (newSession?.session?.provider_token) {
-            localStorage.setItem("google_access_token", newSession.session.provider_token);
-            setGoogleAccessToken(newSession.session.provider_token);
-            
-            await supabase
-              .from('user_oauth_tokens')
-              .upsert({
-                user_id: userId,
-                provider: 'google',
-                access_token: newSession.session.provider_token,
-                refresh_token: newSession.session.provider_refresh_token || null,
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'user_id,provider'
-              });
-            
-            setIsGoogleConnected(true);
-            toast({
-              title: "Google reconnected",
-              description: "Your Google account has been successfully reconnected.",
-            });
-            
-            return;
-          }
-        }
-      }
-      
-      await connectWithGoogle();
-      
-    } catch (error) {
-      console.error("Error refreshing Google connection:", error);
-      toast({
-        title: "Error",
-        description: "Failed to refresh Google connection. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshingToken(false);
-    }
-  };
-
-  const { handleRequestAction, processingRequestId } = useRequestActions(
-    userId,
-    setSessionRequests,
-    googleAccessToken,
-    isGoogleConnected,
-    connectWithGoogle
-  );
+const RequestsTab: React.FC = () => {
+  const { userId } = useAuth();
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
 
   useEffect(() => {
-    const checkInterval = setInterval(() => {
-      if (isLoggedIn && userId) {
-        fetchGoogleAccessToken();
-      }
-    }, 60000);
-    
-    return () => clearInterval(checkInterval);
-  }, [isLoggedIn, userId, fetchGoogleAccessToken]);
+    const fetchRequests = async () => {
+      if (!userId) return;
+      setLoading(true);
+      try {
+        // Fetch pending connection requests
+        const { data: requestsData, error: requestsError } = await supabase
+          .from('connections')
+          .select(`
+            *,
+            requester:profiles!connections_requester_id_fkey(first_name, last_name),
+            recipient:profiles!connections_recipient_id_fkey(first_name, last_name)
+          `)
+          .eq('recipient_id', userId)
+          .eq('status', 'pending');
 
-  useEffect(() => {
-    console.log("[RequestsTab] Google connection status:", {
-      isGoogleConnected,
-      tokenLength: googleAccessToken ? googleAccessToken.length : 0,
-      tokenPreview: googleAccessToken ? `${googleAccessToken.substring(0, 10)}...` : "No token",
-      lastChecked: lastChecked ? lastChecked.toISOString() : null
-    });
-  }, [isGoogleConnected, googleAccessToken, lastChecked]);
+        if (requestsError) throw requestsError;
+        setRequests(requestsData || []);
 
-  useEffect(() => {
-    const checkPendingRequest = async () => {
-      const pendingId = sessionStorage.getItem("pendingRequestId");
-      const pendingAction = sessionStorage.getItem("pendingRequestAction");
-      
-      if (pendingId && pendingAction && isGoogleConnected) {
-        console.log("[RequestsTab] Found pending request to resume:", pendingId, pendingAction);
-        
-        sessionStorage.removeItem("pendingRequestId");
-        sessionStorage.removeItem("pendingRequestAction");
-        
-        setTimeout(() => {
-          handleRequestAction(pendingId, pendingAction as "accept" | "decline");
-        }, 1000);
+        // Fetch user data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (profileError) throw profileError;
+        setUserData(profileData);
+
+      } catch (error) {
+        console.error("Error fetching connection requests:", error);
+      } finally {
+        setLoading(false);
       }
     };
-    
-    if (isGoogleConnected) {
-      checkPendingRequest();
-    }
-  }, [isGoogleConnected, handleRequestAction]);
 
-  return (
-    <div className="grid grid-cols-1 gap-6">
+    fetchRequests();
+  }, [userId]);
+
+  const handleAcceptConnection = async (connection: any, userId: string | null) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('connections')
+        .update({ status: 'accepted' })
+        .eq('id', connection.id);
+
+      if (error) throw error;
+
+      if (userData) {
+        await createConnectionNotification(
+          connection.requester_id,
+          "accepted",
+          `${userData.first_name} ${userData.last_name} accepted your connection request`
+        );
+      }
+
+      setRequests(prevRequests => prevRequests.filter(req => req.id !== connection.id));
+      setLoading(false);
+    } catch (error) {
+      console.error("Error accepting connection:", error);
+    }
+  };
+
+  const handleDeclineConnection = async (connection: any, userId: string | null) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('connections')
+        .delete()
+        .eq('id', connection.id);
+
+      if (error) throw error;
+
+      if (userData) {
+        await createConnectionNotification(
+          connection.requester_id,
+          "declined",
+          `${userData.first_name} ${userData.last_name} declined your connection request`
+        );
+      }
+
+      setRequests(prevRequests => prevRequests.filter(req => req.id !== connection.id));
+      setLoading(false);
+    } catch (error) {
+      console.error("Error declining connection:", error);
+    }
+  };
+
+  if (loading) {
+    return (
       <Card>
         <CardHeader>
-          <CardTitle>Session Requests</CardTitle>
+          <CardTitle>Connection Requests</CardTitle>
+          <CardDescription>Loading connection requests...</CardDescription>
         </CardHeader>
         <CardContent>
-          <GoogleConnectionStatus
-            isGoogleConnected={isGoogleConnected}
-            isRefreshingToken={isRefreshingToken}
-            onConnect={connectWithGoogle}
-            onRefresh={refreshGoogleConnection}
-          />
-          
-          <RequestsList
-            requests={sessionRequests}
-            userId={userId}
-            onAccept={(id) => handleRequestAction(id, "accept")}
-            onDecline={(id) => handleRequestAction(id, "decline")}
-            processingRequestId={processingRequestId}
-          />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full mt-2" />
         </CardContent>
       </Card>
-    </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Connection Requests</CardTitle>
+        <CardDescription>Respond to pending connection requests</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {requests.length > 0 ? (
+          <ul className="space-y-4">
+            {requests.map((request) => (
+              <li key={request.id} className="flex items-center justify-between border p-4 rounded-md">
+                <div className="flex items-center gap-4">
+                  <Avatar>
+                    <AvatarImage src="/placeholder.svg" alt="Requesting User Avatar" />
+                    <AvatarFallback>{request.requester?.first_name?.charAt(0)}{request.requester?.last_name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{request.requester?.first_name} {request.requester?.last_name}</p>
+                    <p className="text-sm text-muted-foreground">Requesting to connect</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleAcceptConnection(request, userId)}>Accept</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDeclineConnection(request, userId)}>Decline</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">No pending connection requests.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
-export default React.memo(RequestsTab);
+export default RequestsTab;

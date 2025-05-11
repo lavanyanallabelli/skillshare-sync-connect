@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
   id: string;
+  user_id: string;
   title: string;
   description?: string;
   type: string;
   read: boolean;
-  action_url?: string;
   created_at: string;
+  action_url?: string;
+  icon_type?: string;
 }
 
 export const fetchNotifications = async (userId: string): Promise<Notification[]> => {
@@ -18,9 +20,8 @@ export const fetchNotifications = async (userId: string): Promise<Notification[]
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-      
+
     if (error) throw error;
-    
     return data || [];
   } catch (error) {
     console.error('Error fetching notifications:', error);
@@ -28,12 +29,14 @@ export const fetchNotifications = async (userId: string): Promise<Notification[]
   }
 };
 
-export const markAsRead = async (notificationId: string): Promise<void> => {
+export const markAsRead = async (id: string): Promise<void> => {
   try {
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
-      .eq('id', notificationId);
+      .eq('id', id);
+
+    if (error) throw error;
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
@@ -41,11 +44,12 @@ export const markAsRead = async (notificationId: string): Promise<void> => {
 
 export const markAllAsRead = async (userId: string): Promise<void> => {
   try {
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
-      .eq('user_id', userId)
-      .eq('read', false);
+      .eq('user_id', userId);
+
+    if (error) throw error;
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
   }

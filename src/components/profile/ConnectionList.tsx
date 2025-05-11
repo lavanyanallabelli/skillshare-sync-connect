@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,15 +23,15 @@ const ConnectionList: React.FC<ConnectionListProps> = ({ userId }) => {
       try {
         // Fetch accepted connections
         const { data: connectionsData, error: connectionsError } = await supabase
-          .from('user_connections')
+          .from('connections')
           .select('*')
-          .or(`user_id.eq.${userId},connected_user_id.eq.${userId}`)
+          .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
           .eq('status', 'accepted');
 
         if (connectionsError) throw connectionsError;
 
         const formattedConnections = connectionsData?.map(conn => {
-          const connectedUserId = conn.user_id === userId ? conn.connected_user_id : conn.user_id;
+          const connectedUserId = conn.requester_id === userId ? conn.recipient_id : conn.requester_id;
           return {
             ...conn,
             connected_user_id: connectedUserId
@@ -41,9 +42,9 @@ const ConnectionList: React.FC<ConnectionListProps> = ({ userId }) => {
 
         // Fetch pending connection requests
         const { data: requestsData, error: requestsError } = await supabase
-          .from('user_connections')
+          .from('connections')
           .select('*')
-          .eq('connected_user_id', userId)
+          .eq('recipient_id', userId)
           .eq('status', 'pending');
 
         if (requestsError) throw requestsError;
@@ -73,7 +74,7 @@ const ConnectionList: React.FC<ConnectionListProps> = ({ userId }) => {
     try {
       setLoading(true);
       const { error } = await supabase
-        .from('user_connections')
+        .from('connections')
         .update({ status: 'accepted' })
         .eq('id', connection.id);
 
@@ -97,7 +98,7 @@ const ConnectionList: React.FC<ConnectionListProps> = ({ userId }) => {
     try {
       setLoading(true);
       const { error } = await supabase
-        .from('user_connections')
+        .from('connections')
         .delete()
         .eq('id', connection.id);
 

@@ -95,7 +95,7 @@ export const useProfilePage = () => {
 
         if (learningSkillsError) throw learningSkillsError;
         setLearningSkills(learningSkillsData?.map((item) => item.skill) || []);
-
+        
         // Fetch upcoming sessions
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("sessions")
