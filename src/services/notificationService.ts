@@ -32,6 +32,7 @@ export const notificationService = {
           title: notification.title,
           description: notification.description || '',
           action_url: notification.actionUrl,
+          icon_type: notification.icon_type || '',
           read: false
         }]);
         

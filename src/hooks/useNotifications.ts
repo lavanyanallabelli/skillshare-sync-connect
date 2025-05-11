@@ -8,6 +8,7 @@ export interface Notification {
   title: string;
   description?: string;
   action_url?: string;  // This field name must match the database column name
+  icon_type?: string;
   read: boolean;
   created_at: string;
 }
@@ -136,6 +137,7 @@ export const useNotifications = (userId: string | null) => {
           title: notification.title,
           description: notification.description || '',
           action_url: notification.action_url,  // Make sure this matches the DB column
+          icon_type: notification.icon_type || '',
           read: false
         }])
         .select()

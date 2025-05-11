@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -12,6 +11,20 @@ import { Badge } from '@/components/ui/badge';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAuth } from '@/App';
 import { Link } from 'react-router-dom';
+import { getNotificationIconType } from '@/utils/notificationUtils';
+
+const getIconComponent = (iconType: string) => {
+  switch (iconType) {
+    case 'calendar':
+      return <Calendar className="h-4 w-4" />;
+    case 'check-circle':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'x-circle':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    default:
+      return null;
+  }
+};
 
 const NotificationItem = ({ notification, onRead }: { 
   notification: {
@@ -22,10 +35,13 @@ const NotificationItem = ({ notification, onRead }: {
     type: string;
     read: boolean;
     created_at: string;
+    icon_type?: string;
   },
   onRead: (id: string) => void;
 }) => {
   const formattedDate = new Date(notification.created_at).toLocaleDateString();
+  const iconType = notification.icon_type || getNotificationIconType(notification.type);
+  const icon = getIconComponent(iconType);
   
   const handleClick = () => {
     if (!notification.read) {
@@ -39,7 +55,10 @@ const NotificationItem = ({ notification, onRead }: {
       onClick={handleClick}
     >
       <div className="flex justify-between items-start mb-1">
-        <span className="font-medium text-sm">{notification.title}</span>
+        <div className="flex items-center gap-2">
+          {icon && <span>{icon}</span>}
+          <span className="font-medium text-sm">{notification.title}</span>
+        </div>
         <span className="text-xs text-muted-foreground">{formattedDate}</span>
       </div>
       {notification.description && (

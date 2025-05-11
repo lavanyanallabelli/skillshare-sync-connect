@@ -1,8 +1,6 @@
 
 // Notification utilities
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, XCircle, Calendar } from "lucide-react";
-import React from "react";
 
 type NotificationType = 'create' | 'accept' | 'decline';
 
@@ -39,7 +37,7 @@ export const createSessionNotification = async (
   try {
     let title = '';
     let description = '';
-    let icon = null;
+    let iconType = '';
     let targetUserId = '';
     
     const formattedDate = formatSessionDate(session.day);
@@ -49,21 +47,21 @@ export const createSessionNotification = async (
       case 'create':
         title = 'New Session Request';
         description = `${studentName} has requested a session for ${session.skill} on ${formattedDate} at ${formattedTime}.`;
-        icon = <Calendar className="h-4 w-4" />;
+        iconType = 'calendar';
         targetUserId = session.teacher_id;
         break;
         
       case 'accept':
         title = 'Session Request Accepted';
         description = `${teacherName} has accepted your session request for ${session.skill} on ${formattedDate} at ${formattedTime}.`;
-        icon = <CheckCircle className="h-4 w-4 text-green-500" />;
+        iconType = 'check-circle';
         targetUserId = session.student_id;
         break;
         
       case 'decline':
         title = 'Session Request Declined';
         description = `${teacherName} has declined your session request for ${session.skill} on ${formattedDate} at ${formattedTime}.`;
-        icon = <XCircle className="h-4 w-4 text-red-500" />;
+        iconType = 'x-circle';
         targetUserId = session.student_id;
         break;
         
@@ -85,7 +83,8 @@ export const createSessionNotification = async (
         title,
         description,
         action_url: type === 'create' ? '/profile?tab=requests' : '/profile?tab=sessions',
-        read: false
+        read: false,
+        icon_type: iconType // Store the icon type as a string
       });
 
     if (error) {
@@ -96,16 +95,16 @@ export const createSessionNotification = async (
   }
 };
 
-// Get icon based on notification type
-export const getNotificationIcon = (type: string) => {
+// Get icon type based on notification type
+export const getNotificationIconType = (type: string): string => {
   switch (type) {
     case 'session_create':
-      return <Calendar className="h-4 w-4" />;
+      return 'calendar';
     case 'session_accept':
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
+      return 'check-circle';
     case 'session_decline':
-      return <XCircle className="h-4 w-4 text-red-500" />;
+      return 'x-circle';
     default:
-      return null;
+      return '';
   }
 };

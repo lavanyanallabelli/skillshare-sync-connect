@@ -7,6 +7,7 @@ export interface Notification {
   title: string;
   description?: string;
   actionUrl?: string;
+  icon_type?: string;
   read: boolean;
   createdAt: string;
 }
