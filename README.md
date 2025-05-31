@@ -29,7 +29,7 @@ SkillSync is a collaborative learning platform that empowers users to trade skil
 
 ### 🔧 Back-End
 - **Node.js** + **Express.js**
-- **MongoDB** with Mongoose ODM
+- **PostgreSQL** for database
 - **Redis** (Session & Matchmaking Cache)
 - **JWT** for Authentication
 - **Google Meet/Zoom API** for video integration
