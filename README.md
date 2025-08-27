@@ -65,6 +65,7 @@ git clone https://github.com/your-username/skillsync.git
 cd skillsync
 
 # Install dependencies for both frontend and backend
+npm i
 npm install --prefix client
 npm install --prefix server
 
