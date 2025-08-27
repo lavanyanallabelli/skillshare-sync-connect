@@ -277,14 +277,9 @@ const Login: React.FC = () => {
       
       const scopes = provider === 'google' ? 'https://www.googleapis.com/auth/calendar profile' : undefined;
       
-      const redirectUrl = provider === 'google' 
-        ? `${window.location.origin}/profile?tab=requests`
-        : `${window.location.origin}/profile`;
-      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: redirectUrl,
           scopes: scopes,
         }
       });
